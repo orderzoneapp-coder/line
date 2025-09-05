@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OO유통 - 가락시장 농산물 직송</title>
+    <style>
+        /* 간단한 디자인 스타일입니다. 수정하지 않아도 됩니다. */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.8; margin: 0; padding: 0; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 800px; margin: 30px auto; padding: 20px; background-color: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
+        h1, h2 { color: #0056b3; }
+        .buttons { text-align: center; margin-top: 40px; }
+        .btn { display: inline-block; padding: 15px 30px; margin: 10px; border-radius: 5px; text-decoration: none; color: white; font-size: 1.2em; font-weight: bold; transition: background-color 0.3s; }
+        .btn-order { background-color: #28a745; } /* 초록색 버튼 */
+        .btn-kakao { background-color: #FFEB00; color: #3C1E1E; } /* 노란색 버튼 */
+        .btn:hover { opacity: 0.9; }
+        .info-section { margin-top: 30px; }
+        .info-section img { max-width: 100%; border-radius: 5px; }
+
+        /* iframe을 가운데 정렬하기 위해 추가된 스타일 */
+        .iframe-container {
+            text-align: center; /* 내부 요소를 가운데 정렬 */
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>싱싱유통 (OO유통)</h1>
+        <p><strong>매일 저녁 가락시장에서 직접 선별한 가장 신선한 농산물을 경남(창원, 김해, 마산) 지역 사장님들께 안정적으로 공급합니다.</strong></p>
+
+        <div class="iframe-container">
+            <h2>오늘의 단가 바로 확인하기</h2>
+            <iframe src="https://orderz.kr/?type=3&device=mobile" 
+                    width="375px" 
+                    height="667px" 
+                    style="border: 2px solid #ccc; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <p>브라우저가 iframe을 지원하지 않습니다.</p>
+            </iframe>
+        </div>
+        <div class="buttons">
+            <a href="https://사장님의_오더즈몰_링크.com" target="_blank" class="btn btn-order">전체 화면으로 주문하기 (오더즈 몰)</a>
+            <a href="https://open.kakao.com/o/사장님오픈채팅방코드" target="_blank" class="btn btn-kakao">실시간 문의 (카카오톡)</a>
+        </div>
+
+        <div class="info-section">
+            <h2>저희는 이렇게 일합니다</h2>
+            <p>1. **매일 저녁 가락시장 경매 참여**: 저희 대표가 직접 눈으로 보고 만지며 최상품의 농산물만을 선별하여 매입합니다.</p>
+            <p>2. **신속한 물류 시스템**: 당일 저녁 매입한 상품은 즉시 저희의 냉장/냉동 차량을 통해 경남 물류센터로 이동합니다.</p>
+            <p>3. **다음 날 새벽 배송 완료**: 다음 날 아침, 사장님의 사업장 앞에서 가장 신선한 상태의 농산물을 받아보실 수 있습니다.</p>
+        </div>
+
+        <div class="info-section">
+            <h2>거래 안내</h2>
+            <p><strong>- 취급 품목</strong>: 채소, 과일 등 농산물 일체</p>
+            <p><strong>- 공급 대상</strong>: 경남 창원, 김해, 마산 지역 중도매인, 식자재마트, 유통 상인</p>
+            <p><strong>- 연락처</strong>: 010-1234-5678 (대표 OOO)</p>
+            <p><strong>- 사업자등록번호</strong>: 123-45-67890</p>
+            <p>신규 거래를 원하시는 사장님께서는 위 연락처 또는 카카오톡으로 편하게 문의주세요.</p>
+        </div>
+    </div>
+</body>
+</html>
