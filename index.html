@@ -170,13 +170,6 @@
             font-size: 1rem;
             color: #ced4da;
         }
-        .footer-left a {
-            color: #ced4da;
-            text-decoration: none;
-        }
-        .footer-left a:hover {
-            text-decoration: underline;
-        }
         .footer-right {
             text-align: left; /* 우측 정보도 좌측 정렬로 변경 */
         }
@@ -187,15 +180,19 @@
             color: #ced4da;
             margin-right: 5px;
         }
-        .footer-right a.footer-link {
-            color: #ced4da;
+        /* 푸터 링크 UX 개선 */
+        .footer-link {
+            color: #74c0fc; /* 눈에 잘 띄는 밝은 파란색으로 변경 */
             text-decoration: none;
-            display: inline-block;
-            margin-top: 5px; /* 간격 축소 */
+            transition: color 0.2s, text-decoration 0.2s;
         }
-        .footer-right a.footer-link:hover {
+        .footer-link:hover {
             color: white;
             text-decoration: underline;
+        }
+        .footer-right a.footer-link {
+            display: inline-block;
+            margin-top: 5px; /* 간격 축소 */
         }
         .footer-bottom {
             text-align: center;
@@ -329,14 +326,14 @@
             <div class="footer-grid">
                 <div class="footer-left">
                     <h2>NH라인</h2>
-                    <p>부산, 경남 도매유통사<br>문의: <a href="tel:010-7415-4579">010-7415-4579</a></p>
+                    <p>부산, 경남 도매유통사<br>문의: <a href="tel:010-7415-4579" class="footer-link">010-7415-4579</a></p>
                 </div>
                 <div class="footer-right">
                     <p><strong>회사명</strong> ONEAPP | <strong>대표</strong> 이무철</p>
                     <p><strong>주소</strong> 서울특별시 송파구 양재대로 932, 9층 19호</p>
                     <p><strong>사업자등록번호</strong> 380-14-01523</p>
                     <p><strong>통신판매업신고</strong> 제2021-서울송파-2063호</p>
-                    <p><strong>전화</strong> 02-6959-1374 | <strong>팩스</strong> 070-4808-3833</p>
+                    <p><strong>전화</strong> <a href="tel:02-6959-1374" class="footer-link">02-6959-1374</a> | <strong>팩스</strong> 070-4808-3833</p>
                     <p><strong>개인정보 보호책임자</strong> 이무철</p>
                     <a href="https://oneapp.orderz.co.kr/" target="_blank" class="footer-link"><strong>홈페이지:</strong> https://oneapp.orderz.co.kr/</a>
                 </div>
