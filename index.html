@@ -170,6 +170,13 @@
             font-size: 1rem;
             color: #ced4da;
         }
+        .footer-left a {
+            color: #ced4da;
+            text-decoration: none;
+        }
+        .footer-left a:hover {
+            text-decoration: underline;
+        }
         .footer-right {
             text-align: left; /* 우측 정보도 좌측 정렬로 변경 */
         }
@@ -237,10 +244,11 @@
             .footer-grid {
                 flex-direction: column;
                 text-align: center;
+                gap: 20px;
             }
             .footer-right {
                 text-align: center;
-                margin-top: 30px;
+                margin-top: 20px;
             }
         }
     </style>
@@ -321,7 +329,7 @@
             <div class="footer-grid">
                 <div class="footer-left">
                     <h2>NH라인</h2>
-                    <p>부산, 경남 도매유통사<br>문의: 010-7415-4579</p>
+                    <p>부산, 경남 도매유통사<br>문의: <a href="tel:010-7415-4579">010-7415-4579</a></p>
                 </div>
                 <div class="footer-right">
                     <p><strong>회사명</strong> ONEAPP | <strong>대표</strong> 이무철</p>
@@ -341,5 +349,3 @@
 
 </body>
 </html>
-
-
