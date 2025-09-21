@@ -23,7 +23,7 @@
             width: 100%;
             max-width: 1000px;
             margin: 0 auto;
-            padding: 0 20px;
+            /* padding: 0 20px; <- 레이아웃 안정화를 위해 이 여백을 각 섹션으로 이동 */
         }
 
         /* Hero (최상단) 섹션 */
@@ -75,7 +75,7 @@
 
         /* 공통 섹션 스타일 */
         .section {
-            padding: 60px 0; /* 전체적인 상하 여백 축소 */
+            padding: 60px 20px; /* 전체적인 상하 여백 및 좌우 여백 추가 */
             text-align: center;
         }
         .section-title {
@@ -215,7 +215,7 @@
                 font-size: 1.1rem;
             }
             .section {
-                padding: 50px 0; /* 모바일 상하 여백 축소 */
+                padding: 50px 20px; /* 모바일 상하 여백 및 좌우 여백 재확인 */
             }
             .section-title {
                 font-size: 2rem;
