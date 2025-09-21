@@ -28,24 +28,33 @@
 
         /* Hero (최상단) 섹션 */
         .hero {
+            /* ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+                 여기가 헤더 이미지를 불러오는 핵심 코드입니다.
+              ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+            */
             /* TODO: 이미지 파일 경로 설정 */
-            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('img/nh/background.jpg');
+            background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('img/nh/background.jpg');
             background-size: cover;
             background-position: center;
             color: white;
-            padding: 120px 20px;
+            padding: 40px 20px; /* 하단 패딩 확보 */
             text-align: center;
+            min-height: 500px; /* 이미지 영역 확보를 위한 최소 높이 */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* 콘텐츠를 하단으로 정렬 */
+            align-items: center;
         }
         .hero h1 {
             font-size: 3rem;
             font-weight: 700;
             margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
         }
         .hero p {
             font-size: 1.25rem;
             max-width: 600px;
-            margin: 0 auto 30px;
+            margin: 0 auto;
         }
         .cta-button {
             display: inline-block;
@@ -66,7 +75,7 @@
 
         /* 공통 섹션 스타일 */
         .section {
-            padding: 80px 0;
+            padding: 60px 0; /* 전체적인 상하 여백 축소 */
             text-align: center;
         }
         .section-title {
@@ -126,78 +135,71 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 40px;
-            text-align: left;
+            text-align: center; /* 텍스트 가운데 정렬로 변경 */
         }
         .value-item h3 {
             font-size: 1.4rem;
             margin-bottom: 5px;
         }
         
-        /* 프로세스 섹션 */
-        .process-grid {
-            display: flex;
-            justify-content: space-between;
-            gap: 30px;
-            position: relative;
-        }
-        .process-item {
-            flex: 1;
-            padding: 20px;
-            position: relative; /* PC 화살표 위치 기준 */
-        }
-        .process-step {
-            display: inline-block;
-            width: 60px;
-            height: 60px;
-            line-height: 60px;
-            border-radius: 50%;
-            background-color: #2c3e50;
-            color: white;
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 20px;
-            border: 4px solid #f0f0f0;
-        }
-        .process-item h3 {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-        }
-        /* PC 버전: 오른쪽 화살표 아이콘 추가 */
-        .process-item:not(:last-child)::after {
-            content: '▶';
-            position: absolute;
-            top: 50%;
-            right: -15px;
-            transform: translateY(-50%);
-            font-size: 2rem;
-            color: #28a745;
-        }
-        
-        /* 마지막 CTA 섹션 */
-        .final-cta {
-            background-color: #2c3e50;
-            color: white;
-        }
-        .final-cta .section-title, .final-cta .section-subtitle {
-            color: white;
-        }
-
         /* 푸터 */
         .footer {
-            background-color: #212529;
+            background-color: #2c3e50; /* 어두운 배경색 */
             color: #adb5bd;
-            padding: 40px 20px;
-            text-align: center;
+            padding: 30px 20px 15px; /* 위아래 여백 최대한 축소 */
             font-size: 0.9rem;
+            line-height: 1.8;
         }
-        .footer p { margin-bottom: 5px; }
-        .footer a { color: #adb5bd; text-decoration: none; }
-        .footer a:hover { color: white; }
+        .footer .container {
+            max-width: 1100px; /* 푸터는 조금 더 넓게 */
+        }
+        .footer-grid {
+            display: flex;
+            justify-content: space-evenly; /* 좌우 끝으로 붙지 않도록 변경 */
+            gap: 40px;
+            padding-bottom: 15px; /* 하단 패딩 축소 */
+            margin-bottom: 15px; /* 하단 마진 축소 */
+            border-bottom: 1px solid #495057;
+        }
+        .footer-left h2 {
+            font-size: 1.8rem;
+            color: white;
+            margin-bottom: 10px;
+        }
+        .footer-left p {
+            font-size: 1rem;
+            color: #ced4da;
+        }
+        .footer-right {
+            text-align: left; /* 우측 정보도 좌측 정렬로 변경 */
+        }
+        .footer-right p {
+            margin-bottom: 5px; /* 간격 축소 */
+        }
+        .footer-right strong {
+            color: #ced4da;
+            margin-right: 5px;
+        }
+        .footer-right a.footer-link {
+            color: #ced4da;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 5px; /* 간격 축소 */
+        }
+        .footer-right a.footer-link:hover {
+            color: white;
+            text-decoration: underline;
+        }
+        .footer-bottom {
+            text-align: center;
+            color: #868e96;
+        }
 
         /* 모바일 반응형 최적화 */
         @media (max-width: 768px) {
             .hero {
-                padding: 80px 20px;
+                padding: 40px 20px;
+                min-height: 400px;
             }
             .hero h1 {
                 font-size: 2.2rem;
@@ -206,7 +208,7 @@
                 font-size: 1.1rem;
             }
             .section {
-                padding: 60px 0;
+                padding: 50px 0; /* 모바일 상하 여백 축소 */
             }
             .section-title {
                 font-size: 2rem;
@@ -232,22 +234,13 @@
             .value-grid {
                 grid-template-columns: 1fr;
             }
-            .process-grid {
+            .footer-grid {
                 flex-direction: column;
-                gap: 50px;
+                text-align: center;
             }
-            .process-item {
-                background-color: #f8f9fa;
-                border-radius: 10px;
-                padding: 30px 20px;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            }
-            .process-item:not(:last-child)::after {
-                content: '▼';
-                top: auto;
-                bottom: -45px;
-                left: 50%;
-                transform: translateX(-50%);
+            .footer-right {
+                text-align: center;
+                margin-top: 30px;
             }
         }
     </style>
@@ -256,33 +249,34 @@
 
     <!-- 1. 최상단 섹션 -->
     <header class="hero">
-        <h1>NH라인 도매몰</h1>
-        <p>파트너 사장님을 환영합니다.<br>매일 밤 가락시장에서 직접 선별한 최상급 농산물을, 도매가로 만나보세요.</p>
-        <a href="#" class="cta-button">전용 회원 가입</a>
+        <div>
+            <h1>NH라인 도매몰</h1>
+            <p>파트너 사장님을 환영합니다.<br>매일 밤 가락시장에서 직접 선별한 최상급 농산물을, 도매가로 만나보세요.</p>
+        </div>
     </header>
 
     <main>
         <!-- 2. 서비스 대상 안내 -->
         <section class="section">
             <div class="container">
-                <h2 class="section-title">최고의 비즈니스 파트너가 되어 드립니다</h2>
-                <p class="section-subtitle">이런 사장님들께 자신있게 추천합니다.</p>
+                <h2 class="section-title">비즈니스 파트너가 아닌<br>성공을 위한 솔루션 입니다!</h2>
+                <p class="section-subtitle">▼ 실시간 도매가 확인하세요</p>
                 <div class="target-grid">
                     <div class="target-item">
-                        <h3><a href="#" target="_blank">식자재마트</a></h3>
-                        <p>매장의 얼굴이 되는 상품의 퀄리티를 유지<br>원가 경쟁력을 구축</p>
+                        <h3><a href="https://line.orderz.co.kr/mart/" target="_blank">식자재마트</a></h3>
+                        <p>매장의 얼굴이 되는 상품의 퀄리티를 유지<br>차별화를 만들어 드립니다!</p>
                     </div>
                     <div class="target-item">
-                        <h3><a href="#" target="_blank">유통상인</a></h3>
+                        <h3><a href="https://line.orderz.co.kr/vendor/" target="_blank">유통상인</a></h3>
                         <p>다양한 품목을 안정적으로 확보하여 판매 경쟁력을 높이고 싶은 사장님</p>
                     </div>
                     <div class="target-item">
-                        <h3><a href="#" target="_blank">중도매인/가공업체</a></h3>
-                        <p>최상급 원물을 대량으로 공급받아 사업을 확장하고 싶은 사장님</p>
+                        <h3><a href="#" target="_blank">가공업체/급식</a></h3>
+                        <p>원가절감과<br>안정적인 식자재 확보를<br>동시에!</p>
                     </div>
                     <div class="target-item">
-                        <h3><a href="#" target="_blank">요식업/급식</a></h3>
-                        <p>최상의 식재료로 메뉴 경쟁력을 높이고 싶은 셰프 및 담당자님</p>
+                        <h3><a href="#" target="_blank">중도매인/도매업</a></h3>
+                        <p>지역 기반 유통앱으로<br>나만의 경쟁력을<br>만들어가세요</p>
                     </div>
                 </div>
             </div>
@@ -291,85 +285,61 @@
         <!-- 3. 핵심 가치 제안 -->
         <section class="section value-section">
             <div class="container">
-                <h2 class="section-title">왜 'NH라인'이어야 하는가?</h2>
-                <p class="section-subtitle">사장님의 비즈니스에 실질적인 이익을 더해 드립니다.</p>
                 <div class="value-grid">
                     <div class="value-item">
                         <div>
-                            <h3>압도적인 신선함</h3>
-                            <p>대표가 매일 밤 가락시장에서 직접 보고 선별합니다. 대한민국 농산물 유통의 심장에서 가장 좋은 상품을 확보합니다.</p>
+                            <h3>상품의 기준</h3>
+                            <p>고객사가 원하는 상품을<br>매일 밤 가락시장에서 직접 선별해,<br>믿을 수 있는 거래관계를 만듭니다.</p>
                         </div>
                     </div>
                     <div class="value-item">
                         <div>
                             <h3>독보적인 가격 경쟁력</h3>
-                            <p>복잡한 중간 유통 단계를 없애고, 오직 파트너사에게만 공개되는 사업자 전용 도매가를 제공하여 마진을 극대화합니다.</p>
+                            <p>복잡한 중간 유통 단계를 없애고, <br>자체물류로 <br>합리적인 가격으로 제공됩니다.</p>
                         </div>
                     </div>
                     <div class="value-item">
                         <div>
                             <h3>맞춤형 새벽 배송</h3>
-                            <p>창원·김해·마산 지역 사업장을 위한 최적화된 물류 시스템으로, 가장 신선한 시간에 맞춰 정확하고 안정적으로 배송합니다.</p>
+                            <p>NH라인은 <br>부산·창원·김해·진주 지역 사업장에<br>원하는 시간, 신선함 그대로 공급합니다.</p>
                         </div>
                     </div>
                     <div class="value-item">
                         <div>
                             <h3>24시간 간편 주문</h3>
-                            <p>언제 어디서든 스마트폰으로 간편하게 시세를 확인하고 필요한 물량을 바로 주문할 수 있습니다.</p>
+                            <p>원하는 도매 상품만<br>빠르게 확인하고, <br>필요한 수량만 주문 가능합니다.</p>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
-
-        <!-- 4. 이용 프로세스 안내 -->
-        <section class="section">
-            <div class="container">
-                <h2 class="section-title">파트너가 되는 가장 간단한 방법</h2>
-                <p class="section-subtitle">단 3단계면 충분합니다.</p>
-                <div class="process-grid">
-                    <div class="process-item">
-                        <div class="process-step">01</div>
-                        <h3>회원가입</h3>
-                        <p>파트너 전용 링크를 통해 사업자 정보를 입력하고 간편하게 가입을 신청합니다. (1분 소요)</p>
-                    </div>
-                    <div class="process-item">
-                        <div class="process-step">02</div>
-                        <h3>자격 승인</h3>
-                        <p>담당자가 사업자 정보를 확인한 후, 평균 1시간 내에 신속하게 승인을 완료합니다.</p>
-                    </div>
-                    <div class="process-item">
-                        <div class="process-step">03</div>
-                        <h3>도매가 주문</h3>
-                        <p>로그인 즉시, 사장님께만 공개되는 B2B 전용 상품과 도매가로 바로 주문을 시작할 수 있습니다.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- 5. 마지막 가입 유도 -->
-        <section class="section final-cta">
-            <div class="container">
-                <h2 class="section-title">지금 바로 파트너가 되어<br>사업의 경쟁력을 높여보세요.</h2>
-                <p class="section-subtitle">최고의 품질, 최고의 가격. 저희가 사장님의 가장 든든한 파트너가 되겠습니다.</p>
-                <a href="#" class="cta-button">사업자 파트너로 무료 가입하기</a>
-            </div>
-        </section>
     </main>
 
-    <!-- 6. 푸터 -->
+    <!-- 푸터 -->
     <footer class="footer">
         <div class="container">
-            <p><strong>NH라인</strong> | 대표: 홍길동</p>
-            <p>사업자등록번호: 000-00-00000</p>
-            <p>주소: 경상남도 창원시 의창구 창원대로 18번길 46</p>
-            <p>파트너 문의: 010-0000-0000</p>
-            <p>
-                <a href="#">이용약관</a> | <a href="#">개인정보처리방침</a>
-            </p>
+            <div class="footer-grid">
+                <div class="footer-left">
+                    <h2>NH라인</h2>
+                    <p>부산, 경남 도매유통사<br>문의: 010-7415-4579</p>
+                </div>
+                <div class="footer-right">
+                    <p><strong>회사명</strong> ONEAPP | <strong>대표</strong> 이무철</p>
+                    <p><strong>주소</strong> 서울특별시 송파구 양재대로 932, 9층 19호</p>
+                    <p><strong>사업자등록번호</strong> 380-14-01523</p>
+                    <p><strong>통신판매업신고</strong> 제2021-서울송파-2063호</p>
+                    <p><strong>전화</strong> 02-6959-1374 | <strong>팩스</strong> 070-4808-3833</p>
+                    <p><strong>개인정보 보호책임자</strong> 이무철</p>
+                    <a href="https://oneapp.orderz.co.kr/" target="_blank" class="footer-link"><strong>홈페이지:</strong> https://oneapp.orderz.co.kr/</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2025 ONEAPP. All rights reserved.</p>
+            </div>
         </div>
     </footer>
 
 </body>
 </html>
+
 
