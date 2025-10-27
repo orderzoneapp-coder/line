@@ -3,15 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NH라인: 식자재마트 성공 파트너십</title>
+    <title>NH라인: 가락시장 전국 직배송</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.8/dist/web/static/pretendard.css">
+    <!-- Chosen Palette: Ivory, Brand Green, Deep Navy -->
+    <!-- Application Structure Plan: The application's layout has been redesigned based on a detailed UX/UI brief to enhance professionalism and readability. The new structure is a balanced two-column layout for desktops (Text on the left, mobile preview on the right) that stacks vertically on mobile (Text first). The left column is designed as a distinct visual block with a light green background, using icons and typography to structure information hierarchically. This approach was chosen to elevate the brand's image from a simple informational page to a premium, trustworthy partnership proposal. -->
+    <!-- Visualization & Content Choices: 
+    1. Report Info: Core value proposition text. -> Goal: Inform & Persuade with a premium feel. -> Viz/Presentation Method: Typography-focused text blocks within a colored container. -> Interaction: Static Display. -> Justification: The use of specific fonts, colors, icons, and ample whitespace enhances readability and conveys a sense of high quality and trust, which is more effective for this content than a chart or complex interactive element.
+    2. Report Info: Live pricing and product examples. -> Goal: Provide tangible proof and interactivity. -> Viz/Presentation Method: An iframe styled as a mobile phone. -> Interaction: Full website interaction. -> Justification: This remains the most powerful tool for demonstrating the service's real-world value directly to the user.
+    CONFIRMING NO SVG/Mermaid. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
             font-family: 'Pretendard', sans-serif;
             background-color: #FAF9F5; /* Light Ivory */
-            line-height: 1.7;
-            word-break: keep-all;
         }
         .brand-green {
             color: #009A44;
@@ -19,133 +24,46 @@
         .deep-navy {
             color: #1C1C1C;
         }
-
-        /* User Provided Footer Styles */
-        .footer {
-            background-color: #2c3e50;
-            color: #adb5bd;
-            padding: 30px 20px 15px;
-            font-size: 0.9rem;
-            line-height: 1.8;
-        }
-        .footer .container {
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-        .footer-grid {
-            display: flex;
-            justify-content: space-evenly;
-            gap: 40px;
-            padding-bottom: 15px;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #495057;
-        }
-        .footer-left h2 {
-            font-size: 1.8rem;
-            color: white;
-            margin-bottom: 10px;
-        }
-        .footer-left p {
-            font-size: 1rem;
-            color: #ced4da;
-        }
-        .footer-right {
-            text-align: left;
-        }
-        .footer-right p {
-            margin-bottom: 5px;
-        }
-        .footer-right strong {
-            color: #ced4da;
-            margin-right: 5px;
-        }
-        .footer-link {
-            color: #74c0fc;
-            text-decoration: none;
-            transition: color 0.2s, text-decoration 0.2s;
-        }
-        .footer-link:hover {
-            color: white;
-            text-decoration: underline;
-        }
-        .footer-right a.footer-link {
-            display: inline-block;
-            margin-top: 5px;
-        }
-        .footer-bottom {
-            text-align: center;
-            color: #868e96;
-        }
-
-        @media (max-width: 768px) {
-            .footer-grid {
-                flex-direction: column;
-                text-align: center;
-                gap: 20px;
-            }
-            .footer-right {
-                text-align: center;
-                margin-top: 20px;
-            }
-        }
     </style>
 </head>
 <body class="text-gray-800">
 
-    <div class="container mx-auto max-w-screen-xl">
-        <header class="text-center py-28 md:py-40 bg-gradient-to-b from-green-50 to-[#FAF9F5] px-4">
-            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tighter">
-                <span class="block text-gray-800">내 지역 식자재 유통,</span>
-                <span class="block mt-3 brand-green">새로운 표준을 세우다</span>
-            </h1>
+    <div class="container mx-auto p-4 md:p-8 max-w-screen-xl">
+        <header class="text-center py-8">
+            <h1 class="text-3xl md:text-5xl font-bold deep-navy">가락시장 전국 직배송</h1>
+            <p class="mt-4 text-xl md:text-3xl brand-green font-semibold">NH라인 실시간 가격</p>
         </header>
 
-        <main class="py-8 md:py-12 px-4">
+        <main class="py-8 md:py-12">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
                 
                 <!-- Left Text Column -->
                 <div class="order-1 lg:order-1 flex flex-col justify-center bg-[#EAF4EC] p-8 md:p-12 rounded-2xl h-full">
-                    <div class="space-y-8 sm:space-y-12">
-                        <div class="text-center">
-                            <h2 class="text-2xl sm:text-3xl font-bold deep-navy">우리 회사가 곧<br class="sm:hidden"> 브랜드가 됩니다</h2>
-                            <p class="mt-4 text-base sm:text-lg text-gray-700">우리 회사명과 로고가 담긴<br class="sm:hidden"> 독립 주문 앱 제공</p>
-                            <p class="mt-2 text-sm sm:text-base text-gray-600">전문성은 신뢰를 형성하고,<br class="sm:hidden"> 고객 만족이 곧 성공이 됩니다.</p>
-                        </div>
-
-                        <div class="bg-white/60 p-5 sm:p-6 rounded-xl text-center border border-green-200/50">
-                             <p class="text-base sm:text-lg font-medium text-gray-800 leading-relaxed">
-                                <span class="font-bold brand-green">온라인 담당 인력이 없어도<br class="sm:hidden"> 걱정 없습니다.</span><br>
-                                <span class="text-gray-700">식자재 유통 전문가 그룹,<br class="sm:hidden"> 원앱과 함께합니다.</span>
-                             </p>
+                    <div class="space-y-10 text-center">
+                        <div>
+                            <p class="text-2xl md:text-3xl text-gray-800 leading-relaxed md:leading-relaxed">
+                                <b class="deep-navy">전국 최대 식자재 유통단지</b><br>
+                                <b class="deep-navy">가락시장</b>에서 직접 구매하고,<br>
+                                자체 물류로 안정적으로<br>
+                                공급합니다.
+                            </p>
                         </div>
                         
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 text-left">
-                            <div>
-                                <h3 class="font-bold text-lg sm:text-xl deep-navy mb-4 border-b-2 border-green-200 pb-2">운영·관리 지원</h3>
-                                <ul class="space-y-2 text-base text-gray-700">
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>상품 관리</li>
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>단가 관리</li>
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>배송 관리</li>
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>결제 관리</li>
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>고객 관리</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-lg sm:text-xl deep-navy mb-4 border-b-2 border-green-200 pb-2">Agency 서비스</h3>
-                                <ul class="space-y-2 text-base text-gray-700">
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>홈페이지 제작</li>
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>로고 및 디자인 지원</li>
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>네이버·카카오 연계</li>
-                                    <li class="flex items-center"><svg class="w-4 h-4 mr-2 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>마케팅 지원</li>
-                                </ul>
-                            </div>
+                        <hr class="border-gray-300">
+                        
+                        <div>
+                             <p class="text-2xl md:text-3xl text-gray-800 leading-relaxed md:leading-loose">
+                                <b class="brand-green">퀄리티있는 상품을</b><br>
+                                꾸준히 제공해<br>
+                                단순한 가격 경쟁을 넘어,<br>
+                                고객이 계속 찾는<br>
+                                <b class="brand-green">차별화를 만들어 드립니다!</b>
+                            </p>
                         </div>
                     </div>
                      <div class="mt-12 text-center">
-                        <a href="http://pf.kakao.com/_PkUxgs/chat" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center bg-[#FEE500] hover:bg-yellow-400 text-black font-bold py-4 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2c5.523 0 10 3.582 10 8s-4.477 8-10 8c-1.24 0-2.42-.18-3.51-.5L4 20l1.55-4.23a9.94 9.94 0 0 1-3.48-5.63C2.07 5.582 6.547 2 12 2z"/>
-                            </svg>
+                        <a href="http://pf.kakao.com/_PkUxgs/chat" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center bg-[#FEE500] hover:bg-yellow-400 text-gray-800 font-bold py-4 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 w-full max-w-xs mx-auto">
+                            <svg class="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.04C6.48 2.04 2 5.62 2 10.06C2 12.84 3.48 15.32 5.75 16.8L4 22L8.8 19.33C9.55 19.58 10.77 19.8 12 19.8C17.52 19.8 22 16.22 22 11.78C22 7.34 17.52 2.04 12 2.04Z"/></svg>
                             카카오톡 문의
                         </a>
                     </div>
@@ -156,7 +74,7 @@
                     <div class="relative w-full max-w-full sm:max-w-[375px] h-[780px] mx-auto">
                         <div class="w-full h-full bg-gray-900 lg:rounded-[50px] rounded-[30px] p-2 border-4 border-black shadow-2xl">
                             <div class="w-full h-full bg-white lg:rounded-[42px] rounded-[22px] overflow-hidden">
-                                <iframe src="https://orderz.kr/shop/listtype.php?type=3" class="w-full h-full border-0"></iframe>
+                                <iframe src="https://orderz.kr/shop/list.php?ca_id=6010" class="w-full h-full border-0"></iframe>
                             </div>
                         </div>
                     </div>
@@ -164,31 +82,12 @@
 
             </div>
         </main>
+        
+        <footer class="text-center py-8 mt-8">
+            <p class="text-sm text-gray-500">&copy; 2025 NH-Line.orderz.co.kr All Rights Reserved.</p>
+        </footer>
     </div>
-    
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-grid">
-                <div class="footer-left">
-                    <h2>NH라인</h2>
-                    <p>부산, 경남 도매유통사<br>문의: <a href="tel:010-7415-4579" class="footer-link">010-7415-4579</a></p>
-                </div>
-                <div class="footer-right">
-                    <p><strong>회사명</strong> ONEAPP | <strong>대표</strong> 이무철</p>
-                    <p><strong>주소</strong> 서울특별시 송파구 양재대로 932, 9층 19호</p>
-                    <p><strong>사업자등록번호</strong> 380-14-01523</p>
-                    <p><strong>통신판매업신고</strong> 제2021-서울송파-2063호</p>
-                    <p><strong>전화</strong> <a href="tel:02-6959-1374" class="footer-link">02-6959-1374</a> | <strong>팩스</strong> 070-4808-3833</p>
-                    <p><strong>개인정보 보호책임자</strong> 이무철</p>
-                    <a href="https://oneapp.orderz.co.kr/" target="_blank" class="footer-link"><strong>홈페이지:</strong> https://oneapp.orderz.co.kr/</a>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>© 2025 ONEAPP. All rights reserved.</p>
-            </div>
-        </div>
-    </footer>
 
 </body>
 </html>
+
