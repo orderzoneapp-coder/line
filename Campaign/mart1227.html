@@ -9,10 +9,9 @@
     <!-- Chosen Palette: Ivory, Brand Green, Deep Navy -->
     <!-- Application Structure Plan: The application's layout has been finalized for B2B marketing, using a responsive two-column layout (Text and CTA on the left, Mobile Preview on the right) that prioritizes the text message first on mobile screens (due to order-1/order-2). The left column is styled as a cohesive light green block, using typography (bolding and specific line breaks) and centering to emphasize the key value proposition and Call-to-Action (KakaoTalk button). This structure is optimized for persuasive storytelling and mobile responsiveness, ensuring the user gets the core message before interacting with the live preview. -->
     <!-- Visualization & Content Choices: 
-    1. Report Info: Core value proposition text with specified line breaks. -> Goal: Inform & Persuade with emotional connection. -> Viz/Presentation Method: Typography-focused, centered text block with color accents. -> Interaction: Static Display. -> Justification: Centered, broken-line text enhances readability and impact on mobile screens.
-    2. Report Info: Live pricing and product examples. -> Goal: Provide tangible proof and interactivity. -> Viz/Presentation Method: An iframe styled as a mobile phone. -> Interaction: Full website interaction via the updated link. -> Justification: Direct product showcase reinforces the value proposition.
-    CONFIRMING NO SVG/Mermaid. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+        - [Report Info: Core value proposition text with specified line breaks.] -> [Goal: Inform & Persuade.] -> [Presentation: Typography-focused, centered text block.] -> [Justification: Centered text with deliberate line breaks enhances impact on mobile.]
+        - [Report Info: Live pricing preview.] -> [Goal: Tangible proof.] -> [Presentation: Iframe in a mobile frame.] -> [Interaction: Full interaction with the new shop link.] -> [Justification: Real-time data builds high trust with potential partners.]
+    -->
     <style>
         body {
             font-family: 'Pretendard', sans-serif;
@@ -74,7 +73,8 @@
                     <div class="relative w-full max-w-full sm:max-w-[375px] h-[780px] mx-auto">
                         <div class="w-full h-full bg-gray-900 lg:rounded-[50px] rounded-[30px] p-2 border-4 border-black shadow-2xl">
                             <div class="w-full h-full bg-white lg:rounded-[42px] rounded-[22px] overflow-hidden">
-                                <iframe src="https://orderz.kr/shop/list.php?ca_id=6010%22&device=mobile" class="w-full h-full border-0"></iframe>
+                                <!-- Updated Iframe Source with the specific tracking link -->
+                                <iframe src="https://orderz.kr/shop/list.php?ca_id=6010&yt_code=10000" class="w-full h-full border-0"></iframe>
                             </div>
                         </div>
                     </div>
