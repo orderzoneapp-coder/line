@@ -17,3 +17,6 @@ https://gemini.google.com/app/a7fd4f721587aa2e?utm_source=app_launcher&utm_mediu
 
 solution.html 오더즈 - B2B 비즈니스 성공 솔루션
 https://gemini.google.com/app/192b8776ffaf463e
+
+partners.html 중도매인/도매사 도매몰
+https://gemini.google.com/app/b94de2b25a0b79cd
