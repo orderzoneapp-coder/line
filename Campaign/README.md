@@ -10,5 +10,6 @@ https://gemini.google.com/app/ed7a2b99946998c1?utm_source=app_launcher&utm_mediu
 README.md 유통상인 도매몰
 https://gemini.google.com/app/a7fd4f721587aa2e?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
 
-partners.html 중도매인/도매사 도매몰
+nhline_partners.html 
+NH라인 도매몰 파트너사 모집
 https://gemini.google.com/app/b94de2b25a0b79cd
