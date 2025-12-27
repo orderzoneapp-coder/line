@@ -1,4 +1,4 @@
-[매일 새벽, 비상!](https://line.orderz.co.kr/Business/e-mail/gap)
+[매일 새벽, 비상!](https://line.orderz.co.kr/Business/e-mail/gap.html)
 빠지는 물량(GAP)은
 NH라인에서 채워보세요.
 [✔✔✔](https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_al)
