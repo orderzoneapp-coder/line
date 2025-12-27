@@ -6,6 +6,7 @@ https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_mediu
 
 내 지역 식자재 유통,
 [새로운 표준을 세우다](https://line.orderz.co.kr/Business/Local/e-mail.html)
+
 https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
 
 
