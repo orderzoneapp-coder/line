@@ -1,4 +1,4 @@
 내 지역 식자재 유통,
 
 새로운 표준을 세우다
-https://line.orderz.co.kr/Business/e-mail
+https://line.orderz.co.kr/Business/Local/e-mail
