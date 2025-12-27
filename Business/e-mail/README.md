@@ -4,7 +4,7 @@ NH라인에서 채워보세요.
 [✔✔✔](https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_al)
 
 
-[내 지역 식자재 유통](https://line.orderz.co.kr/Business/Local/e-mail.html),
+[내 지역 식자재 유통](https://line.orderz.co.kr/Business/e-mail/local.html)
 새로운 표준을 세우다
 [✔✔✔](https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all)
 
