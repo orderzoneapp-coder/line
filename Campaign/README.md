@@ -11,5 +11,5 @@ README.md 유통상인 도매몰
 https://gemini.google.com/app/a7fd4f721587aa2e?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
 
 nhline_partners.html 
-NH라인 도매몰 파트너사 모집
+[NH라인 도매몰 파트너사 모집 ](https://line.orderz.co.kr/Campaign/nhline_partners)
 https://gemini.google.com/app/b94de2b25a0b79cd
