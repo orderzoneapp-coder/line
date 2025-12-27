@@ -6,13 +6,12 @@
     <meta name="google" content="notranslate" />
     <title>오더즈 - 비즈니스 성공 솔루션</title>
     <style type="text/css">
-        /* 모바일 대응 스타일 */
         @media only screen and (max-width: 620px) {
             .container { width: 100% !important; padding: 10px !important; }
-            .hero-title { font-size: 24px !important; }
+            .hero-title { font-size: 22px !important; }
             .section-title { font-size: 20px !important; }
-            .card { padding: 15px !important; }
-            .stack-column { display: block !important; width: 100% !important; margin-bottom: 20px !important; }
+            .stack-column { display: block !important; width: 100% !important; box-sizing: border-box !important; }
+            .mobile-padding { padding-left: 20px !important; padding-right: 20px !important; }
         }
     </style>
 </head>
@@ -26,69 +25,126 @@
                     <!-- 헤더 -->
                     <tr>
                         <td align="left" style="padding: 20px 30px; border-bottom: 1px solid #f0f0f0;">
-                            <h1 style="margin: 0; font-size: 22px; color: #2563EB;">오더즈</h1>
+                            <h1 style="margin: 0; font-size: 20px; color: #2563EB;">오더즈</h1>
                         </td>
                     </tr>
 
                     <!-- 히어로 섹션 -->
                     <tr>
-                        <td align="center" style="padding: 50px 30px; background: linear-gradient(135deg, #FDFBF8 0%, #F3F4F6 100%);">
-                            <h2 class="hero-title" style="margin: 0 0 15px 0; font-size: 30px; color: #2563EB; line-height: 1.3;">"오더즈가 기억합니다"</h2>
+                        <td align="center" style="padding: 60px 30px; background: linear-gradient(135deg, #FDFBF8 0%, #F3F4F6 100%);">
+                            <h2 class="hero-title" style="margin: 0 0 15px 0; font-size: 28px; color: #2563EB; line-height: 1.3;">"오더즈가 기억합니다"</h2>
                             <p style="margin: 0 0 30px 0; font-size: 16px; color: #6B7280;">내 방식대로, 쓸수록 손에 익는 플랫폼</p>
                             <table border="0" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td align="center" bgcolor="#2563EB" style="border-radius: 50px;">
-                                        <a href="https://orderz.kr" target="_blank" style="padding: 15px 30px; font-size: 16px; color: #ffffff; text-decoration: none; font-weight: bold; display: inline-block;">오더즈 보러가기</a>
+                                        <a href="https://orderz.kr" target="_blank" style="padding: 15px 35px; font-size: 16px; color: #ffffff; text-decoration: none; font-weight: bold; display: inline-block;">오더즈 보러가기</a>
                                     </td>
                                 </tr>
                             </table>
                         </td>
                     </tr>
 
-                    <!-- 문제 제기 섹션 -->
+                    <!-- 1. 문제 해결 섹션 -->
                     <tr>
-                        <td style="padding: 40px 30px; border-bottom: 1px solid #f0f0f0;">
-                            <h3 class="section-title" style="margin: 0 0 20px 0; font-size: 24px; text-align: center; color: #1F2937;">번거로운 업무는<br/>이제 그만!</h3>
-                            <table border="0" cellpadding="0" cellspacing="10" width="100%">
+                        <td style="padding: 50px 30px; background-color: #ffffff;">
+                            <h3 class="section-title" style="margin: 0 0 30px 0; font-size: 24px; text-align: center; color: #1F2937; line-height: 1.4;">번거로운 업무는<br/>이제 그만!</h3>
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
-                                    <td class="stack-column" width="50%" align="center" bgcolor="#F9FAFB" style="padding: 20px; border-radius: 12px; border: 1px solid #E5E7EB;">
-                                        <div style="font-size: 30px; margin-bottom: 10px;">📞</div>
-                                        <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">주문 받기</div>
-                                        <div style="font-size: 13px; color: #6B7280;">전화/문자 누락 방지</div>
-                                    </td>
-                                    <td class="stack-column" width="50%" align="center" bgcolor="#F9FAFB" style="padding: 20px; border-radius: 12px; border: 1px solid #E5E7EB;">
-                                        <div style="font-size: 30px; margin-bottom: 10px;">🧾</div>
-                                        <div style="font-weight: bold; color: #374151; margin-bottom: 5px;">거래 관리</div>
-                                        <div style="font-size: 13px; color: #6B7280;">미수금 정산 자동화</div>
+                                    <td valign="top">
+                                        <table border="0" cellpadding="0" cellspacing="8" width="100%">
+                                            <tr>
+                                                <td class="stack-column" width="50%" align="center" bgcolor="#F9FAFB" style="padding: 20px; border-radius: 12px; border: 1px solid #E5E7EB;">
+                                                    <div style="font-size: 24px; margin-bottom: 10px;">📞</div>
+                                                    <div style="font-weight: bold; color: #374151;">주문 받기</div>
+                                                    <div style="font-size: 13px; color: #6B7280; margin-top: 5px;">전화/문자 누락 해결</div>
+                                                </td>
+                                                <td class="stack-column" width="50%" align="center" bgcolor="#F9FAFB" style="padding: 20px; border-radius: 12px; border: 1px solid #E5E7EB;">
+                                                    <div style="font-size: 24px; margin-bottom: 10px;">🧾</div>
+                                                    <div style="font-weight: bold; color: #374151;">거래 관리</div>
+                                                    <div style="font-size: 13px; color: #6B7280; margin-top: 5px;">미수금 제로! 독촉 업무 끝</div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="stack-column" width="50%" align="center" bgcolor="#F9FAFB" style="padding: 20px; border-radius: 12px; border: 1px solid #E5E7EB;">
+                                                    <div style="font-size: 24px; margin-bottom: 10px;">📠</div>
+                                                    <div style="font-weight: bold; color: #374151;">세금계산서</div>
+                                                    <div style="font-size: 13px; color: #6B7280; margin-top: 5px;">손쉬운 월말 발행</div>
+                                                </td>
+                                                <td class="stack-column" width="50%" align="center" bgcolor="#F9FAFB" style="padding: 20px; border-radius: 12px; border: 1px solid #E5E7EB;">
+                                                    <div style="font-size: 24px; margin-bottom: 10px;">📢</div>
+                                                    <div style="font-weight: bold; color: #374151;">신규고객</div>
+                                                    <div style="font-size: 13px; color: #6B7280; margin-top: 5px;">꾸준한 유입! 스마트한 홍보</div>
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
                             </table>
                         </td>
                     </tr>
 
-                    <!-- 솔루션 섹션 -->
+                    <!-- 2. 핵심 가치 섹션 -->
                     <tr>
-                        <td style="padding: 40px 30px; background-color: #ffffff;">
-                            <h3 class="section-title" style="margin: 0 0 10px 0; font-size: 24px; text-align: center; color: #2563EB;">"사장님, 이제 주문은<br/>오더즈로 할게요!"</h3>
-                            <p style="margin: 0 0 30px 0; font-size: 15px; color: #4B5563; text-align: center; line-height: 1.6;">
+                        <td style="padding: 50px 30px; background-color: #f8fbff;">
+                            <h3 style="margin: 0 0 15px 0; font-size: 24px; text-align: center; color: #2563EB; line-height: 1.4;">"사장님, 이제 주문은<br/>오더즈로 할게요!"</h3>
+                            <p style="margin: 0 0 40px 0; font-size: 15px; color: #4B5563; text-align: center; line-height: 1.6;">
                                 <strong>거래처의 만족이 곧 사장님의 성공</strong>이 되도록,<br/>오더즈가 함께합니다.
                             </p>
                             
-                            <!-- 솔루션 리스트 -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <!-- 기능 1 & 2 -->
+                                <tr>
+                                    <td valign="top">
+                                        <table border="0" cellpadding="0" cellspacing="8" width="100%">
+                                            <tr>
+                                                <td class="stack-column" width="50%" bgcolor="#ffffff" style="padding: 25px 20px; border-radius: 15px; border: 1px solid #dbeafe; text-align: center; vertical-align: top;">
+                                                    <div style="font-size: 24px; margin-bottom: 10px;">📝</div>
+                                                    <div style="font-weight: bold; font-size: 17px; color: #1E40AF;">나만의 리스트<br/>빠른주문!</div>
+                                                    <div style="font-size: 13px; color: #4B5563; margin-top: 10px; line-height: 1.5;">자주 쓰는 상품을 기억하고 동선에 맞춰 편집</div>
+                                                </td>
+                                                <td class="stack-column" width="50%" bgcolor="#ffffff" style="padding: 25px 20px; border-radius: 15px; border: 1px solid #dbeafe; text-align: center; vertical-align: top;">
+                                                    <div style="font-size: 24px; margin-bottom: 10px;">👆</div>
+                                                    <div style="font-weight: bold; font-size: 17px; color: #1E40AF;">원터치!<br/>주문 시스템</div>
+                                                    <div style="font-size: 13px; color: #4B5563; margin-top: 10px; line-height: 1.5;">터치 몇 번으로 수량을 바꾸고 주문 완료</div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="stack-column" width="50%" bgcolor="#ffffff" style="padding: 25px 20px; border-radius: 15px; border: 1px solid #dbeafe; text-align: center; vertical-align: top;">
+                                                    <div style="font-size: 24px; margin-bottom: 10px;">💬</div>
+                                                    <div style="font-weight: bold; font-size: 17px; color: #1E40AF;">실수 없는<br/>스마트 소통</div>
+                                                    <div style="font-size: 13px; color: #4B5563; margin-top: 10px; line-height: 1.5;">대체 상품 제안 및 실시간 요청사항 확인</div>
+                                                </td>
+                                                <td class="stack-column" width="50%" bgcolor="#ffffff" style="padding: 25px 20px; border-radius: 15px; border: 1px solid #dbeafe; text-align: center; vertical-align: top;">
+                                                    <div style="font-size: 24px; margin-bottom: 10px;">🔍</div>
+                                                    <div style="font-weight: bold; font-size: 17px; color: #1E40AF;">투명한<br/>거래 관리</div>
+                                                    <div style="font-size: 13px; color: #4B5563; margin-top: 10px; line-height: 1.5;">주문 내역부터 정산까지 앱 하나로 투명하게</div>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- 3. 사장님 추천 (Testimonials) -->
+                    <tr>
+                        <td style="padding: 50px 30px; background-color: #ffffff;">
+                            <h3 style="margin: 0 0 30px 0; font-size: 22px; text-align: center; color: #1F2937;">사장님들이 먼저 추천합니다</h3>
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
                                     <td style="padding-bottom: 15px;">
-                                        <div style="padding: 20px; border: 1px solid #EFF6FF; background-color: #f8fbff; border-radius: 12px;">
-                                            <div style="font-weight: bold; font-size: 17px; color: #1E40AF; margin-bottom: 5px;">나만의 리스트 빠른주문!</div>
-                                            <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">자주 쓰는 상품을 알아서 기억하고, 주방 동선에 맞게 편집하여 재고 확인과 동시에 주문하세요.</div>
+                                        <div style="padding: 20px; background-color: #F9FAFB; border-radius: 12px; border-left: 4px solid #2563EB;">
+                                            <p style="margin: 0; font-size: 14px; color: #4B5563; font-style: italic; line-height: 1.6;">"빠른주문 리스트 덕분에 재고 확인하면서 주문하는 게 5분도 안 걸려요. 남은 시간에 메뉴 고민할 여유가 생겨 정말 좋아요."</p>
+                                            <p style="margin: 10px 0 0 0; font-size: 13px; font-weight: bold; color: #374151;">- 강남구 역삼동 'A한식뷔페' 사장님</p>
                                         </div>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="padding-bottom: 15px;">
-                                        <div style="padding: 20px; border: 1px solid #EFF6FF; background-color: #f8fbff; border-radius: 12px;">
-                                            <div style="font-weight: bold; font-size: 17px; color: #1E40AF; margin-bottom: 5px;">원터치! 주문 시스템</div>
-                                            <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">정리된 리스트에서 터치 몇 번으로 수량을 바꾸고 주문 끝! 바쁜 시간을 획기적으로 아껴드립니다.</div>
+                                    <td>
+                                        <div style="padding: 20px; background-color: #F9FAFB; border-radius: 12px; border-left: 4px solid #2563EB;">
+                                            <p style="margin: 0; font-size: 14px; color: #4B5563; font-style: italic; line-height: 1.6;">"품절되면 앱에서 바로 대체 상품을 추천해 주니까 장사 흐름이 안 끊겨요. 소통 오류가 아예 사라졌습니다."</p>
+                                            <p style="margin: 10px 0 0 0; font-size: 13px; font-weight: bold; color: #374151;">- 마포구 연남동 'B파스타' 셰프님</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -96,28 +152,72 @@
                         </td>
                     </tr>
 
-                    <!-- 브랜드 섹션 -->
+                    <!-- 4. 브랜드 섹션 -->
                     <tr>
-                        <td align="center" style="padding: 40px 30px; background-color: #f3f4f6;">
-                            <h3 style="margin: 0 0 10px 0; font-size: 22px; color: #1F2937;">우리 회사가 '브랜드'가 됩니다</h3>
-                            <p style="margin: 0; font-size: 14px; color: #6B7280; line-height: 1.5;">
+                        <td align="center" style="padding: 40px 30px; background-color: #EFF6FF;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 22px; color: #1E40AF; line-height: 1.4;">우리 회사가 '브랜드'가 됩니다</h3>
+                            <p style="margin: 0; font-size: 15px; color: #3B82F6; line-height: 1.5; font-weight: bold;">
                                 우리 회사명과 로고가 있는 독립된 주문 앱을 제공!<br/>
-                                전문성과 신뢰를 바탕으로 고객 만족이 유통사의 '성공'
+                                <span style="font-size: 13px; font-weight: normal; color: #1E40AF;">전문성과 신뢰를 바탕으로 고객 만족이 유통사의 '성공'이 됩니다.</span>
                             </p>
                         </td>
                     </tr>
 
-                    <!-- CTA 섹션 -->
+                    <!-- 5. 전문가 섹션 (Expert Details) -->
                     <tr>
-                        <td align="center" style="padding: 50px 30px; background-color: #2563EB;">
+                        <td style="padding: 50px 30px; background-color: #ffffff;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 22px; text-align: center; color: #1F2937;">오더즈가 전문가입니다</h3>
+                            <p style="margin: 0 0 35px 0; font-size: 14px; text-align: center; color: #6B7280;">식자재 유통의 모든 고민을 해결해 드립니다.</p>
+                            
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td class="stack-column" width="50%" valign="top" style="padding-bottom: 20px;">
+                                        <div style="font-weight: bold; font-size: 16px; color: #1F2937; margin-bottom: 10px;">📦 상품 관리</div>
+                                        <ul style="margin: 0; padding: 0 0 0 15px; font-size: 13px; color: #4B5563; line-height: 1.6;">
+                                            <li><strong style="color: #2563EB;">공용 DB:</strong> 본사 상품 복사로 즉시 판매</li>
+                                            <li><strong style="color: #2563EB;">간편 등록:</strong> 스마트폰으로 등록 / 수정</li>
+                                            <li><strong style="color: #2563EB;">업데이트:</strong> 엑셀 일괄 업데이트 지원</li>
+                                        </ul>
+                                    </td>
+                                    <td class="stack-column" width="50%" valign="top" style="padding-bottom: 20px;">
+                                        <div style="font-weight: bold; font-size: 16px; color: #1F2937; margin-bottom: 10px;">💰 단가 관리</div>
+                                        <ul style="margin: 0; padding: 0 0 0 15px; font-size: 13px; color: #4B5563; line-height: 1.6;">
+                                            <li><strong style="color: #2563EB;">맞춤형 단가:</strong> 거래처/그룹별 설정</li>
+                                            <li><strong style="color: #2563EB;">재고연동:</strong> 재고 상품을 먼저 판매, 판매 완료되면 제2단가로 변경됩니다.</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="stack-column" width="50%" valign="top" style="padding-bottom: 20px;">
+                                        <div style="font-weight: bold; font-size: 16px; color: #1F2937; margin-bottom: 10px;">🚚 배송 관리</div>
+                                        <ul style="margin: 0; padding: 0 0 0 15px; font-size: 13px; color: #4B5563; line-height: 1.6;">
+                                            <li><strong style="color: #2563EB;">유연한 일정:</strong> 배송 휴무일, 주문 마감 시간 설정</li>
+                                            <li><strong style="color: #2563EB;">다양한 옵션:</strong> 예약배송/매장픽업 설정 가능</li>
+                                        </ul>
+                                    </td>
+                                    <td class="stack-column" width="50%" valign="top">
+                                        <div style="font-weight: bold; font-size: 16px; color: #1F2937; margin-bottom: 10px;">📊 CRM 및 지원</div>
+                                        <ul style="margin: 0; padding: 0 0 0 15px; font-size: 13px; color: #4B5563; line-height: 1.6;">
+                                            <li><strong style="color: #2563EB;">정보 경영:</strong> 상품/고객별 데이터 분석 제공</li>
+                                            <li><strong style="color: #2563EB;">Agency:</strong> 홈페이지 및 디자인 지원</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- 6. 최종 CTA 섹션 -->
+                    <tr>
+                        <td align="center" style="padding: 60px 30px; background-color: #2563EB;">
                             <h3 style="margin: 0 0 15px 0; font-size: 24px; color: #ffffff;">디지털 선도 기업!</h3>
-                            <p style="margin: 0 0 30px 0; font-size: 15px; color: #BFDBFE; line-height: 1.6;">
+                            <p style="margin: 0 0 35px 0; font-size: 15px; color: #BFDBFE; line-height: 1.6;">
                                 고객이 변하고 있습니다. 고객의 눈높이에 맞춰<br/>비즈니스를 스마트하게 혁신할 때입니다.
                             </p>
                             <table border="0" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td align="center" bgcolor="#FEE500" style="border-radius: 50px;">
-                                        <a href="http://pf.kakao.com/_PkUxgs/chat" target="_blank" style="padding: 15px 40px; font-size: 16px; color: #191919; text-decoration: none; font-weight: bold; display: inline-block;">카카오톡 문의</a>
+                                        <a href="http://pf.kakao.com/_PkUxgs/chat" target="_blank" style="padding: 18px 45px; font-size: 18px; color: #191919; text-decoration: none; font-weight: bold; display: inline-block;">카카오톡 문의</a>
                                     </td>
                                 </tr>
                             </table>
@@ -126,7 +226,7 @@
 
                     <!-- 푸터 -->
                     <tr>
-                        <td align="center" style="padding: 30px; background-color: #1F2937; color: #9CA3AF; font-size: 12px;">
+                        <td align="center" style="padding: 35px; background-color: #1F2937; color: #9CA3AF; font-size: 12px;">
                             <p style="margin: 0 0 5px 0;">© 2025 ORDERZ by ONEAPP. All Rights Reserved.</p>
                             <p style="margin: 0;">본 메일은 오더즈 서비스 안내를 위해 발송되었습니다.</p>
                         </td>
