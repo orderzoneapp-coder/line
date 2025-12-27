@@ -2,8 +2,6 @@
 https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
 
 e-mail.html NH라인 도매몰
-https://gemini.google.com/app/272c0ac1dfc1aefc?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
-
 https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
 
 delivery.html 납품업체
