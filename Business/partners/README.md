@@ -1,3 +1,5 @@
 매일 새벽, 비상!
 빠지는 물량(GAP)은
 NH라인에서 채워보세요.
+
+https://line.orderz.co.kr/Business/partners/gap
