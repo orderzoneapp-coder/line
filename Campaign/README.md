@@ -1,6 +1,3 @@
-ㄷ.html e-mail발송템플릿
-https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
-
 e-mail.html NH라인 도매몰
 https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
 
