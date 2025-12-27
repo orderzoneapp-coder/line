@@ -11,3 +11,7 @@ NH라인에서 채워보세요.
 ["오더즈가 기억합니다"](https://line.orderz.co.kr/Business/e-mail/solution_orderz)
 내 방식대로, 쓸수록 손에 익는 플랫폼
 [✔✔✔](https://gemini.google.com/app/192b8776ffaf463e)
+
+[파트너 사장님을 환영합니다.](https://line.orderz.co.kr/Business/e-mail/nhline_price.html)
+매일 밤 가락시장에서 직접 선별한 최상급 농산물을, 도매가로 만나보세요
+[✔✔✔](https://gemini.google.com/canvas)
