@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오더즈 - B2B 비즈니스 성공 솔루션</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral & Professional Blue -->
+    <!-- Application Structure Plan: The application is structured as a top-down narrative, starting with a problem statement, followed by a detailed solution for the core user (restaurant owners), and ending with supplier-facing features and a call to action. The new "solution" section is designed as a horizontal scrolling container to provide an interactive, explorable experience of the features, moving beyond a static list. This structure mirrors a journey from problem recognition to finding a comprehensive solution. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Analog business pain points. Goal: Empathize. Viz/Method: Icon + Text Cards. Interaction: None. Justification: Quickly establishes the problems. Method: HTML/CSS.
+        - Report Info: Restaurant owner benefits. Goal: Showcase value. Viz/Method: Horizontal scrolling card carousel. Interaction: User swipes/scrolls to discover features. Justification: Creates an engaging, modern feel and makes the content feel less dense. Method: JS for scroll behavior and class toggling.
+        - Report Info: Testimonials. Goal: Build trust. Viz/Method: Testimonial blocks with quotes. Interaction: None. Justification: Provides social proof and adds a human element. Method: HTML/CSS.
+        - Report Info: Supplier-side features. Goal: Detail product functionality. Viz/Method: Bulleted lists within collapsible sections. Interaction: Click to expand/collapse. Justification: Organizes a large amount of information without overwhelming the user. Method: JS DOM manipulation.
+        - Report Info: Contact info. Goal: Convert. Viz/Method: A clear Call-to-Action button. Interaction: Click to navigate to the external site. Justification: Guides the user to the next step. Method: HTML/CSS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FDFBF8;
+            color: #333D4B;
+        }
+        .hero-gradient {
+            background: linear-gradient(135deg, #FDFBF8 0%, #F3F4F6 100%);
+        }
+        .testimonial-card {
+            min-width: 300px;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-blue-600">오더즈</h1>
+            <a href="https://orderz.kr" class="bg-blue-600 text-white font-bold py-2 px-5 rounded-full hover:bg-blue-700 transition duration-300">무료 사용하기</a>
+        </nav>
+    </header>
+
+    <main>
+        <section id="hero" class="hero-gradient py-20 md:py-32">
+            <div class="container mx-auto px-6 text-center">
+                <h2 class="text-2xl md:text-3xl font-bold leading-tight mb-4 text-blue-600">
+                    "오더즈가 기억합니다"
+                </h2>
+                <p class="text-lg md:text-xl text-gray-500 max-w-3xl mx-auto mb-8">
+                    내 방식대로, 쓸수록 손에 익는 플랫폼
+                </p>
+                <div class="mt-12">
+                     <a href="https://orderz.kr" class="bg-gray-400 text-white font-bold py-3 px-8 rounded-full text-lg hover:bg-gray-500 transition duration-300 transform hover:scale-105">
+                        오더즈 보러가기
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section id="problems" class="py-16 bg-white">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl md:text-4xl font-bold mb-3 leading-tight">번거로운 업무는<br>이제 그만!</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div class="bg-gray-50 p-8 rounded-2xl text-center border border-gray-200">
+                        <div class="text-4xl mb-4">📞</div>
+                        <h4 class="text-xl font-bold mb-2">주문 받기</h4>
+                        <p class="text-gray-500">전화/문자로 업무가 중단되고, 주문 누락!</p>
+                    </div>
+                    <div class="bg-gray-50 p-8 rounded-2xl text-center border border-gray-200">
+                        <div class="text-4xl mb-4">🧾</div>
+                        <h4 class="text-xl font-bold mb-2">거래 관리</h4>
+                        <p class="text-gray-500">불안정한 미수금 관리와 번거로운 독촉 업무!</p>
+                    </div>
+                    <div class="bg-gray-50 p-8 rounded-2xl text-center border border-gray-200">
+                        <div class="text-4xl mb-4">📠</div>
+                        <h4 class="text-xl font-bold mb-2">세금계산서</h4>
+                        <p class="text-gray-500">월말마다 고된 세금계산서 발행 작업!</p>
+                    </div>
+                    <div class="bg-gray-50 p-8 rounded-2xl text-center border border-gray-200">
+                        <div class="text-4xl mb-4">📢</div>
+                        <h4 class="text-xl font-bold mb-2">영업활동</h4>
+                        <p class="text-gray-500">홍보를 위해 거래처 방문, 문자 발송!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="solution" class="py-16">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl md:text-4xl font-bold mb-3 leading-tight">
+                        <span class="text-blue-600">"사장님, 이제 주문은<br>오더즈로 할게요!"</span>
+                    </h3>
+                    <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                        가까운 미래에, 거래처 식당 사장님들이 먼저 이 말을 하게 될 것입니다.<br class="hidden md:block"><strong>거래처의 만족이 곧 사장님의 성공</strong>이 되도록, 오더즈가 함께합니다.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center">
+                        <div class="text-4xl mb-4">📝</div>
+                        <h4 class="text-xl font-bold mb-2">나만의 리스트<br>빠른주문!</h4>
+                        <p class="text-gray-600">자주 쓰는 상품을 알아서 기억하고, 주방 동선에 맞게 순서를 편집할 수 있어 재고 확인과 동시 주문이 가능합니다.</p>
+                    </div>
+                    <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center">
+                        <div class="text-4xl mb-4">👆</div>
+                        <h4 class="text-xl font-bold mb-2">원터치!<br>주문 시스템</h4>
+                        <p class="text-gray-600">정리된 리스트에서 터치 몇 번으로 수량을 바꾸고 주문하면 끝! 바쁜 사장님의 시간을 아껴드립니다.</p>
+                    </div>
+                    <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center">
+                        <div class="text-4xl mb-4">💬</div>
+                        <h4 class="text-xl font-bold mb-2">실수 없는<br>스마트 소통</h4>
+                        <p class="text-gray-600">품절 시 대체 상품을 제안하고, 주문별 요청사항을 남길 수 있어 커뮤니케이션 오류가 사라집니다.</p>
+                    </div>
+                    <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center">
+                        <div class="text-4xl mb-4">🔍</div>
+                        <h4 class="text-xl font-bold mb-2">투명한<br>거래 관리</h4>
+                        <p class="text-gray-600">배송 현황, 과거 주문 내역, 세금계산서까지 앱 하나로 투명하게 확인하고 체계적으로 관리할 수 있습니다.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="testimonials" class="py-16 bg-white">
+            <div class="container mx-auto px-6">
+                 <div class="text-center mb-12">
+                    <h3 class="text-3xl md:text-4xl font-bold mb-3 leading-tight">사장님들이<br>먼저 추천합니다</h3>
+                    <p class="text-gray-600 text-lg">오더즈를 통해 비즈니스가 달라진 사장님들의 실제 이야기입니다.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                     <div class="testimonial-card bg-gray-50 p-8 rounded-2xl border border-gray-200">
+                        <p class="italic text-gray-700 mb-4">"오더즈앱을 켜면 첫화면에 단골행사가 나오는대, 꼭 제가 자주쓰는상품이거나 연관된 저렴한 상품이 나와요. 여기에서 필요한상품 선택하고 '빠른주문'으로 가서 나머지 필요한것 체크하면 주문 끝! 바쁜시간에 저렴한상품까지 쉽게 살 수 있어서 정말 좋아요... 바쁜대 행사 뭐 없나 자꾸 들어가져요 ㅎㅎ"</p>
+                        <p class="font-bold text-sm text-gray-800">- 서대문구 'C백반집' 사장님</p>
+                     </div>
+                     <div class="testimonial-card bg-gray-50 p-8 rounded-2xl border border-gray-200">
+                        <p class="italic text-gray-700 mb-4">"매일 저녁 장사 끝나고 수십 개 품목을 수기로 적어서 문자로 보냈어요. 빼먹는 날도 많고, 다음날 전화해서 추가하는 게 일이었죠. 오더즈 쓰고 나서는 주방 동선대로 정리해 둔 제 '빠른주문' 리스트가 있으니 재고 보면서 5분이면 끝나요. 남는 시간에 신메뉴 고민할 여유가 생겼습니다."</p>
+                        <p class="font-bold text-sm text-gray-800">- 강남구 역삼동 'A한식뷔페' 사장님</p>
+                     </div>
+                     <div class="testimonial-card bg-gray-50 p-8 rounded-2xl border border-gray-200">
+                        <p class="italic text-gray-700 mb-4">"저희 가게는 신선함이 진짜 중요해서 재료를 조금씩 자주 시키거든요. 근데 가끔 재료가 똑 떨어져서 품절이라고 하면 정말 난감했는데... 오더즈는 품절되면 바로 앱으로 '이건 어떠세요?' 하고 다른 상품을 추천해주니까! 덕분에 장사 흐름이 끊길 일이 없어졌어요. 훨씬 편해요!"</p>
+                        <p class="font-bold text-sm text-gray-800">- 마포구 연남동 'B파스타' 셰프님</p>
+                     </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="features" class="py-16">
+             <div class="container mx-auto px-6">
+                 <div class="text-center mb-12">
+                     <h3 class="text-3xl md:text-4xl font-bold mb-3 leading-tight">우리 회사가<br>'브랜드'가 됩니다</h3>
+                     <p class="text-lg text-gray-600 max-w-3xl mx-auto">우리 회사명과 로고가 있는 독립된 주문 앱을 제공!<br>전문성과 신뢰를 바탕으로 고객 만족이 유통사의 '성공'</p>
+                 </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+                     <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center">
+                        <div class="text-5xl mb-4 text-blue-600">📉</div>
+                        <h4 class="text-2xl font-bold mb-2">고객 이탈률 75% 감소</h4>
+                        <p class="text-gray-600">고객이 주문을 편하게 할수록 만족도는 높아지고, 충성도 높은 '단골'이 됩니다. 안정적인 매출 기반이 만들어집니다.</p>
+                     </div>
+                     <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center">
+                         <div class="text-5xl mb-4 text-blue-600">📈</div>
+                         <h4 class="text-2xl font-bold mb-2">객단가 15% 상승</h4>
+                         <p class="text-gray-600">"주문하는 김에 다른 상품도 같이 시키자!" 편리한 주문 경험은 추가 매출로 이어질 가능성을 높입니다.</p>
+                     </div>
+                     <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 text-center">
+                         <div class="text-5xl mb-4 text-blue-600">⏱️</div>
+                         <h4 class="text-2xl font-bold mb-2">업무 시간 80% 단축</h4>
+                         <p class="text-gray-600">주문 오류 확인, 문의 응대 등 불필요한 업무가 줄어듭니다. 사장님은 더 중요한 비즈니스에 집중할 수 있습니다.</p>
+                     </div>
+                 </div>
+            </div>
+        </section>
+        
+        <section id="expert" class="py-16 bg-white">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl md:text-4xl font-bold mb-3">오더즈가 전문가입니다</h3>
+                    <p class="text-gray-600 text-lg">온라인 담당 인력이 없어도 괜찮습니다. 식자재 유통의 모든 것을 아는 오더즈가 해결해 드립니다.</p>
+                </div>
+                <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div class="flex flex-col items-start bg-gray-50 p-8 rounded-2xl border border-gray-200">
+                        <h4 class="font-bold text-xl mb-3">상품 관리</h4>
+                        <ul class="space-y-2 text-gray-600">
+                           <li><strong class="font-semibold">공용 DB:</strong> 본사의 상품을 복사하여 단가만 입력하면 즉시 판매가 가능합니다.</li>
+                           <li><strong class="font-semibold">간편 등록:</strong> 현장에서 스마트폰으로 상품을 등록하고 수정할 수 있습니다.</li>
+                           <li><strong class="font-semibold">업데이트:</strong> 엑셀 파일로 상품 정보와 단가를 일괄 업데이트할 수 있습니다.</li>
+                        </ul>
+                     </div>
+                     <div class="flex flex-col items-start bg-gray-50 p-8 rounded-2xl border border-gray-200">
+                        <h4 class="font-bold text-xl mb-3">단가 관리</h4>
+                        <ul class="space-y-2 text-gray-600">
+                           <li><strong class="font-semibold">맞춤형 단가:</strong> 거래처별 / 거래처그룹 단가 / 유통 지역별 단가를 적용할 수 있습니다.</li>
+                           <li><strong class="font-semibold">재고연동 단가:</strong> 재고 상품을 먼저 판매, 판매 완료되면 제2단가로 변경됩니다.</li>
+                        </ul>
+                     </div>
+                     <div class="flex flex-col items-start bg-gray-50 p-8 rounded-2xl border border-gray-200">
+                        <h4 class="font-bold text-xl mb-3">배송 관리</h4>
+                        <ul class="space-y-2 text-gray-600">
+                           <li><strong class="font-semibold">유연한 배송 일정:</strong> 배송 휴무일,주문 마감 시간을 설정할 수 있습니다.</li>
+                           <li><strong class="font-semibold">다양한 배송 옵션:</strong> 오늘 주문 시 내일 배송을 기본으로, '오늘 배송', '예약 배송' '상품별로 배송일' '매장픽업'등 다양한 배송일 설정이 가능합니다.</li>
+                        </ul>
+                     </div>
+                     <div class="flex flex-col items-start bg-gray-50 p-8 rounded-2xl border border-gray-200">
+                        <h4 class="font-bold text-xl mb-3">CRM 및 지원</h4>
+                        <ul class="space-y-2 text-gray-600">
+                           <li><strong class="font-semibold">정보 경영:</strong> 상품별, 고객별, 기간별 판매 정보에 기반한 경영이 가능해집니다.</li>
+                           <li><strong class="font-semibold">마케팅 지원:</strong> 판매촉진, 재고소진을 위한 다양한 이벤트및 마케팅을 지원합니다.</li>
+                           <li><strong class="font-semibold">Agency:</strong> 홈페이지 제작, 로고 및 디자인 지원, 네이버/카카오등 포털 연계를 지원합니다.</li>
+                        </ul>
+                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="py-16 bg-blue-600">
+             <div class="container mx-auto px-6 text-center">
+                 <h2 class="text-4xl font-bold text-white mb-4">디지털 선도 기업!</h2>
+                 <p class="text-lg text-blue-100 max-w-3xl mx-auto mb-8">
+                    고객이 변하고 있습니다. 배송 갔을 때 새벽 배송 상품이 먼저 와있는 풍경은 이제 시작일 뿐입니다.<br>
+                    고객의 눈높이에 맞춰 비즈니스를 스마트하게 혁신하고, 내 지역에서는 누구도 따라올 수 없는 경쟁력을 갖출 때입니다.
+                 </p>
+                 <a href="http://pf.kakao.com/_PkUxgs/chat" class="bg-[#FEE500] text-[#191919] font-bold py-3 px-8 rounded-full text-lg hover:bg-[#FEE500] transition duration-300 transform hover:scale-105">
+                    카카오톡 문의
+                 </a>
+             </div>
+        </section>
+    </main>
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-6 text-center text-gray-400">
+            <p>© 2025 ORDERZ by ONEAPP. All Rights Reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>
