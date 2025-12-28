@@ -11,20 +11,27 @@
             .container { width: 100% !important; max-width: 600px !important; }
             .mobile-stack { display: block !important; width: 100% !important; box-sizing: border-box !important; padding-left: 0 !important; padding-right: 0 !important; }
             .mobile-padding { padding: 30px 20px !important; }
-            .mobile-hero-padding { padding: 80px 20px 60px 20px !important; }
+            
+            /* [수정] 히어로 섹션 패딩 대폭 확대 (상하 간격 추가) */
+            .mobile-hero-padding { padding: 120px 20px 100px 20px !important; }
+            
             .mobile-text-center { text-align: center !important; }
             .mobile-hidden { display: none !important; }
             
-            /* [수정됨] 슬로건 한 줄 강제 유지 (폰트 사이즈 축소 및 줄바꿈 금지) */
+            /* [수정] 폰트 사이즈 더 크게 확대 */
             .hero-title { 
-                font-size: 26px !important; /* 화면 폭에 맞춰 사이즈 조정 */
-                line-height: 1.2 !important; 
-                white-space: nowrap !important; /* 강제 줄바꿈 방지 */
-                letter-spacing: -1px !important; 
+                font-size: 52px !important; /* 42px -> 52px */
+                line-height: 1.1 !important; 
+                white-space: nowrap !important; 
+                letter-spacing: -2px !important; 
             }
-            .hero-subtitle { font-size: 18px !important; line-height: 1.5 !important; }
+            .hero-subtitle { 
+                font-size: 24px !important; /* 20px -> 24px */
+                line-height: 1.5 !important; 
+                margin-top: 20px !important;
+            }
             
-            .section-title { font-size: 26px !important; line-height: 1.3 !important; }
+            .section-title { font-size: 28px !important; line-height: 1.3 !important; }
             
             /* 카드 내부 폰트 */
             .problem-icon { font-size: 32px !important; margin-bottom: 10px !important; }
@@ -48,6 +55,7 @@
             <td align="center" style="padding: 0;">
                 
                 <!-- 메인 컨테이너 (최대 600px) -->
+                <!-- class="notranslate" 및 translate="no" 속성으로 번역 방지 -->
                 <table border="0" cellpadding="0" cellspacing="0" width="600" class="container notranslate" style="background-color: #ffffff; border-radius: 0px; overflow: hidden; box-shadow: none;" translate="no">
                     
                     <!-- 1. 헤더 -->
@@ -68,13 +76,16 @@
                         </td>
                     </tr>
 
-                    <!-- 2. 히어로 섹션 (슬로건 한 줄 처리) -->
+                    <!-- 2. 히어로 섹션 -->
                     <tr>
-                        <td align="center" class="mobile-hero-padding" style="padding: 80px 30px 60px 30px; background: linear-gradient(180deg, #DBEAFE 0%, #FFFFFF 100%);">
+                        <!-- [수정] 배경색 진하게 (#BFDBFE 시작), 패딩 확대로 영역 넓힘 -->
+                        <td align="center" class="mobile-hero-padding" style="padding: 100px 30px 80px 30px; background: linear-gradient(180deg, #BFDBFE 0%, #FFFFFF 100%);">
+                            <!-- [수정] 타이틀 크기 확대 -->
                             <h2 class="hero-title" style="margin: 0 0 20px 0; font-size: 42px; color: #1E293B; font-weight: 800; letter-spacing: -2px; line-height: 1.1;">
                                 <span style="color: #2563EB;">"오더즈가 기억합니다"</span>
                             </h2>
-                            <p class="hero-subtitle" style="margin: 0; font-size: 20px; color: #475569; line-height: 1.6; word-break: keep-all; font-weight: 500;">
+                            <!-- [수정] 서브타이틀 크기 확대 및 줄바꿈 적용 -->
+                            <p class="hero-subtitle" style="margin: 0; font-size: 20px; color: #475569; line-height: 1.6; word-break: keep-all; font-weight: 600;">
                                 내 방식대로,<br/>
                                 쓸수록 손에 익는 플랫폼
                             </p>
@@ -134,7 +145,7 @@
                         </td>
                     </tr>
 
-                    <!-- 4. 솔루션 -->
+                    <!-- 4. 솔루션 (배경색 있음) -->
                     <tr>
                         <td class="mobile-padding" style="padding: 60px 30px; background-color: #F8FAFC; border-top: 1px solid #F1F5F9; border-bottom: 1px solid #F1F5F9;">
                             <h3 class="section-title" style="margin: 0 0 15px 0; font-size: 28px; text-align: center; color: #1E293B; font-weight: bold; letter-spacing: -1px; line-height: 1.3;">
