@@ -3,71 +3,58 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="format-detection" content="telephone=no" />
     <meta name="google" content="notranslate" />
     <title>오더즈 - 비즈니스 성공 솔루션</title>
     <style type="text/css">
-        /* 모바일 최적화 스타일 */
+        /* 기본 리셋 */
+        body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+        
+        /* 모바일 스타일 */
         @media only screen and (max-width: 620px) {
             .container { width: 100% !important; max-width: 600px !important; }
-            .mobile-stack { display: block !important; width: 100% !important; box-sizing: border-box !important; padding-left: 0 !important; padding-right: 0 !important; }
-            .mobile-padding { padding: 30px 20px !important; }
-            
-            /* [수정] 히어로 섹션 패딩 대폭 확대 (상하 간격 추가) */
-            .mobile-hero-padding { padding: 120px 20px 100px 20px !important; }
-            
-            .mobile-text-center { text-align: center !important; }
+            .mobile-padding { padding-left: 20px !important; padding-right: 20px !important; }
+            .mobile-hero-padding { padding-top: 80px !important; padding-bottom: 60px !important; }
+            .mobile-stack { display: block !important; width: 100% !important; box-sizing: border-box !important; }
             .mobile-hidden { display: none !important; }
             
-            /* [수정] 폰트 사이즈 더 크게 확대 */
-            .hero-title { 
-                font-size: 52px !important; 
-                line-height: 1.1 !important; 
-                white-space: nowrap !important; 
-                letter-spacing: -2px !important; 
-            }
-            .hero-subtitle { 
-                font-size: 24px !important; 
-                line-height: 1.5 !important; 
-                margin-top: 20px !important;
-            }
+            /* 폰트 사이즈 확대 */
+            .hero-title { font-size: 32px !important; line-height: 1.2 !important; white-space: nowrap !important; }
+            .hero-subtitle { font-size: 18px !important; line-height: 1.5 !important; }
+            .section-title { font-size: 24px !important; line-height: 1.3 !important; }
+            .text-body { font-size: 15px !important; line-height: 1.6 !important; }
             
-            .section-title { font-size: 28px !important; line-height: 1.3 !important; }
+            /* 그리드 레이아웃 유지 */
+            .grid-2col { width: 48% !important; display: inline-block !important; vertical-align: top !important; box-sizing: border-box !important; margin-bottom: 10px !important; }
+            .grid-gap { width: 2% !important; display: inline-block !important; }
             
-            /* 카드 내부 폰트 */
-            .problem-icon { font-size: 32px !important; margin-bottom: 10px !important; }
-            .problem-title { font-size: 16px !important; margin-bottom: 5px !important; }
-            .problem-desc { font-size: 14px !important; line-height: 1.4 !important; }
-            
-            .btn-large { width: 100% !important; display: block !important; box-sizing: border-box !important; text-align: center !important; font-size: 18px !important; padding: 18px 20px !important; }
-            .card-spacer { height: 15px !important; }
-            
-            .expert-card { margin-bottom: 15px !important; }
-            .expert-title { font-size: 18px !important; }
-            .expert-list { font-size: 15px !important; line-height: 1.6 !important; }
+            /* 카드 스타일 */
+            .card-box { padding: 20px !important; border-radius: 12px !important; }
         }
     </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: 'Pretendard', 'Malgun Gothic', 'Dotum', sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+<body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: 'Pretendard', 'Malgun Gothic', 'Dotum', sans-serif;">
     
     <!-- 전체 배경 -->
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F8FAFC;">
         <tr>
             <td align="center" style="padding: 0;">
                 
-                <!-- 메인 컨테이너 (최대 600px) -->
-                <!-- class="notranslate" 및 translate="no" 속성으로 번역 방지 -->
-                <table border="0" cellpadding="0" cellspacing="0" width="600" class="container notranslate" style="background-color: #ffffff; border-radius: 0px; overflow: hidden; box-shadow: none;" translate="no">
+                <!-- 메인 컨테이너 (번역 방지 클래스 적용) -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" class="container notranslate" style="background-color: #ffffff; max-width: 600px; margin: 0 auto;" translate="no">
                     
                     <!-- 1. 헤더 -->
                     <tr>
-                        <td style="padding: 20px 30px; border-bottom: 1px solid #F1F5F9; background-color: #FFFFFF;">
+                        <td class="mobile-padding" style="padding: 20px 30px; background-color: #FFFFFF; border-bottom: 1px solid #F1F5F9;">
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
                                     <td align="left" valign="middle">
-                                        <h1 style="margin: 0; font-size: 24px; color: #1e293b; font-weight: bold; letter-spacing: -0.5px;">오더즈</h1>
+                                        <span style="font-size: 22px; color: #1E293B; font-weight: bold; letter-spacing: -0.5px; text-decoration: none;">오더즈</span>
                                     </td>
                                     <td align="right" valign="middle">
-                                        <a href="https://orderz.kr/open/" target="_blank" style="background-color: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; padding: 10px 16px; border-radius: 30px; text-decoration: none; font-size: 14px; font-weight: bold; white-space: nowrap;">
+                                        <a href="https://orderz.kr/open/" target="_blank" style="background-color: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold; white-space: nowrap;">
                                             📱 [앱다운로드]
                                         </a>
                                     </td>
@@ -76,135 +63,126 @@
                         </td>
                     </tr>
 
-                    <!-- 2. 히어로 섹션 -->
+                    <!-- 2. 히어로 섹션 (진한 블루 그라데이션) -->
                     <tr>
-                        <!-- [수정] 배경색 진하게 (#BFDBFE 시작), 패딩 확대로 영역 넓힘 -->
-                        <td align="center" class="mobile-hero-padding" style="padding: 100px 30px 80px 30px; background: linear-gradient(180deg, #BFDBFE 0%, #FFFFFF 100%);">
-                            <!-- [수정] 타이틀 크기 확대 -->
-                            <h2 class="hero-title" style="margin: 0 0 20px 0; font-size: 42px; color: #1E293B; font-weight: 800; letter-spacing: -2px; line-height: 1.1;">
+                        <td align="center" class="mobile-padding mobile-hero-padding" style="padding: 100px 30px 80px 30px; background: linear-gradient(180deg, #DBEAFE 0%, #FFFFFF 100%);">
+                            <!-- 슬로건: 한 줄 강제 유지 -->
+                            <h1 class="hero-title" style="margin: 0 0 15px 0; font-size: 40px; color: #1E293B; font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; white-space: nowrap;">
                                 <span style="color: #2563EB;">"오더즈가 기억합니다"</span>
-                            </h2>
-                            <!-- [수정] 서브타이틀 크기 확대 및 줄바꿈 적용 -->
-                            <p class="hero-subtitle" style="margin: 0; font-size: 20px; color: #475569; line-height: 1.6; word-break: keep-all; font-weight: 600;">
+                            </h1>
+                            <p class="hero-subtitle" style="margin: 0 0 40px 0; font-size: 20px; color: #475569; line-height: 1.6; word-break: keep-all; font-weight: 600;">
                                 내 방식대로,<br/>
                                 쓸수록 손에 익는 플랫폼
                             </p>
+                            <!-- 텍스트 링크 형태 버튼 -->
+                            <a href="https://orderz.kr/open/" target="_blank" style="color: #475569; text-decoration: none; font-size: 16px; font-weight: 600; border-bottom: 2px solid #2563EB; padding-bottom: 2px; display: inline-block;">
+                                오더즈 보러가기 <span style="color: #2563EB;">→</span>
+                            </a>
                         </td>
                     </tr>
 
-                    <!-- 3. 문제 제기 -->
+                    <!-- 3. 문제 제기 (2x2 그리드) -->
                     <tr>
                         <td class="mobile-padding" style="padding: 60px 30px; background-color: #FFFFFF;">
-                            <h3 class="section-title" style="margin: 0 0 40px 0; font-size: 28px; text-align: center; color: #1E293B; font-weight: bold; letter-spacing: -1px; line-height: 1.3;">
+                            <h2 class="section-title" style="margin: 0 0 40px 0; font-size: 28px; text-align: center; color: #1E293B; font-weight: bold; letter-spacing: -1px;">
                                 번거로운 업무는<br/>
                                 이제 그만!
-                            </h3>
+                            </h2>
+                            <!-- 2컬럼 레이아웃 -->
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
-                                    <td class="grid-2col" width="48%" align="center" valign="top" style="background-color: #F8FAFC; border: 1px solid #F1F5F9; border-radius: 16px; padding: 25px 10px;">
-                                        <div class="problem-icon" style="font-size: 32px; margin-bottom: 12px;">📞</div>
-                                        <div class="problem-title" style="font-size: 18px; font-weight: bold; color: #334155; margin-bottom: 6px;">주문 받기</div>
-                                        <div class="problem-desc" style="font-size: 15px; color: #64748B; line-height: 1.4; letter-spacing: -0.5px;">
-                                            전화/문자로<br/>업무중단,<br/><strong>주문 누락!</strong>
-                                        </div>
+                                    <!-- Row 1 -->
+                                    <td class="grid-2col" width="48%" align="center" valign="top" style="background-color: #F8FAFC; border: 1px solid #F1F5F9; border-radius: 16px; padding: 25px 10px; margin-bottom: 10px;">
+                                        <div style="font-size: 32px; margin-bottom: 10px;">📞</div>
+                                        <div style="font-size: 16px; font-weight: bold; color: #334155; margin-bottom: 5px;">주문 받기</div>
+                                        <div style="font-size: 13px; color: #64748B; line-height: 1.4;">전화/문자로<br/>업무중단, 누락!</div>
                                     </td>
-                                    
-                                    <td class="grid-gap" width="4%" style="font-size: 0; line-height: 0;">&nbsp;</td>
-                                    
-                                    <td class="grid-2col" width="48%" align="center" valign="top" style="background-color: #F8FAFC; border: 1px solid #F1F5F9; border-radius: 16px; padding: 25px 10px;">
-                                        <div class="problem-icon" style="font-size: 32px; margin-bottom: 12px;">🧾</div>
-                                        <div class="problem-title" style="font-size: 18px; font-weight: bold; color: #334155; margin-bottom: 6px;">거래 관리</div>
-                                        <div class="problem-desc" style="font-size: 15px; color: #64748B; line-height: 1.4; letter-spacing: -0.5px;">
-                                            <strong>미수금 제로!</strong><br/>독촉 업무 끝
-                                        </div>
+                                    <td class="grid-gap" width="4%" style="font-size: 0;">&nbsp;</td>
+                                    <td class="grid-2col" width="48%" align="center" valign="top" style="background-color: #F8FAFC; border: 1px solid #F1F5F9; border-radius: 16px; padding: 25px 10px; margin-bottom: 10px;">
+                                        <div style="font-size: 32px; margin-bottom: 10px;">🧾</div>
+                                        <div style="font-size: 16px; font-weight: bold; color: #334155; margin-bottom: 5px;">거래 관리</div>
+                                        <div style="font-size: 13px; color: #64748B; line-height: 1.4;">미수금 제로!<br/>독촉 업무 끝</div>
                                     </td>
                                 </tr>
-                                
-                                <tr><td class="row-gap" colspan="3" height="15" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
-                                
+                                <tr><td height="10" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
                                 <tr>
+                                    <!-- Row 2 -->
                                     <td class="grid-2col" width="48%" align="center" valign="top" style="background-color: #F8FAFC; border: 1px solid #F1F5F9; border-radius: 16px; padding: 25px 10px;">
-                                        <div class="problem-icon" style="font-size: 32px; margin-bottom: 12px;">📠</div>
-                                        <div class="problem-title" style="font-size: 18px; font-weight: bold; color: #334155; margin-bottom: 6px;">세금계산서</div>
-                                        <div class="problem-desc" style="font-size: 15px; color: #64748B; line-height: 1.4; letter-spacing: -0.5px;">
-                                            손쉬운<br/><strong>월말 발행</strong>
-                                        </div>
+                                        <div style="font-size: 32px; margin-bottom: 10px;">📠</div>
+                                        <div style="font-size: 16px; font-weight: bold; color: #334155; margin-bottom: 5px;">세금계산서</div>
+                                        <div style="font-size: 13px; color: #64748B; line-height: 1.4;">손쉬운<br/>월말 발행</div>
                                     </td>
-                                    
-                                    <td class="grid-gap" width="4%" style="font-size: 0; line-height: 0;">&nbsp;</td>
-                                    
+                                    <td class="grid-gap" width="4%" style="font-size: 0;">&nbsp;</td>
                                     <td class="grid-2col" width="48%" align="center" valign="top" style="background-color: #F8FAFC; border: 1px solid #F1F5F9; border-radius: 16px; padding: 25px 10px;">
-                                        <div class="problem-icon" style="font-size: 32px; margin-bottom: 12px;">📢</div>
-                                        <div class="problem-title" style="font-size: 18px; font-weight: bold; color: #334155; margin-bottom: 6px;">신규고객</div>
-                                        <div class="problem-desc" style="font-size: 15px; color: #64748B; line-height: 1.4; letter-spacing: -0.5px;">
-                                            꾸준한 유입!<br/><strong>스마트한 홍보</strong>
-                                        </div>
+                                        <div style="font-size: 32px; margin-bottom: 10px;">📢</div>
+                                        <div style="font-size: 16px; font-weight: bold; color: #334155; margin-bottom: 5px;">신규고객</div>
+                                        <div style="font-size: 13px; color: #64748B; line-height: 1.4;">꾸준한 유입!<br/>스마트한 홍보</div>
                                     </td>
                                 </tr>
                             </table>
                         </td>
                     </tr>
 
-                    <!-- 4. 솔루션 (여백 확보) -->
+                    <!-- 4. 솔루션 -->
                     <tr>
-                        <td class="mobile-padding" style="padding: 60px 30px; background-color: #F8FAFC; border-top: 1px solid #F1F5F9; border-bottom: 1px solid #F1F5F9;">
-                            <h3 class="section-title" style="margin: 0 0 15px 0; font-size: 28px; text-align: center; color: #1E293B; font-weight: bold; letter-spacing: -1px; line-height: 1.3;">
+                        <td class="mobile-padding" style="padding: 60px 30px; background-color: #F8FAFC;">
+                            <h2 class="section-title" style="margin: 0 0 15px 0; font-size: 26px; text-align: center; color: #1E293B; font-weight: bold; letter-spacing: -0.5px;">
                                 <span style="color: #2563EB;">"사장님, 이제 주문은<br/>오더즈로 할게요!"</span>
-                            </h3>
-                            <p style="margin: 0 0 50px 0; font-size: 16px; color: #64748B; text-align: center; line-height: 1.6; word-break: keep-all;">
+                            </h2>
+                            <p class="text-body" style="margin: 0 0 40px 0; font-size: 16px; color: #64748B; text-align: center; line-height: 1.6; word-break: keep-all;">
                                 가까운 미래에,<br/>거래처 사장님들이 먼저 말하게 될 것입니다.<br/><br/>
-                                <strong style="color: #334155; background-color: #DBEAFE; padding: 4px 8px;">거래처의 만족이 곧 사장님의 성공</strong>이 되도록,<br/>오더즈가 함께합니다.
+                                <strong style="color: #334155; background-color: #DBEAFE; padding: 2px 6px;">거래처의 만족이 곧 사장님의 성공</strong>이 되도록,<br/>오더즈가 함께합니다.
                             </p>
-
-                            <!-- 솔루션 리스트 (카드 간격 확대) -->
+                            
+                            <!-- 카드형 리스트 (세로 배치) -->
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
-                                    <td class="mobile-stack" style="padding-bottom: 20px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                    <td style="padding-bottom: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="card-box" style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px;">
                                             <tr>
-                                                <td width="70" align="center" style="font-size: 30px; padding: 25px 0 25px 25px;">📝</td>
-                                                <td style="padding: 25px;">
-                                                    <div style="font-size: 18px; font-weight: bold; color: #1E293B; margin-bottom: 6px;">나만의 리스트<br/>빠른주문!</div>
-                                                    <div style="font-size: 15px; color: #64748B; line-height: 1.5;">자주 쓰는 상품을 기억하고,<br/>주방 동선에 맞게 편집</div>
+                                                <td width="60" align="center" style="font-size: 28px; padding: 20px 0 20px 20px;">📝</td>
+                                                <td style="padding: 20px;">
+                                                    <div style="font-size: 16px; font-weight: bold; color: #1E293B; margin-bottom: 4px;">나만의 리스트 빠른주문!</div>
+                                                    <div style="font-size: 14px; color: #64748B; line-height: 1.4;">자주 쓰는 상품을 기억하고,<br/>주방 동선에 맞게 편집</div>
                                                 </td>
                                             </tr>
                                         </table>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="mobile-stack" style="padding-bottom: 20px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                    <td style="padding-bottom: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="card-box" style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px;">
                                             <tr>
-                                                <td width="70" align="center" style="font-size: 30px; padding: 25px 0 25px 25px;">👆</td>
-                                                <td style="padding: 25px;">
-                                                    <div style="font-size: 18px; font-weight: bold; color: #1E293B; margin-bottom: 6px;">원터치!<br/>주문 시스템</div>
-                                                    <div style="font-size: 15px; color: #64748B; line-height: 1.5;">터치 몇 번으로<br/>수량을 바꾸고 주문 완료</div>
+                                                <td width="60" align="center" style="font-size: 28px; padding: 20px 0 20px 20px;">👆</td>
+                                                <td style="padding: 20px;">
+                                                    <div style="font-size: 16px; font-weight: bold; color: #1E293B; margin-bottom: 4px;">원터치! 주문 시스템</div>
+                                                    <div style="font-size: 14px; color: #64748B; line-height: 1.4;">터치 몇 번으로<br/>수량을 바꾸고 주문 완료</div>
                                                 </td>
                                             </tr>
                                         </table>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="mobile-stack" style="padding-bottom: 20px;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                    <td style="padding-bottom: 15px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="card-box" style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px;">
                                             <tr>
-                                                <td width="70" align="center" style="font-size: 30px; padding: 25px 0 25px 25px;">💬</td>
-                                                <td style="padding: 25px;">
-                                                    <div style="font-size: 18px; font-weight: bold; color: #1E293B; margin-bottom: 6px;">실수 없는<br/>스마트 소통</div>
-                                                    <div style="font-size: 15px; color: #64748B; line-height: 1.5;">대체 상품 제안 및<br/>실시간 요청사항 확인</div>
+                                                <td width="60" align="center" style="font-size: 28px; padding: 20px 0 20px 20px;">💬</td>
+                                                <td style="padding: 20px;">
+                                                    <div style="font-size: 16px; font-weight: bold; color: #1E293B; margin-bottom: 4px;">실수 없는 스마트 소통</div>
+                                                    <div style="font-size: 14px; color: #64748B; line-height: 1.4;">대체 상품 제안 및<br/>실시간 요청사항 확인</div>
                                                 </td>
                                             </tr>
                                         </table>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="mobile-stack">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                    <td>
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="card-box" style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px;">
                                             <tr>
-                                                <td width="70" align="center" style="font-size: 30px; padding: 25px 0 25px 25px;">🔍</td>
-                                                <td style="padding: 25px;">
-                                                    <div style="font-size: 18px; font-weight: bold; color: #1E293B; margin-bottom: 6px;">투명한<br/>거래 관리</div>
-                                                    <div style="font-size: 15px; color: #64748B; line-height: 1.5;">주문 내역부터 정산까지<br/>앱 하나로 투명하게</div>
+                                                <td width="60" align="center" style="font-size: 28px; padding: 20px 0 20px 20px;">🔍</td>
+                                                <td style="padding: 20px;">
+                                                    <div style="font-size: 16px; font-weight: bold; color: #1E293B; margin-bottom: 4px;">투명한 거래 관리</div>
+                                                    <div style="font-size: 14px; color: #64748B; line-height: 1.4;">주문 내역부터 정산까지<br/>앱 하나로 투명하게</div>
                                                 </td>
                                             </tr>
                                         </table>
@@ -217,15 +195,15 @@
                     <!-- 5. 사장님 추천 -->
                     <tr>
                         <td class="mobile-padding" style="padding: 60px 30px; background-color: #FFFFFF;">
-                            <h3 class="section-title" style="margin: 0 0 30px 0; font-size: 28px; text-align: center; color: #1E293B; font-weight: bold;">
+                            <h2 class="section-title" style="margin: 0 0 30px 0; font-size: 28px; text-align: center; color: #1E293B; font-weight: bold;">
                                 사장님들이<br/>
                                 먼저 추천합니다
-                            </h3>
+                            </h2>
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
                                     <td style="padding-bottom: 20px;">
-                                        <div style="padding: 25px; background-color: #F8FAFC; border-radius: 16px; border-left: 5px solid #2563EB;">
-                                            <p style="margin: 0; font-size: 16px; color: #475569; font-style: italic; line-height: 1.7;">
+                                        <div class="card-box" style="padding: 25px; background-color: #F8FAFC; border-radius: 16px; border-left: 5px solid #2563EB;">
+                                            <p style="margin: 0; font-size: 15px; color: #475569; font-style: italic; line-height: 1.6;">
                                                 "앱 첫 화면에 제가 딱 필요한 '단골 행사' 상품이 떠요.<br/>
                                                 덕분에 <strong>'오늘 행사 상품 중에 싼 거 없나?'</strong> 하는 고민이 싹 사라졌죠.<br/>
                                                 필요한 것만 골라 담으면 주문 끝이라 너무 편해요!"
@@ -236,24 +214,13 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <div style="padding: 25px; background-color: #F8FAFC; border-radius: 16px; border-left: 5px solid #2563EB;">
-                                            <p style="margin: 0; font-size: 16px; color: #475569; font-style: italic; line-height: 1.7;">
+                                        <div class="card-box" style="padding: 25px; background-color: #F8FAFC; border-radius: 16px; border-left: 5px solid #2563EB;">
+                                            <p style="margin: 0; font-size: 15px; color: #475569; font-style: italic; line-height: 1.6;">
                                                 "매일 저녁 장사 끝나고 수십 개 품목을 수기로 적어서 문자로 보냈어요. 빼먹는 날도 많았죠.<br/>
                                                 오더즈 쓰고 나서는 주방 동선대로 정리해 둔 제 '빠른주문' 리스트가 있으니 재고 보면서 5분이면 끝나요."
                                             </p>
                                             <p style="margin: 15px 0 0 0; font-size: 14px; font-weight: bold; color: #2563EB;">- 강남구 역삼동 'A한식뷔페' 사장님</p>
                                         </div>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <!-- 버튼 -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 40px;">
-                                <tr>
-                                    <td align="center">
-                                        <a href="https://orderz.kr/open/" target="_blank" style="color: #475569; text-decoration: none; font-size: 18px; font-weight: 600; border-bottom: 2px solid #94A3B8; padding-bottom: 4px; display: inline-block; transition: all 0.2s;">
-                                            오더즈 보러가기 <span style="color: #2563EB; padding-left: 6px;">→</span>
-                                        </a>
                                     </td>
                                 </tr>
                             </table>
@@ -263,50 +230,50 @@
                     <!-- 6. 브랜드 섹션 -->
                     <tr>
                         <td align="center" class="mobile-padding" style="padding: 70px 30px; background-color: #1E293B;">
-                            <h3 class="section-title" style="margin: 0 0 20px 0; font-size: 28px; color: #FFFFFF; line-height: 1.4;">
+                            <h2 class="section-title" style="margin: 0 0 20px 0; font-size: 28px; color: #FFFFFF; line-height: 1.4;">
                                 우리 회사가<br/>
                                 '브랜드'가 됩니다
-                            </h3>
-                            <p style="margin: 0 0 45px 0; font-size: 16px; color: #CBD5E1; line-height: 1.7; font-weight: 300; word-break: keep-all;">
+                            </h2>
+                            <p class="text-body" style="margin: 0 0 45px 0; font-size: 16px; color: #CBD5E1; line-height: 1.6; font-weight: 300; word-break: keep-all;">
                                 우리 회사명과 로고가 있는<br/>
                                 독립된 주문 앱을 제공!<br/><br/>
                                 <span style="color: #FFFFFF; font-weight: bold;">전문성과 신뢰를 바탕으로<br/>고객 만족이 유통사의 '성공'이 됩니다.</span>
                             </p>
                             
-                            <!-- 3대 효과 -->
+                            <!-- 3대 효과 (수평 배치, 모바일 스택) -->
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
-                                    <td class="mobile-stack" width="32%" align="center" style="background-color: rgba(255,255,255,0.05); padding: 25px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px;">
-                                        <div style="font-size: 32px; margin-bottom: 8px;">📉</div>
-                                        <div style="color: #FFFFFF; font-size: 16px; font-weight: bold;">이탈률 75% 감소</div>
+                                    <td class="mobile-stack" width="32%" align="center" style="background-color: rgba(255,255,255,0.05); padding: 20px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px;">
+                                        <div style="font-size: 28px; margin-bottom: 8px;">📉</div>
+                                        <div style="color: #FFFFFF; font-size: 15px; font-weight: bold;">이탈률 75% 감소</div>
                                     </td>
-                                    <td class="mobile-stack" width="2%"></td>
-                                    <td class="mobile-stack" width="32%" align="center" style="background-color: rgba(255,255,255,0.05); padding: 25px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px;">
-                                        <div style="font-size: 32px; margin-bottom: 8px;">📈</div>
-                                        <div style="color: #FFFFFF; font-size: 16px; font-weight: bold;">객단가 15% 상승</div>
+                                    <td class="mobile-stack" width="2%" style="font-size:0;">&nbsp;</td>
+                                    <td class="mobile-stack" width="32%" align="center" style="background-color: rgba(255,255,255,0.05); padding: 20px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px;">
+                                        <div style="font-size: 28px; margin-bottom: 8px;">📈</div>
+                                        <div style="color: #FFFFFF; font-size: 15px; font-weight: bold;">객단가 15% 상승</div>
                                     </td>
-                                    <td class="mobile-stack" width="2%"></td>
-                                    <td class="mobile-stack" width="32%" align="center" style="background-color: rgba(255,255,255,0.05); padding: 25px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-                                        <div style="font-size: 32px; margin-bottom: 8px;">⏱️</div>
-                                        <div style="color: #FFFFFF; font-size: 16px; font-weight: bold;">업무 80% 단축</div>
+                                    <td class="mobile-stack" width="2%" style="font-size:0;">&nbsp;</td>
+                                    <td class="mobile-stack" width="32%" align="center" style="background-color: rgba(255,255,255,0.05); padding: 20px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+                                        <div style="font-size: 28px; margin-bottom: 8px;">⏱️</div>
+                                        <div style="color: #FFFFFF; font-size: 15px; font-weight: bold;">업무 80% 단축</div>
                                     </td>
                                 </tr>
                             </table>
                         </td>
                     </tr>
 
-                    <!-- 7. 전문가 섹션 (상세 기능) -->
+                    <!-- 7. 전문가 섹션 -->
                     <tr>
                         <td class="mobile-padding" style="padding: 60px 30px; background-color: #FFFFFF;">
-                            <h3 class="section-title" style="margin: 0 0 10px 0; font-size: 28px; text-align: center; color: #1E293B;">오더즈가 전문가입니다</h3>
-                            <p style="margin: 0 0 50px 0; font-size: 16px; text-align: center; color: #64748B;">식자재 유통의 모든 고민을<br/>해결해 드립니다.</p>
+                            <h2 class="section-title" style="margin: 0 0 10px 0; font-size: 28px; text-align: center; color: #1E293B;">오더즈가 전문가입니다</h2>
+                            <p class="text-body" style="margin: 0 0 40px 0; font-size: 16px; text-align: center; color: #64748B;">식자재 유통의 모든 고민을<br/>해결해 드립니다.</p>
                             
-                            <!-- 카드 1: 상품 관리 -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" class="expert-card" style="margin-bottom: 20px; border: 1px solid #E2E8F0; border-radius: 16px; background-color: #F8FAFC;">
+                            <!-- 카드형 리스트 -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                 <tr>
-                                    <td style="padding: 30px;">
-                                        <div class="expert-title" style="font-weight: bold; font-size: 18px; color: #2563EB; margin-bottom: 15px;">📦 상품 관리</div>
-                                        <ul class="expert-list" style="margin: 0; padding: 0 0 0 15px; font-size: 16px; color: #475569; line-height: 1.7;">
+                                    <td class="card-box" style="padding: 25px; border: 1px solid #E2E8F0; border-radius: 16px; background-color: #F8FAFC;">
+                                        <div style="font-weight: bold; font-size: 18px; color: #2563EB; margin-bottom: 15px;">📦 상품 관리</div>
+                                        <ul style="margin: 0; padding: 0 0 0 15px; font-size: 15px; color: #475569; line-height: 1.6;">
                                             <li style="margin-bottom: 8px;"><strong style="color: #1E293B;">공용 DB 활용:</strong> 방대한 상품 DB를 복사해 단가만 입력하면 즉시 판매 시작!</li>
                                             <li style="margin-bottom: 8px;"><strong style="color: #1E293B;">모바일 간편 등록:</strong> 현장에서 스마트폰으로 바로 상품 등록/수정 가능.</li>
                                             <li><strong style="color: #1E293B;">일괄 업데이트:</strong> ERP 연동 및 엑셀 파일로 손쉬운 대량 관리.</li>
@@ -314,13 +281,11 @@
                                     </td>
                                 </tr>
                             </table>
-
-                            <!-- 카드 2: 단가 관리 -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" class="expert-card" style="margin-bottom: 20px; border: 1px solid #E2E8F0; border-radius: 16px; background-color: #F8FAFC;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                 <tr>
-                                    <td style="padding: 30px;">
-                                        <div class="expert-title" style="font-weight: bold; font-size: 18px; color: #2563EB; margin-bottom: 15px;">💰 단가 관리</div>
-                                        <ul class="expert-list" style="margin: 0; padding: 0 0 0 15px; font-size: 16px; color: #475569; line-height: 1.7;">
+                                    <td class="card-box" style="padding: 25px; border: 1px solid #E2E8F0; border-radius: 16px; background-color: #F8FAFC;">
+                                        <div style="font-weight: bold; font-size: 18px; color: #2563EB; margin-bottom: 15px;">💰 단가 관리</div>
+                                        <ul style="margin: 0; padding: 0 0 0 15px; font-size: 15px; color: #475569; line-height: 1.6;">
                                             <li style="margin-bottom: 8px;"><strong style="color: #1E293B;">맞춤형 단가:</strong> 거래처/그룹별 차등 단가 적용.</li>
                                             <li style="margin-bottom: 8px;"><strong style="color: #1E293B;">재고연동 단가:</strong> 재고 소진 시 제2단가로 자동 변경.</li>
                                             <li><strong style="color: #1E293B;">'싯가' 상품:</strong> 주문 후 구매 프로세스 완벽 지원.</li>
@@ -328,13 +293,11 @@
                                     </td>
                                 </tr>
                             </table>
-
-                            <!-- 카드 3: 배송 및 CRM -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" class="expert-card" style="border: 1px solid #E2E8F0; border-radius: 16px; background-color: #F8FAFC;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
-                                    <td style="padding: 30px;">
-                                        <div class="expert-title" style="font-weight: bold; font-size: 18px; color: #2563EB; margin-bottom: 15px;">🚚 배송 및 CRM</div>
-                                        <ul class="expert-list" style="margin: 0; padding: 0 0 0 15px; font-size: 16px; color: #475569; line-height: 1.7;">
+                                    <td class="card-box" style="padding: 25px; border: 1px solid #E2E8F0; border-radius: 16px; background-color: #F8FAFC;">
+                                        <div style="font-weight: bold; font-size: 18px; color: #2563EB; margin-bottom: 15px;">🚚 배송 및 CRM</div>
+                                        <ul style="margin: 0; padding: 0 0 0 15px; font-size: 15px; color: #475569; line-height: 1.6;">
                                             <li style="margin-bottom: 8px;"><strong style="color: #1E293B;">유연한 일정:</strong> 마감 시간, 휴무일 자유 설정.</li>
                                             <li style="margin-bottom: 8px;"><strong style="color: #1E293B;">다양한 옵션:</strong> 예약배송, 매장픽업 등 설정 가능.</li>
                                             <li><strong style="color: #1E293B;">정보 경영:</strong> 고객별 데이터 분석 제공.</li>
@@ -345,11 +308,11 @@
                         </td>
                     </tr>
 
-                    <!-- 8. 최종 CTA 섹션 (컴팩트) -->
+                    <!-- 8. 최종 CTA -->
                     <tr>
                         <td align="center" class="mobile-padding" style="padding: 60px 30px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0;">
-                            <h3 class="section-title" style="margin: 0 0 20px 0; font-size: 28px; color: #1E293B;">디지털 선도 기업!</h3>
-                            <p style="margin: 0 0 35px 0; font-size: 16px; color: #64748B; line-height: 1.6; word-break: keep-all;">
+                            <h2 class="section-title" style="margin: 0 0 25px 0; font-size: 28px; color: #1E293B;">디지털 선도 기업!</h2>
+                            <p class="text-body" style="margin: 0 0 35px 0; font-size: 16px; color: #64748B; line-height: 1.6; word-break: keep-all;">
                                 고객이 변하고 있습니다.<br/>
                                 <span style="color: #F97316; font-weight: bold; color: #000000;">배송 갔을 때 새벽 배송 상품이 먼저 와있는 풍경은 이제 시작일 뿐입니다.</span><br/><br/>
                                 고객의 눈높이에 맞춰<br/>
@@ -367,16 +330,14 @@
                         </td>
                     </tr>
 
-                    <!-- 푸터 (Dark Theme - 세련되게 중앙 정렬) -->
+                    <!-- 푸터 -->
                     <tr>
                         <td align="center" class="mobile-padding" style="padding: 50px 30px; background-color: #111827; color: #9CA3AF; font-size: 13px; line-height: 1.8;">
                             
-                            <!-- 브랜드명 -->
                             <div style="margin-bottom: 30px;">
                                 <span style="color: #FFFFFF; font-size: 18px; font-weight: bold; letter-spacing: 1px;">ONEAPP</span>
                             </div>
                             
-                            <!-- 정보 -->
                             <div style="margin-bottom: 30px;">
                                 대표 : 이무철 <span style="color: #4B5563; margin: 0 6px;">|</span> 개인정보 보호책임자 : 이무철<br/>
                                 사업자등록번호 : 380-14-01523<br/>
@@ -385,12 +346,10 @@
                                 전화 : 02-6959-1374 <span style="color: #4B5563; margin: 0 6px;">|</span> 팩스 : 070-4808-3833
                             </div>
 
-                            <!-- 링크 -->
                             <div style="margin-bottom: 40px;">
                                 <a href="https://oneapp.orderz.co.kr/" target="_blank" style="color: #CBD5E1; text-decoration: none; border-bottom: 1px solid #4B5563; padding-bottom: 3px;">홈페이지 방문하기</a>
                             </div>
                             
-                            <!-- 저작권 (구분선 추가) -->
                             <div style="border-top: 1px solid #1F2937; padding-top: 25px; width: 100%;">
                                 <p style="margin: 0; color: #6B7280; font-size: 12px; letter-spacing: 0.5px;">© 2025 ORDERZ by ONEAPP. All Rights Reserved.</p>
                             </div>
