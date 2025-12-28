@@ -29,18 +29,19 @@
             <td align="center" style="padding: 20px 0;">
                 
                 <!-- 메인 컨테이너 (최대 600px) -->
-                <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <!-- class="notranslate" 및 translate="no" 속성으로 번역 방지 -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" class="container notranslate" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);" translate="no">
                     
                     <!-- 1. 헤더 (로고 + 앱다운로드) -->
                     <tr>
-                        <td class="mobile-padding" style="padding: 20px 30px; border-bottom: 1px solid #E2E8F0; background-color: #DBEAFE;"> <!-- 배경색 연결 -->
+                        <td class="mobile-padding" style="padding: 20px 30px; border-bottom: 1px solid #F1F5F9; background-color: #FFFFFF;">
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
                                     <td align="left" valign="middle">
                                         <h1 style="margin: 0; font-size: 22px; color: #1e293b; font-weight: bold; letter-spacing: -0.5px;">오더즈</h1>
                                     </td>
                                     <td align="right" valign="middle">
-                                        <a href="https://orderz.kr/open/" target="_blank" style="background-color: #FFFFFF; color: #2563EB; border: 1px solid #2563EB; padding: 8px 12px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold; white-space: nowrap;">
+                                        <a href="https://orderz.kr/open/" target="_blank" style="background-color: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold; white-space: nowrap;">
                                             📱 [앱다운로드]
                                         </a>
                                     </td>
@@ -63,7 +64,7 @@
                         </td>
                     </tr>
 
-                    <!-- 3. 문제 제기 (2열 -> 모바일 1열) -->
+                    <!-- 3. 문제 제기 (2열 -> 모바일 2x2 그리드 유지) -->
                     <tr>
                         <td class="mobile-padding" style="padding: 10px 30px 50px 30px; background-color: #FFFFFF;">
                             <h3 class="section-title" style="margin: 0 0 35px 0; font-size: 24px; text-align: center; color: #1E293B; font-weight: bold;">
@@ -195,7 +196,7 @@
                         </td>
                     </tr>
 
-                    <!-- 5. 사장님 추천 (Testimonials - 수정됨) -->
+                    <!-- 5. 사장님 추천 (Testimonials) -->
                     <tr>
                         <td class="mobile-padding" style="padding: 50px 30px; background-color: #FFFFFF;">
                             <h3 class="section-title" style="margin: 0 0 30px 0; font-size: 24px; text-align: center; color: #1E293B; font-weight: bold;">
@@ -228,12 +229,12 @@
                                 </tr>
                             </table>
                             
-                            <!-- 버튼 이동 (사장님 추천 섹션 하단) -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 30px;">
+                            <!-- 버튼 수정: 텍스트 링크 형태 + 여백 축소 -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 20px;">
                                 <tr>
                                     <td align="center">
-                                        <a href="https://orderz.kr/open/" target="_blank" class="btn-large" style="background-color: #1E293B; color: #ffffff; padding: 16px 40px; border-radius: 50px; text-decoration: none; font-size: 16px; font-weight: bold; display: inline-block;">
-                                            오더즈 보러가기 <span style="color: #94A3B8;">→</span>
+                                        <a href="https://orderz.kr/open/" target="_blank" style="color: #475569; text-decoration: none; font-size: 15px; font-weight: 600; border-bottom: 1px solid #94A3B8; padding-bottom: 2px; display: inline-block; transition: all 0.2s;">
+                                            오더즈 보러가기 <span style="color: #2563EB; padding-left: 4px;">→</span>
                                         </a>
                                     </td>
                                 </tr>
@@ -290,9 +291,9 @@
                                             <span style="font-weight: bold; font-size: 16px; color: #2563EB;">📦 상품 관리</span>
                                         </div>
                                         <ul style="margin: 0; padding: 0 0 0 15px; font-size: 14px; color: #475569; line-height: 1.7;">
-                                            <li><strong style="color: #1E293B;">공용 DB 활용:</strong><br/>본사 상품 복사로 즉시 판매</li>
-                                            <li><strong style="color: #1E293B;">모바일 간편 등록:</strong><br/>스마트폰으로 등록 / 수정</li>
-                                            <li><strong style="color: #1E293B;">일괄 업데이트:</strong><br/>엑셀 파일로 한 번에 처리</li>
+                                            <li><strong style="color: #1E293B;">공용 DB 활용:</strong><br/>오더즈의 방대한 공용 상품 DB(이미지 포함)를 그대로 사용하세요. 취급하는 업종의 카테고리를 한 번에 복사하여 단가만 입력하면 즉시 판매가 가능합니다.</li>
+                                            <li><strong style="color: #1E293B;">모바일 간편 등록:</strong><br/>현장에서 스마트폰으로 바로 상품을 등록하고 수정할 수 있습니다.</li>
+                                            <li><strong style="color: #1E293B;">일괄 업데이트:</strong><br/>ERP 연동 또는 엑셀 파일로 상품 정보와 단가를 일괄 업데이트할 수 있습니다.</li>
                                         </ul>
                                     </td>
                                 </tr>
