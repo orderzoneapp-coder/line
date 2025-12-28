@@ -49,6 +49,14 @@
             .footer-right {
                 text-align: left !important; /* 모바일에서는 왼쪽 정렬 */
             }
+            /* 모바일 줄바꿈 제어 클래스 */
+            .br-mobile {
+                display: block;
+                margin-bottom: 5px;
+            }
+            .no-br-mobile {
+                display: inline;
+            }
         }
     </style>
 </head>
@@ -60,11 +68,12 @@
         
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto;" class="responsive-table">
             
-            <!-- 히어로 이미지 섹션 -->
+            <!-- 히어로 이미지 섹션 (높이 확대) -->
             <tr>
-                <td align="center" background="https://oneapp2.godohosting.com/NH/garak.jpg" bgcolor="#2a3b4c" style="background: #2a3b4c url('https://oneapp2.godohosting.com/NH/garak.jpg') center/cover no-repeat; padding: 40px 20px 180px 20px;" valign="top">
+                <!-- padding-bottom을 180px -> 360px로 늘려 이미지 노출 영역 확대 -->
+                <td align="center" background="https://oneapp2.godohosting.com/NH/garak.jpg" bgcolor="#2a3b4c" style="background: #2a3b4c url('https://oneapp2.godohosting.com/NH/garak.jpg') center/cover no-repeat; padding: 40px 20px 360px 20px;" valign="top">
                     <!--[if gte mso 9]>
-                    <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:400px;">
+                    <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:600px;">
                         <v:fill type="tile" src="https://oneapp2.godohosting.com/NH/garak.jpg" color="#2a3b4c" />
                         <v:textbox inset="0,0,0,0">
                     <![endif]-->
@@ -191,7 +200,7 @@
                 </td>
             </tr>
 
-            <!-- 하단 파트너 유형별 섹션 (카드 리스트 형태) -->
+            <!-- 하단 파트너 유형별 섹션 (모바일 최적화 줄바꿈 적용) -->
             <tr>
                 <td align="center" style="padding: 40px 20px 20px 20px; background-color: #ffffff;">
                     <h3 style="font-family: 'Noto Sans KR', sans-serif; font-size: 18px; color: #7f8c8d; margin: 0 0 20px; font-weight: 700; text-align: center;">
@@ -209,10 +218,10 @@
                                             <div style="display: block;">
                                                 <strong style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; color: #2c3e50; display: block; margin-bottom: 10px;">식자재마트</strong>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #555; line-height: 1.6; display: block; margin-bottom: 10px;">
-                                                    전국 최대 식자재 유통단지 가락시장에서 직접 구매하고, 자체 물류로 안정적으로 공급합니다.
+                                                    전국 최대 식자재 유통단지<br>가락시장에서 직접 구매하고,<br>자체 물류로 안정적으로 공급합니다.
                                                 </span>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #555; line-height: 1.6; display: block;">
-                                                    퀄리티있는 상품을 꾸준히 제공해 단순한 가격 경쟁을 넘어, <strong>고객이 계속 찾는 차별화를 만들어 드립니다!</strong>
+                                                    퀄리티있는 상품을 꾸준히 제공해<br>단순한 가격 경쟁을 넘어,<br><strong>고객이 계속 찾는 차별화를 만들어 드립니다!</strong>
                                                 </span>
                                             </div>
                                         </td>
@@ -233,11 +242,11 @@
                                             <div style="display: block;">
                                                 <strong style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; color: #2c3e50; display: block; margin-bottom: 10px;">유통상인</strong>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #555; line-height: 1.6; display: block; margin-bottom: 10px;">
-                                                    가락시장, 대구 매천시장, 부산 엄궁시장, 창원 공판장, 진주 도매시장<br>
+                                                    가락시장, 대구 매천시장, 부산 엄궁시장,<br>창원 공판장, 진주 도매시장<br>
                                                     <strong>직접 경매, 자체 물류 시스템</strong>
                                                 </span>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #555; line-height: 1.6; display: block;">
-                                                    거래처마다 다른 요구사항 바로 납품가능하도록 <strong>소분 1키로까지 딱 맞게!</strong>
+                                                    거래처마다 다른 요구사항<br>바로 납품가능하도록<br><strong>소분 1키로까지 딱 맞게!</strong>
                                                 </span>
                                             </div>
                                         </td>
@@ -259,12 +268,12 @@
                                                 <strong style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; color: #2c3e50; display: block; margin-bottom: 10px;">가공업체</strong>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #2c3e50; font-weight: 700; display: block; margin-bottom: 5px;">원가 절감 노하우</span>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #555; line-height: 1.6; display: block; margin-bottom: 15px;">
-                                                    균일한 품질과 안정적인 공급량을 최우선으로 고려하여 1차 생산물을 농가, 도매시장, 수입업체 등에서 적절히 분배하여 조달합니다.
+                                                    균일한 품질과 안정적인 공급량을<br>최우선으로 고려하여<br>1차 생산물을 농가, 도매시장, 수입업체 등에서<br>적절히 분배하여 조달합니다.
                                                 </span>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #2c3e50; font-weight: 700; display: block; margin-bottom: 5px;">균일한 품질과 안정적인 공급</span>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #555; line-height: 1.6; display: block;">
-                                                    생산 계획에 맞춰 원재료를 적시에 조달 해야만 하는 리스크 관리<br><br>
-                                                    NH라인은 다양한 업체에 공급하던 노하우를 바탕으로 <strong>"원가 절감"과 "안정적인 확보"를 위한 전략적 선택</strong>입니다.
+                                                    생산 계획에 맞춰 원재료를<br>적시에 조달 해야만 하는 리스크 관리<br><br>
+                                                    NH라인은 다양한 업체에 공급하던<br>노하우를 바탕으로<br><strong>"원가 절감"과 "안정적인 확보"를 위한<br>전략적 선택</strong>입니다.
                                                 </span>
                                             </div>
                                         </td>
@@ -286,17 +295,17 @@
                                                 <strong style="font-family: 'Noto Sans KR', sans-serif; font-size: 16px; color: #2c3e50; display: block; margin-bottom: 15px;">도매유통사 모집</strong>
                                                 
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 15px; color: #2c3e50; font-weight: 700; line-height: 1.4; display: block; margin-bottom: 5px;">
-                                                    내 지역 식자재 유통, 새로운 표준을 세우다<br>
+                                                    내 지역 식자재 유통,<br>새로운 표준을 세우다<br>
                                                     우리 회사가 곧 브랜드가 됩니다
                                                 </span>
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #555; line-height: 1.6; display: block; margin-bottom: 15px;">
-                                                    우리 회사명과 로고가 담긴 독립 주문 앱 제공.<br>
-                                                    전문성은 신뢰를 형성하고, 고객 만족이 곧 성공이 됩니다.
+                                                    우리 회사명과 로고가 담긴<br>독립 주문 앱 제공.<br>
+                                                    전문성은 신뢰를 형성하고,<br>고객 만족이 곧 성공이 됩니다.
                                                 </span>
 
                                                 <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 14px; color: #555; line-height: 1.6; display: block; margin-bottom: 20px;">
                                                     온라인 담당 인력이 없어도 걱정 없습니다.<br>
-                                                    <strong>식자재 유통 전문가 그룹, 원앱과 함께합니다.</strong>
+                                                    <strong>식자재 유통 전문가 그룹,<br>원앱과 함께합니다.</strong>
                                                 </span>
 
                                                 <!-- 지원 항목 리스트 (좌우 2단 배치) -->
