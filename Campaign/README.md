@@ -1,16 +1,1 @@
-e-mail.html NH라인 도매몰
-https://gemini.google.com/app/bbd9fe7697d94dce?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
-
-delivery.html 납품업체
-
-
-factory01.html 급식업체
-https://gemini.google.com/app/ed7a2b99946998c1?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
-
-README.md 유통상인 도매몰
-https://gemini.google.com/app/a7fd4f721587aa2e?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all
-
-nhline_partners.html 
-[NH라인 도매몰 파트너사 모집 ](https://line.orderz.co.kr/Campaign/nhline_partners)    
-
-[제미나이](https://gemini.google.com/app/b94de2b25a0b79cd) 
+https://line.orderz.co.kr/Campaign/MAKETING_E-MAIL.html
