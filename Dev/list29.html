@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>빠른 주문 시뮬레이션</title>
+    <style>
+        /* --- Reset & Base Styles --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #f2f4f6; display: flex; justify-content: center; min-height: 100vh; color: #191f28; }
+        
+        /* --- Mobile Container Layout --- */
+        .app-container {
+            width: 100%; max-width: 480px; background-color: #fff; position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; height: 100vh;
+        }
+
+        /* --- Colors & Vars --- */
+        :root { 
+            --primary: #008f3e; 
+            --primary-dark: #007a35;
+            --text-main: #191f28;
+            --text-sub: #8b95a1;
+            --border: #e5e8eb; 
+            --bg-base: #fff;
+            --bg-gray: #f9f9f9; 
+            --highlight-bg: #fffce0; /* Zone A Highlight */
+            --nav-height: 56px;
+            --footer-height: 70px;
+        }
+
+        /* --- Icons (SVG) --- */
+        .icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* --- Header (Centered Title) --- */
+        header { 
+            height: 56px; padding: 0 16px; display: flex; justify-content: space-between; align-items: center; 
+            background: #fff; z-index: 10; border-bottom: 1px solid var(--border);
+            position: relative; 
+        }
+        
+        .header-left-logo { 
+            font-size: 13px; font-weight: 800; color: var(--primary); text-decoration: none; 
+            letter-spacing: 0.5px; z-index: 20; display: flex; align-items: center;
+        }
+        .header-center-title { 
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); 
+            font-size: 18px; font-weight: 800; color: var(--text-main); 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;
+        }
+        .header-btn { background: none; border: none; padding: 4px; cursor: pointer; color: #333; display: flex; align-items: center; justify-content: center; z-index: 20; }
+
+        /* --- Search Area --- */
+        .search-area { padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--border); display: none; }
+        .search-box-wrapper { display: flex; align-items: center; gap: 8px; }
+        .search-input-box { flex: 1; display: flex; align-items: center; background: #f2f4f6; border-radius: 8px; padding: 0 12px; height: 40px; }
+        .search-input-box input { flex: 1; border: none; background: transparent; outline: none; font-size: 15px; margin-left: 8px; color: var(--text-main); }
+        .search-cancel { font-size: 14px; color: var(--text-sub); cursor: pointer; padding: 8px 4px; white-space: nowrap; }
+
+        /* --- Tabs --- */
+        .tab-bar { display: flex; background: #fff; border-bottom: 1px solid var(--border); height: 44px; }
+        .tab { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 15px; color: var(--text-sub); cursor: pointer; font-weight: 500; transition: color 0.2s; position: relative; }
+        .tab.active { color: var(--text-main); font-weight: 700; }
+        .tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--text-main); }
+
+        /* --- Content Area --- */
+        .content-scroll { flex: 1; overflow-y: auto; background: #fff; padding-bottom: calc(var(--nav-height) + var(--footer-height)); }
+        
+        /* Viewer Sort Toggle Bar */
+        .viewer-sort-bar {
+            padding: 12px 16px 8px; background: #fff; display: flex; justify-content: space-between; align-items: center;
+        }
+        .viewer-sort-toggle {
+            display: inline-flex; background: #f2f4f6; border-radius: 8px; padding: 3px;
+        }
+        .v-sort-btn {
+            padding: 6px 12px; font-size: 13px; font-weight: 500; color: #8b95a1; border-radius: 6px; border: none; background: transparent; cursor: pointer;
+        }
+        .v-sort-btn.active {
+            background: #fff; color: #191f28; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .list-count-info { font-size: 14px; font-weight: 600; color: #333; }
+
+        /* Section Header */
+        .section-header {
+            padding: 12px 16px; background: #f9f9f9; border-top: 1px solid #eee; border-bottom: 1px solid #eee;
+            font-size: 13px; font-weight: 700; color: #555; display: flex; align-items: center;
+        }
+        .section-header.recent { background: #fffce0; border-color: #efe8c0; color: #5d4037; } /* Recent Items Highlight */
+
+        /* --- Product List Item --- */
+        .product-item { display: flex; padding: 16px; border-bottom: 1px solid #f2f4f6; align-items: center; background: #fff; }
+        .product-item.zone-a-item { background: #fffeeb; } 
+        
+        .prod-img { width: 80px; height: 80px; background: #f8f9fa; border-radius: 8px; margin-right: 16px; display: flex; align-items: center; justify-content: center; font-size: 36px; flex-shrink: 0; border: 1px solid #edf0f4; }
+        .prod-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; height: 80px; }
+        .prod-name { font-size: 16px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .prod-unit { font-size: 13px; color: var(--text-sub); margin-bottom: 8px; }
+        .prod-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+        .prod-price { font-size: 16px; font-weight: 700; color: var(--text-main); }
+        .prod-tag { font-size: 11px; color: #f04452; background: #fff0f1; padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-weight: 600; }
+
+        /* --- Quantity Control --- */
+        .qty-control { display: flex; align-items: center; border: 1px solid #dfe2e6; border-radius: 4px; height: 32px; background: #fff; overflow: hidden; margin-left: 12px; }
+        .qty-btn { width: 30px; height: 100%; border: none; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #333; transition: background 0.1s; }
+        .qty-btn:active { background: #f2f4f6; }
+        .qty-val { width: 34px; text-align: center; font-size: 14px; font-weight: 600; color: var(--text-main); line-height: 32px; }
+
+        /* --- Global Search Suggestion --- */
+        .global-search-suggestion { padding: 30px 16px; text-align: center; background: #f9f9f9; border-top: 1px solid var(--border); display: none; margin-top: 20px;}
+        .global-search-text { font-size: 14px; color: #666; margin-bottom: 12px; }
+        .global-search-btn { width: 100%; padding: 12px; border: 1px solid #d1d6db; background: #fff; color: var(--text-main); border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+
+        /* --- Footer (Order Bar) --- */
+        .footer-bar { position: absolute; bottom: var(--nav-height); left: 0; right: 0; background: #fff; border-top: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; height: var(--footer-height); z-index: 50; }
+        .delivery-info { margin-right: 12px; flex: 1; }
+        .delivery-label { font-size: 12px; color: var(--text-sub); margin-bottom: 2px; }
+        .delivery-date { font-size: 14px; color: var(--text-main); font-weight: 700; }
+        
+        .order-btn { background: #d1d6db; color: #fff; border: none; padding: 0 20px; height: 48px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: not-allowed; min-width: 180px; transition: background 0.2s; }
+        .order-btn.active { background: #333; cursor: pointer; } 
+
+        /* --- Bottom Navigation --- */
+        .bottom-nav { position: absolute; bottom: 0; left: 0; width: 100%; height: var(--nav-height); background: #fff; border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #b0b8c1; cursor: pointer; background: none; border: none; padding-top: 4px; }
+        .nav-item.active { color: var(--text-main); }
+        .nav-icon svg { width: 22px; height: 22px; stroke-width: 2.2; }
+        .nav-label { font-size: 10px; font-weight: 600; margin-top: 3px; }
+        .kakao-icon { width: 22px; height: 22px; background: #FEE500; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #3C1E1E; }
+        .kakao-icon svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
+
+        /* --- SPA Modal (Common) --- */
+        .modal-spa { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .modal-spa.open { transform: translateX(0); }
+        
+        .modal-header { height: 52px; padding: 0 16px; background: #fff; display: flex; align-items: center; border-bottom: 1px solid var(--border); flex-shrink: 0; justify-content: space-between; }
+        .modal-back-btn { background: none; border: none; padding: 8px; margin-left: -8px; cursor: pointer; color: var(--text-main); display:flex; align-items:center; }
+        .modal-title { font-size: 16px; font-weight: 700; color: var(--text-main); }
+        
+        .modal-content { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+        
+        /* Global Search Modal Styles */
+        .modal-item { background: #fff; padding: 16px; border-bottom: 1px solid #f2f4f6; display: flex; align-items: center; cursor: pointer; }
+        .modal-checkbox { width: 22px; height: 22px; border: 2px solid #ddd; border-radius: 50%; margin-left: auto; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .modal-checkbox.checked { background: var(--primary); border-color: var(--primary); }
+        .modal-checkbox.checked::after { content: ''; width: 5px; height: 9px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg) translateY(-1px); }
+
+        .modal-confirm-container { position: absolute; bottom: 30px; left: 0; right: 0; padding: 0 20px; text-align: center; pointer-events: none; }
+        .modal-confirm-btn { background: var(--primary); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 12px; font-size: 16px; font-weight: 700; box-shadow: 0 4px 12px rgba(0, 143, 62, 0.3); cursor: pointer; pointer-events: auto; transform: translateY(100px); transition: transform 0.3s; }
+        .modal-confirm-btn.visible { transform: translateY(0); }
+
+        /* --- EDITOR STYLES --- */
+        .editor-top-area { flex-shrink: 0; background: #fff; z-index: 10; }
+        
+        /* Editor Sort & Column Header Bar */
+        .editor-sort-bar { 
+            display: flex; height: 50px; padding: 0 16px; background: #fff; border-bottom: 1px solid #eee; 
+            align-items: center; justify-content: flex-end; 
+            gap: 12px; position: relative;
+        }
+        
+        .sort-left { 
+            display: flex; align-items: center; margin-right: auto;
+        }
+        
+        /* Text-style Button for Category Sort */
+        .sort-text-btn { 
+            font-size: 13px; color: #666; font-weight: 500; cursor: pointer; 
+            background: none; border: none; padding: 0; display:flex; align-items:center;
+        }
+        .sort-text-btn::before {
+            content: '⇅'; margin-right: 4px; font-size:14px;
+        }
+
+        /* New Guide Button Style */
+        .guide-text-btn {
+            font-size: 12px; color: #888; font-weight: 500; cursor: pointer;
+            margin-left: 16px; display: flex; align-items: center;
+        }
+        .guide-text-btn svg { width: 14px; height: 14px; margin-right: 3px; }
+
+        /* Column Headers as Buttons (List 1,2,3) */
+        .sort-right-headers { display: grid; grid-template-columns: 50px 50px 50px 32px; gap: 4px; text-align: center; }
+        
+        .col-header-btn { 
+            width: 100%; height: 34px; 
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700; color: #888; 
+            border: 1px solid #eee; background: #fff; border-radius: 6px; cursor: pointer; 
+            transition: all 0.2s; white-space: nowrap; overflow: hidden;
+        }
+        .col-header-btn:active { background: #f5f5f5; }
+        
+        /* Active Tab Button Style */
+        .col-header-btn.active {
+            background: #333; color: #fff; border-color: #333;
+        }
+
+        /* Editor Row */
+        .editor-row { display: grid; grid-template-columns: 32px 1fr 50px 50px 50px 32px; gap: 4px; padding: 8px; border-bottom: 1px solid #f2f4f6; background: #fff; align-items: center; }
+        .editor-row.is-new { background: #fffce0; }
+
+        .editor-del-btn { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #ccc; cursor: pointer; }
+        .editor-name-area { font-size: 13px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; display: flex; align-items: center; }
+        
+        .editor-input { width: 100%; height: 36px; border: 1px solid #e0e0e0; border-radius: 6px; text-align: center; font-size: 15px; font-weight: 700; color: #333; outline: none; padding: 0; background: #fff; }
+        .editor-input.active-input { border-color: var(--primary); color: var(--primary); background: #f0fdf4; }
+        .editor-input:focus { border-color: var(--primary); background: #f0fdf4; }
+        .editor-input::-webkit-outer-spin-button, .editor-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .editor-input[type=number] { -moz-appearance: textfield; }
+
+        .editor-move-btn { width: 100%; height: 36px; border: 1px dashed #e0e0e0; border-radius: 6px; margin: 0 auto; background: #fafafa; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #ccc; }
+        .editor-move-btn:active { background: #eee; }
+        .editor-drag-handle { color: #ccc; cursor: grab; display: flex; align-items: center; justify-content: center; }
+        .new-badge { font-size:9px; color:#fff; background:#f04452; padding:1px 3px; border-radius:3px; margin-right:4px; flex-shrink:0; }
+
+        /* Editor Bottom Bar */
+        .editor-bottom-bar { height: 60px; display: flex; padding: 8px 16px; gap: 10px; background: #fff; border-top: 1px solid #eee; flex-shrink: 0; z-index: 20; padding-bottom: env(safe-area-inset-bottom); box-sizing: content-box; }
+        .editor-btn-cancel { flex: 1; border: 1px solid #d1d6db; background: #fff; color: #333; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; }
+        .editor-btn-save { flex: 1; border: none; background: #333; color: #fff; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; }
+
+        /* Order Sheet */
+        .order-summary-bar { background: #f9f9f9; padding: 12px 16px; font-size: 14px; color: #666; border-bottom: 1px solid #eee; display:flex; justify-content:space-between; }
+        .order-total-price { font-size: 20px; font-weight: 800; color: var(--primary); padding: 20px; text-align: right; border-top: 1px solid #eee; }
+        .os-item-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .os-price-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+        .os-item-name { font-weight: 600; color: #333; font-size: 15px; }
+        .os-item-unit { font-size: 12px; color: #888; margin-left: 6px; }
+        .os-item-price { font-weight: 700; color: #333; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Main Header -->
+        <header>
+            <a href="https://oneapp.orderz.co.kr" class="header-left-logo">ORDERZ</a>
+            <div class="header-center-title">NH라인</div>
+            <button class="header-btn" onclick="alert('마이페이지로 이동합니다.')">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </button>
+        </header>
+
+        <!-- Search Bar -->
+        <div class="search-area" id="searchArea">
+            <div class="search-box-wrapper">
+                <div class="search-input-box">
+                    <svg class="icon" style="width:18px; height:18px; color:#aaa;" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="localSearchInput" placeholder="상품명 검색" autocomplete="off">
+                </div>
+                <div class="search-cancel" onclick="toggleSearch()">취소</div>
+            </div>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <div class="tab" onclick="switchTab('special')" id="tab-special">단골특가</div>
+            <div class="tab active" onclick="switchTab('list1')" id="tab-list1">LIST 1</div>
+            <div class="tab" onclick="switchTab('list2')" id="tab-list2">LIST 2</div>
+            <div class="tab" onclick="switchTab('list3')" id="tab-list3">LIST 3</div>
+        </div>
+
+        <!-- Viewer Sort Toggle (New) -->
+        <div class="viewer-sort-bar" id="viewerSortBar">
+            <!-- Left: List Info -->
+            <span class="list-count-info" id="listCount">전체 (0)</span>
+            
+            <!-- Right: Sort Toggle -->
+            <div class="viewer-sort-toggle">
+                <button class="v-sort-btn active" id="v-sort-custom" onclick="switchViewerSort('custom')">내 순서</button>
+                <button class="v-sort-btn" id="v-sort-latest" onclick="switchViewerSort('latest')">최신순</button>
+            </div>
+        </div>
+
+        <!-- Main Content Scroll Area -->
+        <div class="content-scroll" id="scrollContainer">
+            <!-- Product List Container -->
+            <div id="mainProductList">
+                <!-- Items Render Here -->
+            </div>
+
+            <!-- Global Search Suggestion -->
+            <div class="global-search-suggestion" id="globalSearchSuggestion">
+                <div class="global-search-text">찾으시는 상품이 리스트에 없나요?</div>
+                <button class="global-search-btn" id="globalSearchBtn" onclick="openGlobalSearch()">
+                    전체 상품에서 검색하기
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer (Order Bar) -->
+        <div class="footer-bar">
+            <div class="delivery-info">
+                <div class="delivery-label">배송예정일</div>
+                <div class="delivery-date">10월 20일 (월)</div>
+            </div>
+            <button class="order-btn" id="mainOrderBtn" onclick="openOrderSheet()">주문할 상품을 담아주세요</button>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item" onclick="toggleSearch()">
+                <div class="nav-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
+                <div class="nav-label">검색</div>
+            </button>
+            <button class="nav-item" onclick="openGlobalSearch()">
+                <div class="nav-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></div>
+                <div class="nav-label">상품추가</div>
+            </button>
+            <button class="nav-item" onclick="openEditor()">
+                <div class="nav-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
+                <div class="nav-label">편집하기</div>
+            </button>
+            <button class="nav-item" onclick="openKakaoInquiry()">
+                <div class="kakao-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 3c5.5 0 10 3.6 10 8 0 2.5-1.5 4.8-3.9 6.2.2.8.8 2.5.8 2.6 0 0-.1.1-.2 0-1.1-.7-3.7-2.5-4.3-2.9-.8.2-1.6.2-2.4.2-5.5 0-10-3.6-10-8s4.5-8 10-8z"/></svg>
+                </div>
+                <div class="nav-label" style="margin-top:2px;">문의</div>
+            </button>
+        </nav>
+    </div>
+
+    <!-- SPA Modal: Global Search -->
+    <div class="modal-spa" id="globalSearchModal">
+        <div class="modal-header">
+            <button class="modal-back-btn" onclick="closeGlobalSearch()">
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div class="modal-title"><span style="color:#f04452" id="modalSearchQuery"></span> 검색 결과</div>
+            <div style="width:24px;"></div>
+        </div>
+        <div class="modal-content" id="modalList"></div>
+        <div class="modal-confirm-container">
+            <button class="modal-confirm-btn" id="modalConfirmBtn" onclick="confirmGlobalSelection()">
+                선택 상품 리스트에 추가
+            </button>
+        </div>
+    </div>
+
+    <!-- SPA Modal: List Editor -->
+    <div class="modal-spa" id="editorModal">
+        <div class="editor-top-area">
+            <!-- Sort Toggles & Clickable Column Headers -->
+            <div class="editor-sort-bar">
+                <div class="sort-left">
+                    <button class="sort-text-btn" id="sort-category" onclick="toggleEditorSort('category')">카테고리순 정렬</button>
+                    <!-- Moved Guide Button Here -->
+                    <div class="guide-text-btn" onclick="alert('사용자 리스트 활용 가이드 (준비중)')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        가이드
+                    </div>
+                </div>
+                
+                <!-- Aligned Headers acting as TABS -->
+                <div class="sort-right-headers">
+                    <div class="col-header-btn" id="h-list1" onclick="switchEditorTab('list1')">리스트1</div>
+                    <div class="col-header-btn" id="h-list2" onclick="switchEditorTab('list2')">리스트2</div>
+                    <div class="col-header-btn" id="h-list3" onclick="switchEditorTab('list3')">리스트3</div>
+                    <span></span> <!-- Spacer for Drag -->
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-content" id="editorList" style="padding-top:0; padding-bottom:10px;">
+            <!-- Editor Items -->
+        </div>
+        
+        <div class="editor-bottom-bar">
+            <button class="editor-btn-cancel" onclick="closeEditor()">되돌아가기</button>
+            <button class="editor-btn-save" onclick="saveSort()">저장하기</button>
+        </div>
+    </div>
+
+    <!-- SPA Modal: Order Sheet -->
+    <div class="modal-spa" id="orderSheetModal">
+        <div class="modal-header">
+            <button class="modal-back-btn" onclick="closeOrderSheet()">
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div class="modal-title">주문서 작성</div>
+            <div style="width:24px;"></div>
+        </div>
+        <div class="order-summary-bar">
+            <span>주문 상품</span>
+            <span id="osItemCount">0개</span>
+        </div>
+        <div class="modal-content" id="orderSheetList" style="background:#f2f4f6; padding-bottom:140px;">
+            <!-- Order items -->
+        </div>
+        
+        <div class="modal-confirm-container" style="bottom:20px; background:linear-gradient(to top, #fff 80%, transparent); padding-top:20px;">
+            <div id="osTotalPriceDisplay" style="text-align:right; font-size:18px; font-weight:700; color:var(--text-main); margin-bottom:12px; padding:0 4px;">
+                총 합계 <span style="color:var(--primary); font-size:22px;">0</span>원
+            </div>
+            <button class="modal-confirm-btn visible" style="transform:none; border-radius:8px;" onclick="submitOrder()">
+                주문 접수하기
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Data Mockup ---
+        const productsData = {
+            'special': [
+                { id: 1001, name: "[특가] 다부리 배추 4포기 BOX", unit: "BOX", price: 12500, img: "🥬", tag: "단골특가" },
+                { id: 1002, name: "[특가] 햇감자 10kg BOX", unit: "BOX", price: 18000, img: "🥔", tag: "한정수량" },
+                { id: 1003, name: "청양고추(대) 5kg", unit: "관", price: 35000, img: "🌶️", tag: "인기" }
+            ],
+            'list1': [
+                { id: 1, name: "양배추(대) 42망(3입) BOX", unit: "BOX", price: 10900, img: "🥦", tag: null },
+                { id: 2, name: "양파 왕 20kg망 BOX", unit: "BOX", price: 22000, img: "🧅", tag: null },
+                { id: 3, name: "깐양파 10kg BOX", unit: "BOX", price: 20500, img: "🧅", tag: null },
+                { id: 4, name: "대파 (단) EA", unit: "EA", price: 3200, img: "🎋", tag: "추천" },
+                { id: 5, name: "흙쪽파 (1kg)단 EA", unit: "EA", price: 5200, img: "🌿", tag: null },
+            ],
+            'list2': [
+                { id: 2001, name: "사과(부사) 10kg 32과", unit: "BOX", price: 42000, img: "🍎", tag: "신선" },
+                { id: 2002, name: "신고 배 7.5kg 10과", unit: "BOX", price: 38000, img: "🍐", tag: null },
+                { id: 2003, name: "바나나(델몬트) 13kg", unit: "BOX", price: 29000, img: "🍌", tag: null },
+                { id: 2004, name: "방울토마토 5kg", unit: "BOX", price: 18500, img: "🍅", tag: null }
+            ],
+            'list3': [
+                { id: 3001, name: "CJ 햇반 210g x 24", unit: "BOX", price: 21900, img: "🍚", tag: null },
+                { id: 3002, name: "신라면 멀티 (5입)", unit: "EA", price: 3800, img: "🍜", tag: null },
+                { id: 3003, name: "코카콜라 355ml x 24", unit: "BOX", price: 18900, img: "🥤", tag: "업소용" }
+            ]
+        };
+
+        const globalDatabase = [
+            { id: 9101, name: "무우 특박스 10입 BOX", unit: "BOX", price: 22800, img: "📦", tag: "행사" },
+            { id: 9102, name: "무우 상박스 BOX", unit: "BOX", price: 17000, img: "📦", tag: null },
+            { id: 9103, name: "무우 (낱개)", unit: "EA", price: 2800, img: "🥣", tag: null },
+            { id: 9104, name: "무순소 60g팩 EA", unit: "EA", price: 500, img: "🌱", tag: null },
+            { id: 9105, name: "삶은무청시래기 1kgX10 BOX", unit: "BOX", price: 27800, img: "🥘", tag: null }
+        ];
+
+        // --- 2. State Management ---
+        let userSortData = {
+            'list1': {}, 'list2': {}, 'list3': {}, 'special': {}
+        };
+        
+        let allEditorItems = []; 
+        let currentTab = 'list1';
+        let currentList = []; 
+        let cart = {}; 
+        let selectedGlobalIds = new Set();
+        
+        let editorActiveTab = 'list1'; 
+        let editorSortMode = 'manual'; 
+        let viewerSortMode = 'custom'; // 'custom' | 'latest'
+
+        // --- 3. DOM Elements ---
+        const mainListEl = document.getElementById('mainProductList');
+        const listCountEl = document.getElementById('listCount');
+        const viewerSortBar = document.getElementById('viewerSortBar');
+        
+        const searchArea = document.getElementById('searchArea');
+        const localInput = document.getElementById('localSearchInput');
+        const suggestionBox = document.getElementById('globalSearchSuggestion');
+        const globalSearchBtn = document.getElementById('globalSearchBtn');
+        const orderBtn = document.getElementById('mainOrderBtn');
+        
+        const globalSearchModal = document.getElementById('globalSearchModal');
+        const modalListEl = document.getElementById('modalList');
+        const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+        const editorModal = document.getElementById('editorModal');
+        const editorListEl = document.getElementById('editorList');
+        const orderSheetModal = document.getElementById('orderSheetModal');
+        const orderSheetListEl = document.getElementById('orderSheetList');
+        const osItemCountEl = document.getElementById('osItemCount');
+        const osTotalPriceDisplay = document.getElementById('osTotalPriceDisplay');
+
+        // --- 4. Logic & Functions ---
+
+        function initData() {
+            // Initialize basic sort data with mock timestamps
+            let baseTime = Date.now() - 1000000;
+            
+            ['list1', 'list2', 'list3'].forEach(listKey => {
+                productsData[listKey].forEach((p, idx) => {
+                    userSortData[listKey][p.id] = { 
+                        order: idx + 1, 
+                        isNew: false, 
+                        addedAt: baseTime + idx * 1000 
+                    };
+                });
+            });
+            productsData['special'].forEach((p, idx) => {
+                userSortData['special'][p.id] = { 
+                    order: idx + 1, 
+                    isNew: false, 
+                    addedAt: baseTime + idx * 1000 
+                };
+            });
+        }
+
+        function getExtendedList(tabName) {
+            const sortInfoMap = userSortData[tabName] || {};
+            let items = [];
+
+            Object.keys(sortInfoMap).forEach(pidStr => {
+                const pid = parseInt(pidStr);
+                const sortInfo = sortInfoMap[pid];
+                
+                let product = null;
+                for (const key of ['special', 'list1', 'list2', 'list3']) {
+                    const found = productsData[key].find(p => p.id === pid);
+                    if (found) { product = found; break; }
+                }
+                if(!product) product = globalDatabase.find(p => p.id === pid);
+
+                if(product) {
+                    items.push({
+                        ...product,
+                        order: sortInfo.order,
+                        isNew: sortInfo.isNew,
+                        addedAt: sortInfo.addedAt || 0
+                    });
+                }
+            });
+
+            return items;
+        }
+
+        function renderMainList() {
+            mainListEl.innerHTML = '';
+            
+            if (currentTab === 'special') {
+                viewerSortBar.style.display = 'none';
+                renderItems(currentList);
+                listCountEl.innerText = `전체 (${currentList.length})`;
+                return;
+            } else {
+                viewerSortBar.style.display = 'flex';
+            }
+
+            // --- Viewer Sorting Logic ---
+            let displayList = [...currentList];
+
+            if(viewerSortMode === 'latest') {
+                // Sort by addedAt descending
+                displayList.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+                
+                // For Latest View: Just render everything flat
+                listCountEl.innerText = `전체 (${displayList.length})`;
+                renderItems(displayList);
+                
+            } else {
+                // Custom (My Order) View: Separated into Sections
+                const newItems = displayList.filter(item => item.isNew);
+                const oldItems = displayList.filter(item => !item.isNew);
+
+                // Sort New Items: Latest first
+                newItems.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+                
+                // Sort Old Items: By Order
+                oldItems.sort((a, b) => {
+                    const orderA = (a.order === null || a.order === undefined) ? Infinity : a.order;
+                    const orderB = (b.order === null || b.order === undefined) ? Infinity : b.order;
+                    return orderA - orderB;
+                });
+
+                listCountEl.innerText = `전체 (${displayList.length})`;
+
+                // Render Section: Recent Items
+                if(newItems.length > 0) {
+                    const headerNew = document.createElement('div');
+                    headerNew.className = 'section-header recent';
+                    headerNew.innerText = `최근 담은 상품 (${newItems.length})`;
+                    mainListEl.appendChild(headerNew);
+                    renderItems(newItems);
+                }
+
+                // Render Section: My Order Items
+                if(oldItems.length > 0) {
+                    const headerOld = document.createElement('div');
+                    headerOld.className = 'section-header';
+                    
+                    let sectionTitle = '내 순서 상품';
+                    if(currentTab === 'list1') sectionTitle = '리스트 1';
+                    else if(currentTab === 'list2') sectionTitle = '리스트 2';
+                    else if(currentTab === 'list3') sectionTitle = '리스트 3';
+
+                    headerOld.innerText = `${sectionTitle} (${oldItems.length})`;
+                    mainListEl.appendChild(headerOld);
+                    renderItems(oldItems);
+                }
+                
+                if (newItems.length === 0 && oldItems.length === 0) {
+                     mainListEl.innerHTML = `<div style="padding:60px 20px; text-align:center; color:#999; line-height:1.6; font-size:14px;">현재 리스트에 상품이 없습니다.<br>아래 <span style="font-weight:bold; color:var(--text-main);">+ 상품추가</span> 버튼을 눌러보세요.</div>`;
+                }
+            }
+        }
+
+        function renderItems(items) {
+            items.forEach(item => {
+                const qty = cart[item.id] || 0;
+                const div = document.createElement('div');
+                div.className = 'product-item';
+                div.innerHTML = `
+                    <div class="prod-img">${item.img}</div>
+                    <div class="prod-info">
+                        <div class="prod-name">
+                             ${item.tag ? `<span class="prod-tag">${item.tag}</span>` : ''} 
+                             ${item.name}
+                        </div>
+                        <div class="prod-unit">${item.unit}</div>
+                        <div class="prod-bottom">
+                            <div class="prod-price">${item.price.toLocaleString()}원</div>
+                        </div>
+                    </div>
+                    <div class="qty-control">
+                        <button class="qty-btn" onclick="updateQty(${item.id}, -1)">
+                            <svg class="icon" style="width:14px; height:14px;" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                        <div class="qty-val" id="qty-${item.id}">${qty}</div>
+                        <button class="qty-btn" onclick="updateQty(${item.id}, 1)">
+                            <svg class="icon" style="width:14px; height:14px;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
+                    </div>
+                `;
+                mainListEl.appendChild(div);
+            });
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            currentTab = tabName;
+            currentList = getExtendedList(tabName);
+            
+            localInput.value = '';
+            suggestionBox.style.display = 'none';
+            searchArea.style.display = 'none';
+
+            // Reset viewer sort to default (custom) on tab switch? Or keep preference?
+            // Usually keep preference is better UX, but let's reset to 'custom' to be safe.
+            switchViewerSort('custom'); 
+        }
+
+        function switchViewerSort(mode) {
+            viewerSortMode = mode;
+            document.querySelectorAll('.v-sort-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`v-sort-${mode}`).classList.add('active');
+            renderMainList();
+        }
+
+        function updateQty(id, delta) {
+            if(!cart[id]) cart[id] = 0;
+            cart[id] += delta;
+            if(cart[id] < 0) cart[id] = 0;
+            const qtyEl = document.getElementById(`qty-${id}`);
+            if(qtyEl) qtyEl.innerText = cart[id];
+            updateOrderButton();
+        }
+
+        function updateOrderButton() {
+            let totalCount = 0;
+            Object.values(cart).forEach(qty => { if(qty > 0) totalCount++; });
+            if (totalCount > 0) {
+                orderBtn.classList.add('active');
+                orderBtn.innerHTML = `(${totalCount}) 담은상품 확인하기`;
+            } else {
+                orderBtn.classList.remove('active');
+                orderBtn.innerText = '주문할 상품을 담아주세요';
+            }
+        }
+
+        // --- EDITOR LOGIC ---
+
+        function openEditor() {
+            if(currentTab === 'special') {
+                alert('단골특가 상품은 편집할 수 없습니다.');
+                return;
+            }
+
+            allEditorItems = [];
+            ['list1', 'list2', 'list3'].forEach(listId => {
+                const listItems = getExtendedList(listId);
+                listItems.forEach(item => {
+                    allEditorItems.push({
+                        ...item,
+                        listId: listId,
+                        tempOrder: item.order 
+                    });
+                });
+            });
+
+            editorActiveTab = currentTab;
+            editorSortMode = 'manual';
+            toggleEditorSort('manual', false); 
+
+            switchEditorTab(editorActiveTab, false); 
+            editorModal.classList.add('open');
+        }
+
+        function switchEditorTab(tabName, shouldRender = true) {
+            editorActiveTab = tabName;
+            document.querySelectorAll('.col-header-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(`h-${tabName}`).classList.add('active');
+            if(shouldRender) renderEditorList();
+            else renderEditorList(); 
+        }
+
+        function toggleEditorSort(mode, shouldRender = true) {
+            if(mode === 'category') {
+                if(!confirm('정말 카테고리 순서로 정렬하시겠습니까? \n원하지 않을 경우 하단의 [되돌아가기]를 눌러주세요.')) {
+                    return;
+                }
+            }
+            
+            editorSortMode = mode;
+            // No toggle btn UI update needed for text btn, maybe just feedback?
+            // Actually, if it's text button, maybe no active state needed visually or just bold?
+            // Let's just keep it simple text button.
+            
+            if(shouldRender) renderEditorList();
+        }
+
+        function renderEditorList() {
+            editorListEl.innerHTML = '';
+            
+            let visibleItems = allEditorItems.filter(item => item.listId === editorActiveTab);
+            
+            if(editorSortMode === 'category') {
+                visibleItems.sort((a, b) => a.name.localeCompare(b.name));
+            } else {
+                // Manual: Sort by Order (Null/Undefined treated as 0 for TOP)
+                visibleItems.sort((a, b) => {
+                    const orderA = (a.tempOrder === null || a.tempOrder === undefined) ? 0 : a.tempOrder;
+                    const orderB = (b.tempOrder === null || b.tempOrder === undefined) ? 0 : b.tempOrder;
+                    
+                    if (orderA !== orderB) {
+                        return orderA - orderB;
+                    }
+                    return (b.addedAt || 0) - (a.addedAt || 0);
+                });
+            }
+
+            visibleItems.forEach((item) => {
+                const row = document.createElement('div');
+                row.className = `editor-row ${item.isNew ? 'is-new' : ''}`;
+
+                const renderSlot = (targetListId) => {
+                    if (editorActiveTab === targetListId) {
+                        const displayVal = (item.tempOrder === Infinity || item.tempOrder === null) ? '' : item.tempOrder;
+                        return `<input type="number" class="editor-input active-input" value="${displayVal}" 
+                                onfocus="this.select()"
+                                onchange="updateEditorOrder(${item.id}, this.value)">`;
+                    } else {
+                        return `<div class="editor-move-btn" onclick="moveItemList(${item.id}, '${targetListId}')">
+                                    <svg style="width:12px; height:12px; color:#ccc;" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L2 22h20L12 2zm0 3.5L18.5 20H5.5L12 5.5z"/></svg>
+                                </div>`;
+                    }
+                };
+
+                row.innerHTML = `
+                    <div class="editor-del-btn" onclick="deleteEditorItem(${item.id})">
+                        <svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </div>
+                    <div class="editor-name-area">
+                        ${item.isNew ? '<span class="new-badge">NEW</span>' : ''}
+                        ${item.name}
+                    </div>
+                    <div>${renderSlot('list1')}</div>
+                    <div>${renderSlot('list2')}</div>
+                    <div>${renderSlot('list3')}</div>
+                    <div class="editor-drag-handle">
+                        <svg class="icon" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                    </div>
+                `;
+                editorListEl.appendChild(row);
+            });
+        }
+
+        function updateEditorOrder(id, val) {
+            const item = allEditorItems.find(i => i.id === id);
+            if(item) {
+                item.tempOrder = val === '' ? null : parseFloat(val);
+            }
+        }
+
+        function moveItemList(id, targetListId) {
+            const item = allEditorItems.find(i => i.id === id);
+            if(!item) return;
+            item.listId = targetListId;
+            item.tempOrder = null; 
+            renderEditorList();
+        }
+
+        function deleteEditorItem(id) {
+            if(!confirm('정말 삭제하시겠습니까?')) return;
+            const idx = allEditorItems.findIndex(i => i.id === id);
+            if(idx > -1) allEditorItems.splice(idx, 1);
+            renderEditorList();
+        }
+
+        function saveSort() {
+            ['list1', 'list2', 'list3'].forEach(key => userSortData[key] = {});
+
+            ['list1', 'list2', 'list3'].forEach(listId => {
+                let itemsInList = allEditorItems.filter(i => i.listId === listId);
+                
+                // If manual mode, sort by the user's tempOrder (ascending)
+                if(editorSortMode === 'manual') {
+                    itemsInList.sort((a, b) => {
+                        const orderA = (a.tempOrder === null || a.tempOrder === undefined) ? 0 : a.tempOrder; // Changed to 0 for consistency
+                        const orderB = (b.tempOrder === null || b.tempOrder === undefined) ? 0 : b.tempOrder;
+                        if (orderA !== orderB) return orderA - orderB;
+                        return (b.addedAt || 0) - (a.addedAt || 0); // New items on top if order matches
+                    });
+                }
+                // If category, we just save them in that order. (This is a "Reset" action effectively)
+                else if(editorSortMode === 'category') {
+                    itemsInList.sort((a, b) => a.name.localeCompare(b.name));
+                }
+
+                itemsInList.forEach((item, idx) => {
+                    userSortData[listId][item.id] = {
+                        order: idx + 1,
+                        isNew: false, // Items are "seen" and integrated
+                        addedAt: item.addedAt 
+                    };
+                });
+            });
+
+            if(currentTab !== editorActiveTab) switchTab(editorActiveTab);
+            else {
+                currentList = getExtendedList(currentTab);
+                // After save, return to custom view
+                switchViewerSort('custom'); 
+            }
+            
+            closeEditor();
+        }
+
+        function closeEditor() {
+            editorModal.classList.remove('open');
+        }
+
+        // --- Other Features ---
+        function toggleSearch() {
+            const isHidden = window.getComputedStyle(searchArea).display === 'none';
+            if (isHidden) {
+                searchArea.style.display = 'block';
+                localInput.focus();
+            } else {
+                searchArea.style.display = 'none';
+                localInput.value = '';
+                handleLocalSearch(); 
+            }
+        }
+        
+        localInput.addEventListener('keyup', handleLocalSearch);
+
+        function handleLocalSearch() {
+            const query = localInput.value.trim();
+            if (!query) {
+                renderMainList(); 
+                suggestionBox.style.display = 'none';
+                return;
+            }
+            const filtered = currentList.filter(p => p.name.includes(query));
+            mainListEl.innerHTML = '';
+            renderItems(filtered);
+            suggestionBox.style.display = 'block';
+            globalSearchBtn.innerText = `전체 상품에서 '${query}' 검색하기`;
+        }
+
+        function openGlobalSearch() {
+            globalSearchModal.classList.add('open');
+            const query = localInput.value.trim();
+            document.getElementById('modalSearchQuery').innerText = query || '전체';
+            modalListEl.innerHTML = '';
+            const results = globalDatabase.filter(p => !query || p.name.includes(query));
+            
+            if(results.length === 0) {
+                 modalListEl.innerHTML = `<div style="padding:60px 20px; text-align:center; color:#999; font-size:14px;">검색 결과가 없습니다.</div>`;
+                 return;
+            }
+
+            results.forEach(item => {
+                const alreadyIn = currentList.find(c => c.id === item.id);
+                const isSelected = selectedGlobalIds.has(item.id);
+                const div = document.createElement('div');
+                div.className = 'modal-item';
+                if(!alreadyIn) div.onclick = () => toggleModalItem(item.id);
+                div.innerHTML = `
+                    <div class="prod-img" style="width:60px; height:60px; font-size:28px; margin-right:12px;">${item.img}</div>
+                    <div class="prod-info" style="height:auto;">
+                        <div class="prod-name" style="font-size:15px; margin-bottom:2px;">${item.name}</div>
+                        <div class="prod-price" style="font-size:14px;">${item.price.toLocaleString()}원</div>
+                        ${alreadyIn ? '<span style="font-size:12px; color:var(--primary);">이미 리스트에 있음</span>' : ''}
+                    </div>
+                    ${!alreadyIn ? `<div class="modal-checkbox ${isSelected ? 'checked' : ''}" id="chk-${item.id}"></div>` : ''}
+                `;
+                modalListEl.appendChild(div);
+            });
+        }
+
+        function toggleModalItem(id) {
+            const chk = document.getElementById(`chk-${id}`);
+            if (selectedGlobalIds.has(id)) {
+                selectedGlobalIds.delete(id);
+                chk.classList.remove('checked');
+            } else {
+                selectedGlobalIds.add(id);
+                chk.classList.add('checked');
+            }
+            updateModalConfirmBtn();
+        }
+
+        function updateModalConfirmBtn() {
+            if (selectedGlobalIds.size > 0) {
+                modalConfirmBtn.classList.add('visible');
+                modalConfirmBtn.innerText = `${selectedGlobalIds.size}개 상품 리스트에 추가`;
+            } else {
+                modalConfirmBtn.classList.remove('visible');
+            }
+        }
+
+        function confirmGlobalSelection() {
+            const newItems = globalDatabase.filter(item => selectedGlobalIds.has(item.id));
+            newItems.forEach(newItem => {
+                userSortData[currentTab][newItem.id] = {
+                    order: null, 
+                    isNew: true,
+                    addedAt: Date.now() // Track insertion time
+                };
+            });
+            closeGlobalSearch();
+            currentList = getExtendedList(currentTab);
+            switchViewerSort('custom'); // Ensure we stay in custom sort
+            document.getElementById('scrollContainer').scrollTop = 0;
+            localInput.value = '';
+            suggestionBox.style.display = 'none';
+            searchArea.style.display = 'none';
+        }
+
+        function closeGlobalSearch() {
+            globalSearchModal.classList.remove('open');
+            selectedGlobalIds.clear();
+            updateModalConfirmBtn();
+        }
+
+        function openOrderSheet() {
+            const hasItems = Object.values(cart).some(q => q > 0);
+            if (!hasItems) return;
+            orderSheetListEl.innerHTML = '';
+            let totalP = 0;
+            let totalCount = 0;
+            const allProducts = [...productsData.special, ...productsData.list1, ...productsData.list2, ...productsData.list3, ...globalDatabase];
+            Object.keys(cart).forEach(key => {
+                const pid = parseInt(key);
+                const qty = cart[pid];
+                if(qty > 0) {
+                    const product = allProducts.find(p => p.id === pid);
+                    if(product) {
+                        totalCount++;
+                        const sumPrice = product.price * qty;
+                        totalP += sumPrice;
+                        const div = document.createElement('div');
+                        div.style.padding = "16px"; div.style.background = "#fff"; div.style.marginBottom = "8px";
+                        div.innerHTML = `<div class="os-item-row"><span class="os-item-name">${product.name} <span class="os-item-unit">${product.unit}</span></span></div><div class="os-price-row"><span>${qty}개</span><span class="os-item-price">${sumPrice.toLocaleString()}원</span></div>`;
+                        orderSheetListEl.appendChild(div);
+                    }
+                }
+            });
+            osItemCountEl.innerText = `${totalCount}개`;
+            osTotalPriceDisplay.innerHTML = `총 합계 <span style="color:var(--primary); font-size:22px;">${totalP.toLocaleString()}</span>원`;
+            orderSheetModal.classList.add('open');
+        }
+
+        function closeOrderSheet() {
+            orderSheetModal.classList.remove('open');
+        }
+
+        function submitOrder() {
+            if(confirm('주문을 접수하시겠습니까?')) {
+                alert('주문 완료!');
+                location.reload(); 
+            }
+        }
+        
+        function openKakaoInquiry() { alert('카카오톡 문의'); }
+        function toggleEditMode() { openEditor(); } 
+
+        initData();
+        switchTab('list1');
+
+    </script>
+</body>
+</html>
