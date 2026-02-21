@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>오더즈 - 믿고 주문하는 직경매 농산물</title>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-E324H7EX9D"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-E324H7EX9D');
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #ffffff;
+            color: #1f2937;
+            overflow-x: hidden; 
+        }
+        .text-shadow-strong {
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .break-keep {
+            word-break: keep-all;
+        }
+        
+        /* Entrance Fade In Up */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translate3d(0, 30px, 0); }
+            to { opacity: 1; transform: translate3d(0, 0, 0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        /* Pop Animation */
+        @keyframes popScale {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: popScale 0.5s ease-in-out 0.8s 1 forwards;
+            display: inline-block; 
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header id="main-header" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-transparent border-transparent py-3 md:py-4">
+        <div class="max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center">
+            <h1 id="header-logo" class="text-xl md:text-2xl font-black text-white tracking-tight cursor-pointer transition-colors duration-300 drop-shadow-md">ORDERZ</h1>
+            
+            <!-- Buttons Container -->
+            <div class="flex items-center gap-2">
+                <!-- Kakao Join (Primary) -->
+                <a href="https://orderz.kr/bbs/login.php?url=https://orderz.kr/?device=mobile" target="_self" class="bg-[#FEE500] text-[#191919] px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-xs hover:bg-yellow-400 transition shadow-sm no-underline whitespace-nowrap flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 md:h-4 md:w-4 hidden md:block" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c5.523 0 10 3.57 10 7.973 0 2.585-1.547 4.907-3.957 6.357-.15.09-.236.27-.188.44l.87 3.23c.09.336-.312.607-.58.39l-3.83-3.09a.573.573 0 0 0-.356-.126c-.64.08-1.3.123-1.959.123-5.523 0-10-3.57-10-7.973C2 6.57 6.477 3 12 3z"/></svg>
+                    카카오 1초 가입
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="relative pt-32 pb-20 px-5 overflow-hidden flex flex-col items-center justify-center min-h-[600px] md:min-h-[500px] bg-black">
+        <div class="absolute inset-0 z-0">
+            <picture>
+                <source media="(max-width: 767px)" srcset="https://oneapp2.godohosting.com/%EC%95%8C%EB%A6%AC%EA%B3%A01%EC%A3%BC%EC%B0%A8/main2.jpg">
+                <img src="https://oneapp2.godohosting.com/%EC%95%8C%EB%A6%AC%EA%B3%A01%EC%A3%BC%EC%B0%A8/main.png" class="w-full h-full object-cover object-center opacity-80" alt="Fresh Vegetables">
+            </picture>
+            <div class="absolute inset-0 bg-black/40"></div>
+        </div>
+
+        <div class="relative z-10 w-full max-w-3xl mx-auto h-full flex flex-col justify-center animate-fade-in-up md:items-center">
+            
+            <!-- Badge (Desktop Only) -->
+            <div class="text-center mb-8 hidden md:block">
+                <span class="inline-block py-2 px-6 rounded-full bg-white/10 backdrop-blur-md text-white text-xl font-bold shadow-lg border border-white/20">
+                    식자재, 안 보고 시켜도 괜찮을까?
+                </span>
+            </div>
+            
+            <div class="text-center w-full mt-0 md:mt-0">
+                <h2 class="text-4xl md:text-6xl font-black leading-tight mb-8 text-white text-shadow-strong break-keep tracking-tight animate-pop origin-center">
+                    사장님의 고민을<br>
+                    <span class="text-emerald-400">해결해 드립니다</span>
+                </h2>
+                <div class="w-20 h-1.5 bg-white/30 mx-auto rounded-full shadow-lg"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 1: Distribution Structure (Why Cheap?) -->
+    <section class="py-16 bg-white pb-8">
+        <div class="max-w-5xl mx-auto px-5">
+            <div class="text-center mb-12">
+                <span class="text-emerald-600 font-bold tracking-widest text-xs md:text-sm uppercase mb-2 block">Why Orderz?</span>
+                <h3 class="text-2xl md:text-3xl font-bold text-gray-900 mb-3 break-keep">왜 오더즈는 싸고 안전할까요?</h3>
+                <p class="text-gray-500 text-sm md:text-base break-keep">
+                    복잡한 유통 과정을 걷어내고<br>
+                    <span class="text-gray-800 font-bold">중도매인이 직접 경매</span>해 바로 보내드립니다.
+                </p>
+            </div>
+
+            <!-- Structure Diagram -->
+            <div class="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-12">
+                <!-- Old Way -->
+                <div class="w-full md:w-5/12 bg-gray-50 rounded-2xl p-6 text-center border border-gray-100 opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition duration-300">
+                    <h4 class="font-bold text-gray-500 mb-4 text-sm">기존 유통 구조</h4>
+                    <div class="flex items-center justify-between text-xs md:text-sm text-gray-400 font-medium">
+                        <div class="flex flex-col items-center gap-1"><span>경매</span></div>
+                        <span>→</span>
+                        <div class="flex flex-col items-center gap-1"><span>도매상</span></div>
+                        <span>→</span>
+                        <div class="flex flex-col items-center gap-1"><span>소매상</span></div>
+                        <span>→</span>
+                        <div class="flex flex-col items-center gap-1"><span class="font-bold text-gray-600">내가게</span></div>
+                    </div>
+                    <div class="mt-4 bg-gray-200 text-gray-500 text-xs py-1 px-2 rounded">
+                        단계마다 붙는 유통 마진 💸
+                    </div>
+                </div>
+
+                <!-- VS Badge -->
+                <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg z-10 shrink-0">VS</div>
+
+                <!-- Orderz Way -->
+                <div class="w-full md:w-5/12 bg-emerald-50 rounded-2xl p-6 text-center border-2 border-emerald-500 shadow-xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">오더즈</div>
+                    <h4 class="font-bold text-emerald-900 mb-4 text-sm">오더즈 직경매 구조</h4>
+                    <div class="flex items-center justify-center gap-4 text-sm md:text-base font-bold text-gray-800">
+                        <div class="flex flex-col items-center gap-1">
+                            <span class="text-2xl">⚖️</span>
+                            <span>경매</span>
+                        </div>
+                        <div class="h-0.5 w-8 bg-emerald-300"></div>
+                        <div class="flex flex-col items-center gap-1">
+                            <span class="text-2xl">🚛</span>
+                            <span class="text-emerald-700">내가게</span>
+                        </div>
+                    </div>
+                    <div class="mt-4 bg-white border border-emerald-200 text-emerald-700 text-xs py-1.5 px-2 rounded-lg font-bold shadow-sm">
+                        ✨ 중도매인 직접 운영으로 마진 최소화!
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MOVED CTA Section: Check Prices -->
+    <section class="py-12 bg-stone-50 border-t border-b border-gray-200 text-center px-5">
+        <div class="max-w-2xl mx-auto">
+            <h3 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4 break-keep">오늘의 경매가, 직접 확인해보세요</h3>
+            <p class="text-gray-500 mb-8 break-keep text-sm md:text-base">거품 없는 가격, 회원가입 없이도 시세 확인이 가능합니다.</p>
+            
+            <a href="https://orderz.kr/shop/listtype.php?type=1" class="relative block w-full md:w-auto md:inline-block bg-emerald-600 text-white font-bold text-lg md:text-xl py-5 px-12 rounded-2xl hover:bg-emerald-700 transition shadow-xl hover:shadow-2xl hover:-translate-y-1 no-underline overflow-hidden group ring-4 ring-emerald-50">
+                <span class="relative z-10 flex items-center justify-center gap-2">
+                    금일 야채 시세 확인하기
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                </span>
+                <div class="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"></div>
+            </a>
+            <p class="mt-4 text-xs md:text-sm text-gray-400 animate-pulse">👆 클릭해서 부담 없이 구경만 하셔도 됩니다</p>
+        </div>
+    </section>
+
+    <!-- Section 3: Delivery & Refund (Core Service) -->
+    <section class="py-16 bg-white">
+        <div class="max-w-5xl mx-auto px-5">
+            <div class="text-center mb-12">
+                <h3 class="text-2xl md:text-3xl font-bold text-gray-900 mb-3">배송도 품질이다</h3>
+                <p class="text-gray-500 text-sm md:text-base">안전한 배송과 확실한 책임 보상제</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                <!-- Delivery -->
+                <div class="group bg-white rounded-3xl p-8 text-center border-2 border-gray-100 hover:border-emerald-200 shadow-lg hover:shadow-xl transition duration-300">
+                    <div class="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner group-hover:scale-110 transition-transform">🚛</div>
+                    <h4 class="text-xl font-bold text-gray-900 mb-3">오늘 경매, 오늘 출발</h4>
+                    <p class="text-gray-600 text-sm leading-relaxed break-keep">
+                        재고를 쌓아두지 않습니다.<br>
+                        <span class="text-emerald-600 font-bold">당일 낙찰받은 신선한 상품</span>만<br>
+                        꼼꼼하게 포장하여 보내드립니다.
+                    </p>
+                </div>
+                <!-- Refund -->
+                <div class="group bg-white rounded-3xl p-8 text-center border-2 border-emerald-500 shadow-xl hover:shadow-2xl transition duration-300 ring-4 ring-emerald-50">
+                    <div class="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner group-hover:scale-110 transition-transform">💯</div>
+                    <h4 class="text-xl font-bold text-emerald-900 mb-3">100% 무료 반품</h4>
+                    <p class="text-emerald-700 text-sm leading-relaxed break-keep font-medium">
+                        물건을 보지 않고 주문하셔도 안심하세요.<br>
+                        받아보시고 품질에 만족하지 못하신다면<br>
+                        <!-- Text Updated: Removed "묻지도 따지지도 않고" -->
+                        <span class="underline underline-offset-4">100% 반품해 드립니다.</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Store Info (Trust Proof) -->
+    <section class="py-16 bg-gray-100 border-t border-gray-200">
+        <div class="max-w-3xl mx-auto px-5 text-center">
+            <div class="mb-8">
+                <span class="bg-gray-200 text-gray-600 text-xs font-bold px-3 py-1 rounded-full mb-2 inline-block">신뢰 인증</span>
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">"정말 있는 업체인가요?"</h3>
+                <p class="text-gray-500 text-sm md:text-base break-keep">
+                    네, 오더즈는 창원 도매시장에서 실제 매장을 운영 중인<br>
+                    <span class="text-emerald-600 font-bold">믿을 수 있는 농산물 도매 법인</span>입니다.
+                </p>
+            </div>
+            
+            <div class="bg-white rounded-3xl p-6 md:p-8 shadow-md border border-gray-200 flex flex-col items-center justify-center gap-6">
+                <!-- Info -->
+                <div class="text-center">
+                    <h4 class="font-bold text-xl text-gray-900 mb-1">오더즈 물류센터</h4>
+                    <p class="text-gray-500 text-sm mb-4">경남 창원시 의창구 무역로 569 <br>(창원농산물도매시장인근)</p>
+                    <div class="inline-flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100 text-xs text-gray-600">
+                        <span>👀 매장에서 직접 확인 및 픽업 가능</span>
+                    </div>
+                </div>
+
+                <!-- Button -->
+                <a href="https://map.naver.com/p?c=15.00,0,0,0,dh" target="_blank" class="flex items-center justify-center gap-2 bg-[#03C75A] text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#02b351] transition shadow-md w-full md:w-auto no-underline">
+                    <span>네이버 지도에서 위치 확인하기</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Kakao Channel Section -->
+    <section class="py-16 bg-gray-50 border-t border-gray-200">
+        <div class="max-w-2xl mx-auto px-5 text-center">
+            <div class="bg-white rounded-3xl p-6 md:p-12 shadow-lg border-2 border-[#FEE500] ring-4 ring-yellow-50 flex flex-col items-center justify-center gap-6">
+                <div class="text-center w-full">
+                    <span class="text-4xl mb-4 block animate-bounce">🔔</span>
+                    <h3 class="text-2xl md:text-3xl font-bold text-gray-900 mb-3 break-keep">
+                        이벤트를 가장 먼저 받아보세요!
+                    </h3>
+                    <p class="text-gray-500 text-sm md:text-base break-keep leading-relaxed tracking-tight">
+                        카카오톡 채널을 추가하시면 다양한 혜택과 특가 소식을<br class="block md:hidden">
+                        가장 먼저 받아보실 수 있습니다.
+                    </p>
+                </div>
+                <a href="http://pf.kakao.com/_PkUxgs/friend" target="_blank" class="relative inline-flex items-center justify-center gap-2 bg-[#FEE500] text-[#191919] font-bold text-lg md:text-xl px-10 py-4 rounded-2xl shadow-md hover:bg-[#fdd835] transition transform hover:-translate-y-1 no-underline w-full md:w-auto overflow-hidden group">
+                    <span class="relative z-10 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 fill-current" viewBox="0 0 24 24"><path d="M12 3c5.523 0 10 3.57 10 7.973 0 2.585-1.547 4.907-3.957 6.357-.15.09-.236.27-.188.44l.87 3.23c.09.336-.312.607-.58.39l-3.83-3.09a.573.573 0 0 0-.356-.126c-.64.08-1.3.123-1.959.123-5.523 0-10-3.57-10-7.973C2 6.57 6.477 3 12 3z"/></svg>
+                        카카오 채널 추가하기
+                    </span>
+                    <div class="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"></div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white mt-0 py-10 md:py-16">
+        <div class="max-w-7xl mx-auto px-5 md:px-6 text-center text-gray-400 text-xs md:text-sm">
+            <h2 class="text-xl md:text-2xl font-black text-white mb-4 md:mb-6 tracking-tight">ORDERZ</h2>
+            
+            <div class="flex flex-wrap justify-center gap-4 md:gap-6 mb-6 md:mb-8 text-xs md:text-sm">
+                <a href="https://orderz.kr/bbs/content.php?co_id=provision" target="_blank" class="hover:text-white transition">이용약관</a>
+                <a href="https://orderz.kr/bbs/content.php?co_id=privacy" target="_blank" class="hover:text-white transition font-bold">개인정보처리방침</a>
+                <a href="https://www.ftc.go.kr/bizCommPop.do" target="_blank" class="hover:text-white transition">사업자정보확인</a>
+            </div>
+
+            <div class="mb-8 text-[10px] md:text-xs text-gray-500 leading-relaxed space-y-1">
+                <p class="flex flex-wrap justify-center gap-x-2">
+                    <span>회사명 : 원앱</span>
+                    <span class="hidden md:inline text-gray-700">|</span>
+                    <span>대표 : 이무철</span>
+                    <span class="hidden md:inline text-gray-700">|</span>
+                    <span>개인정보 보호책임자 : 이무철</span>
+                </p>
+                <p>주소 : 서울특별시 송파구 양재대로 932, 9층 19호</p>
+                <p class="flex flex-wrap justify-center gap-x-2">
+                    <span>사업자 등록번호 : 380-14-01523</span>
+                    <span class="hidden md:inline text-gray-700">|</span>
+                    <span>통신판매업신고번호 : 제2021-서울송파-2063호</span>
+                </p>
+                <p class="flex flex-wrap justify-center gap-x-2">
+                    <span>전화 : 02-6959-1374</span>
+                    <span class="hidden md:inline text-gray-700">|</span>
+                    <span>팩스 : 070-4808-3833</span>
+                </p>
+            </div>
+
+            <p class="text-gray-700">Copyright © 2022 원앱. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const header = document.getElementById('main-header');
+            const logo = document.getElementById('header-logo');
+
+            if (!header || !logo) return; 
+
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 10) {
+                    header.classList.remove('bg-transparent', 'py-4');
+                    header.classList.add('bg-white/95', 'backdrop-blur-sm', 'border-b', 'border-gray-100', 'py-3');
+                    
+                    logo.classList.remove('text-white', 'drop-shadow-md');
+                    logo.classList.add('text-emerald-800');
+                } else {
+                    header.classList.add('bg-transparent', 'py-4');
+                    header.classList.remove('bg-white/95', 'backdrop-blur-sm', 'border-b', 'border-gray-100', 'py-3');
+                    
+                    logo.classList.add('text-white', 'drop-shadow-md');
+                    logo.classList.remove('text-emerald-800');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
