@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오더즈: 사장님을 기억합니다</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.8/dist/web/static/pretendard.css">
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #FAF9F5; /* Light Ivory - 따뜻한 느낌 */
+            line-height: 1.75;
+            word-break: keep-all;
+            color: #333;
+        }
+        .brand-green {
+            color: #009A44;
+        }
+        .brand-bg-green {
+            background-color: #009A44;
+        }
+        .deep-navy {
+            color: #1C1C1C;
+        }
+        .highlight-box {
+            background-color: rgba(0, 154, 68, 0.08);
+            border-left: 4px solid #009A44;
+        }
+        
+        /* 말풍선 효과 */
+        .speech-bubble {
+            position: relative;
+            background: #ffffff;
+            border-radius: .4em;
+            border: 2px solid #009A44;
+            padding: 10px 20px;
+            display: inline-block;
+            font-weight: bold;
+            color: #009A44;
+        }
+        .speech-bubble:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border: 12px solid transparent;
+            border-top-color: #009A44;
+            border-bottom: 0;
+            border-left: 0;
+            margin-left: -6px;
+            margin-bottom: -12px;
+        }
+
+        /* Footer Styles */
+        .footer {
+            background-color: #2c3e50;
+            color: #adb5bd;
+            padding: 30px 20px 15px;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            margin-top: 60px;
+        }
+        .footer .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .footer-grid {
+            display: flex;
+            justify-content: space-evenly;
+            gap: 40px;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #495057;
+        }
+        .footer-left h2 {
+            font-size: 1.8rem;
+            color: white;
+            margin-bottom: 10px;
+        }
+        .footer-left p {
+            font-size: 1rem;
+            color: #ced4da;
+        }
+        .footer-right {
+            text-align: left;
+        }
+        .footer-right p {
+            margin-bottom: 5px;
+        }
+        .footer-right strong {
+            color: #ced4da;
+            margin-right: 5px;
+        }
+        .footer-link {
+            color: #74c0fc;
+            text-decoration: none;
+            transition: color 0.2s, text-decoration 0.2s;
+        }
+        .footer-link:hover {
+            color: white;
+            text-decoration: underline;
+        }
+        .footer-right a.footer-link {
+            display: inline-block;
+            margin-top: 5px;
+        }
+        .footer-bottom {
+            text-align: center;
+            color: #868e96;
+        }
+
+        @media (max-width: 768px) {
+            .footer-grid {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+            .footer-right {
+                text-align: center;
+                margin-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto max-w-screen-xl">
+        
+        <!-- Header Section -->
+        <header class="text-center py-10 md:py-32 px-4">
+            <div class="mb-6 animate-bounce">
+                <span class="speech-bubble text-lg md:text-xl shadow-lg">따르르릉~</span>
+            </div>
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tighter leading-tight">
+                <span class="deep-navy">"사장 바꿔줘!"</span>
+            </h1>
+            <p class="mt-6 text-lg text-gray-600 max-w-2xl mx-auto">
+                직원들이 전화를 받으면 늘 이렇게 시작되곤 했습니다.<br>
+                사장님들이 저를 직접 찾으시는 이유,<br class="sm:hidden"> 
+                <span class="font-bold text-gray-800">저한테 주문하셔야 안심이 된다는 겁니다.</span>
+            </p>
+        </header>
+
+        <main class="px-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-20 items-start">
+                
+                <!-- Left Text Column: Solution & CTA only -->
+                <div class="order-1 lg:order-1 flex flex-col justify-center h-full">
+                    
+                    <!-- The Solution Box -->
+                    <div class="bg-white p-6 md:p-8 rounded-2xl shadow-xl border border-green-100 transform hover:-translate-y-1 transition duration-300">
+                        <h3 class="text-2xl font-bold brand-green mb-2">사장님을 기억하는 [오더즈]</h3>
+                        <p class="text-gray-500 mb-6 text-sm">문자 받으신 사장님께만 드리는 약속입니다.</p>
+                        
+                        <ul class="space-y-4">
+                            <li class="flex items-start">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-4">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900">가격의 투명함</h4>
+                                    <p class="text-sm text-gray-600">오늘의 시세와 내 구매 단가를 명확하게 공개합니다.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-4">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900">상품 정보 공개</h4>
+                                    <p class="text-sm text-gray-600">어떤 물건이 들어오는지, 품질은 어떤지 미리 확인하세요.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-4">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900">100% 책임 반품</h4>
+                                    <p class="text-sm text-gray-600">마음에 안 드신다고요? 이유 불문하고 반품해 드립니다.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- CTA Button -->
+                    <div class="mt-8 text-center lg:text-left space-y-3">
+                         <a href="http://pf.kakao.com/_PkUxgs/chat" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center bg-[#FEE500] hover:bg-yellow-400 text-black font-bold py-4 px-8 rounded-xl shadow-lg transition-all transform hover:scale-105 w-full sm:w-auto">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2c5.523 0 10 3.582 10 8s-4.477 8-10 8c-1.24 0-2.42-.18-3.51-.5L4 20l1.55-4.23a9.94 9.94 0 0 1-3.48-5.63C2.07 5.582 6.547 2 12 2z"/>
+                            </svg>
+                            오더즈 시작하기 (카톡 문의)
+                        </a>
+                        
+                        <div class="block sm:inline-block sm:ml-2">
+                             <a href="https://orderz.kr/shop/listtype.php?type=3" target="_blank" class="inline-flex items-center justify-center bg-white border-2 border-gray-200 hover:border-green-500 hover:text-green-600 text-gray-600 font-bold py-4 px-8 rounded-xl shadow-sm transition-all w-full sm:w-auto mt-2 sm:mt-0">
+                                👀 시세표 새창으로 보기
+                            </a>
+                        </div>
+
+                        <p class="mt-3 text-sm text-gray-500">* 믿을 수 있는 사장님이 직접 상담합니다.</p>
+                    </div>
+                </div>
+
+                <!-- Right Mobile Preview Column -->
+                <!-- [수정됨] 모바일 최적화: 모바일에서는 숨기지 않고(remove hidden), 프레임 스타일을 단순화하여 바로 내용을 보여줌 -->
+                <div class="order-2 lg:order-2 sticky top-4 lg:top-10 w-full mt-6 lg:mt-0">
+                    
+                    <!-- [추가됨] 모바일 전용 안내 문구 (하단 가림막 대체) -->
+                    <div class="lg:hidden text-center mb-2 animate-pulse">
+                        <p class="text-sm font-bold text-green-600">👇 아래 화면에서 검색 및 주문이 가능합니다</p>
+                    </div>
+
+                    <div class="relative w-full lg:max-w-[340px] h-[600px] lg:h-[700px] mx-auto">
+                        <!-- Phone Frame Container: 모바일에서는 깔끔한 박스형(border-2), PC에서는 두꺼운 스마트폰 베젤(border-[6px]) -->
+                        <!-- lg prefix가 붙은 클래스는 PC에서만 적용됩니다 -->
+                        <div class="w-full h-full bg-white rounded-lg lg:rounded-[40px] lg:p-3 border border-gray-300 lg:border-[6px] lg:border-gray-800 shadow-md lg:shadow-xl lg:ring-1 lg:ring-gray-900/5 overflow-hidden">
+                            
+                            <!-- Notch/Status Bar Mock (PC only - 모바일에서는 공간 낭비이므로 제거) -->
+                            <div class="hidden lg:block absolute top-0 left-1/2 transform -translate-x-1/2 w-1/3 h-6 bg-gray-900 rounded-b-2xl z-20"></div>
+                            
+                            <!-- Screen -->
+                            <div class="w-full h-full bg-white lg:rounded-[30px] overflow-hidden relative flex flex-col">
+                                <!-- App Header Mock: 모바일에서는 실제 사이트 헤더와 중복될 수 있으므로 PC에서만 노출하거나 아주 심플하게 처리 -->
+                                <div class="bg-gray-50 border-b border-gray-100 p-2 lg:pt-8 text-center relative z-10 flex-shrink-0">
+                                    <p class="text-xs lg:text-sm font-bold text-gray-600">▼ NH라인 오더즈 실시간 시세표</p>
+                                </div>
+                                
+                                <!-- Actual Iframe -->
+                                <iframe src="https://orderz.kr/shop/listtype.php?type=3" class="w-full flex-grow border-0 bg-white" title="오더즈 시세표 미리보기"></iframe>
+                                
+                                <!-- [삭제됨] 하단 오버레이 제거 (검색 방해 방지) -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-left">
+                    <h2>NH라인</h2>
+                    <p>부산, 경남 도매유통사<br>문의: <a href="tel:010-7415-4579" class="footer-link">010-7415-4579</a></p>
+                </div>
+                <div class="footer-right">
+                    <p><strong>회사명</strong> ONEAPP | <strong>대표</strong> 이무철</p>
+                    <p><strong>주소</strong> 서울특별시 송파구 양재대로 932, 9층 19호</p>
+                    <p><strong>사업자등록번호</strong> 380-14-01523</p>
+                    <p><strong>통신판매업신고</strong> 제2021-서울송파-2063호</p>
+                    <p><strong>전화</strong> <a href="tel:02-6959-1374" class="footer-link">02-6959-1374</a> | <strong>팩스</strong> 070-4808-3833</p>
+                    <p><strong>개인정보 보호책임자</strong> 이무철</p>
+                    <a href="https://oneapp.orderz.co.kr/" target="_blank" class="footer-link"><strong>홈페이지:</strong> https://oneapp.orderz.co.kr/</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2025 ONEAPP. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
