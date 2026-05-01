@@ -1004,8 +1004,49 @@
                 }, 500);
             }, [inventoryData, targetDate, showToast]);
 
-            const handlePush = async () => { showToast("✅ 클라우드 저장 대기 (기능구현 필요)"); };
-            const handlePull = async () => { showToast("✅ 데이터 수신 대기 (기능구현 필요)"); };
+            const handlePush = async () => {
+                if (!config.cloudUrl) return showToast("⚠️ 설정에서 앱스크립트 URL을 입력하세요.");
+
+                const unsyncedMaster = await getIDB(STORAGE_KEYS.UNSYNCED_MASTER) || {};
+                const unsyncedHistory = await getIDB(STORAGE_KEYS.UNSYNCED_HISTORY) || [];
+
+                if (Object.keys(unsyncedMaster).length === 0 && unsyncedHistory.length === 0) {
+                    return showToast("⚠️ 클라우드에 새로 반영할 변경사항이 없습니다.");
+                }
+
+                setIsProcessing(true); setProcessMsg("클라우드 백업 중...");
+                
+                try {
+                    const response = await fetch(config.cloudUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'pushData', masterDelta: unsyncedMaster, historyDelta: unsyncedHistory })
+                    });
+
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        await setIDB(STORAGE_KEYS.UNSYNCED_MASTER, {});
+                        await setIDB(STORAGE_KEYS.UNSYNCED_HISTORY, []);
+                        showToast(`✅ 클라우드 동기화 완료 (수정 ${Object.keys(unsyncedMaster).length}건, 이력 ${unsyncedHistory.length}건)`);
+                    } else { throw new Error(result.message || '서버 응답 오류'); }
+                } catch (err) { console.error(err); showToast("❌ 클라우드 백업 실패: " + err.message); } finally { setIsProcessing(false); setProcessMsg(""); }
+            };
+
+            const handlePull = async () => {
+                if (!config.cloudUrl) return showToast("⚠️ 설정에서 앱스크립트 URL을 입력하세요.");
+                setIsProcessing(true); setProcessMsg("데이터 동기화 중...");
+                try {
+                    const response = await fetch(`${config.cloudUrl}?action=pullData`, { method: 'GET' });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        if (result.master) { setMasterProducts(result.master); await setIDB(STORAGE_KEYS.MASTER_DB, result.master); }
+                        if (result.history) { await setIDB(STORAGE_KEYS.HISTORY_DB, result.history); }
+                        localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
+                        showToast("✅ 클라우드 데이터 수신 완료");
+                        if (typeof loadData === 'function') loadData();
+                    } else { throw new Error(result.message || '서버 응답 오류'); }
+                } catch (err) { console.error(err); showToast("❌ 데이터 동기화 실패: " + err.message); } finally { setIsProcessing(false); setProcessMsg(""); }
+            };
 
             const displayData = useMemo(() => {
                 let data = inventoryData;
