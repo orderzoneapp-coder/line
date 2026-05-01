@@ -128,6 +128,96 @@
             });
         };
 
+        const parseExcelRobust = (file) => new Promise((resolve, reject) => {
+            if (!window.XLSX) return reject(new Error("엑셀 파서 로드 안됨"));
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = window.XLSX.read(data, { type: 'array', cellDates: true });
+                    const jsonAll = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", raw: false });
+                    if(jsonAll.length === 0) return resolve([]);
+                    let headerRowIdx = 0;
+                    for (let i = 0; i < Math.min(15, jsonAll.length); i++) {
+                        const rowStr = jsonAll[i].join('').replace(/\s/g, '');
+                        if (rowStr.includes('코드') || rowStr.includes('품명') || rowStr.includes('상품')) { headerRowIdx = i; break; }
+                    }
+                    const headers = jsonAll[headerRowIdx] || [];
+                    let endIdx = jsonAll.length - 1;
+                    while (endIdx > headerRowIdx) {
+                        const rowArr = jsonAll[endIdx]; if (!rowArr || rowArr.length === 0) { endIdx--; continue; }
+                        let filledCount = 0, rawStr = ''; rowArr.forEach(v => { if(v !== undefined && String(v).trim() !== '') { filledCount++; rawStr += String(v).replace(/\s/g, ''); } });
+                        if (rawStr === '') { endIdx--; continue; }
+                        if (rawStr.match(/출력|합계|총계/)) endIdx--; else break;
+                    }
+                    const parsedData = [];
+                    for (let i = headerRowIdx + 1; i <= endIdx; i++) {
+                        const row = jsonAll[i]; if (!row) continue;
+                        let isEmpty = true; const obj = {}; 
+                        headers.forEach((h, idx) => { if (h) { obj[h] = row[idx]; if(row[idx] !== undefined && String(row[idx]).trim() !== '') isEmpty = false; } }); 
+                        if(!isEmpty) parsedData.push(obj);
+                    } resolve(parsedData);
+                } catch (err) { reject(err); }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // 💡 단가 계산 엔진
+        const calculatePricesEngine = (baseInPrice, mItem = {}, currentFinalData = {}, marginRules = [], forceRecalc = false) => {
+            if (!baseInPrice || baseInPrice <= 0) return { ...currentFinalData, '입고가': 0, '시중가': 0, '출고가': 0, '1입고': 0, '1출고': 0 };
+
+            const outsrc = parseNum(currentFinalData?.['외주비'] ?? mItem?.['외주비']);
+            const labor = parseNum(currentFinalData?.['노무비'] ?? mItem?.['노무비']);
+            const totalCost = baseInPrice + outsrc + labor;
+
+            const whCode = String(currentFinalData?.['창고'] ?? mItem?.['창고'] ?? '').trim();
+            const unitStr = String(currentFinalData?.['단위'] ?? mItem?.['단위'] ?? '').trim().toLowerCase();
+            
+            const matchWh = (ruleWh, targetWh) => ruleWh === '*' || ruleWh.split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => s === targetWh || (targetWh !== '' && !isNaN(s) && !isNaN(targetWh) && Number(s) === Number(targetWh)));
+            const matchUnit = (ruleUnit, targetUnit) => ruleUnit === '*' || ruleUnit.toLowerCase().split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => targetUnit === s || targetUnit.includes(s));
+
+            let bestRule = { rate: 10, type: 'divide' }, bestScore = -1;
+            marginRules.forEach(r => {
+                if (matchWh(r.whCode, whCode) && matchUnit(r.unit, unitStr)) {
+                    let score = 0; if (r.whCode !== '*') score += 2; if (r.unit !== '*') score += 1;
+                    if (score > bestScore) { bestScore = score; bestRule = r; }
+                }
+            });
+
+            let calcOutPrice = totalCost;
+            if (bestRule.type === 'divide') {
+                const safeRate = Math.min(bestRule.rate, 99.99); calcOutPrice = totalCost / (1 - (safeRate / 100));
+            } else calcOutPrice = totalCost * (1 + (bestRule.rate / 100));
+            calcOutPrice = Math.round(calcOutPrice / 100) * 100;
+            if (!isFinite(calcOutPrice) || isNaN(calcOutPrice)) calcOutPrice = 0;
+
+            let newFinalData = { ...currentFinalData, '입고가': baseInPrice, '시중가': calcOutPrice };
+            const providedOutPrice = parseNum(currentFinalData?.['출고가']), mIn = parseNum(mItem?.['입고가']), mOut = parseNum(mItem?.['출고가']);
+
+            if (providedOutPrice > 0 && !forceRecalc) newFinalData['출고가'] = providedOutPrice;
+            else if (baseInPrice === mIn && mOut > 0 && !forceRecalc) newFinalData['출고가'] = mOut;
+            else newFinalData['출고가'] = calcOutPrice;
+
+            const div1 = parseNum(currentFinalData?.['1종연산'] ?? mItem?.['1종연산']), extraCost = parseNum(currentFinalData?.['경비'] ?? mItem?.['경비']); 
+            if (div1 > 0) {
+                newFinalData['1입고'] = Math.round(((baseInPrice + outsrc) / div1) / 100) * 100;
+                let calc1Out = Math.round((newFinalData['출고가'] / div1) + extraCost);
+                newFinalData['1출고'] = (!isFinite(calc1Out) || isNaN(calc1Out)) ? 0 : Math.round(calc1Out / 100) * 100; 
+            }
+            return newFinalData;
+        };
+
+        const createHeaderMap = (actualHeaders, mappingConfig) => {
+            const headerMap = {}; if(!mappingConfig) return headerMap;
+            Object.keys(mappingConfig).forEach(field => {
+                const keywords = mappingConfig[field].split(',').map(s => s.trim().toLowerCase().replace(/\s/g, '')).filter(Boolean);
+                let matchedKey = actualHeaders.find(h => h && keywords.some(kw => String(h).toLowerCase().replace(/\s/g, '') === kw));
+                if (!matchedKey) { matchedKey = actualHeaders.find(h => h && keywords.some(kw => String(h).toLowerCase().replace(/\s/g, '').includes(kw))); }
+                if(matchedKey) headerMap[field] = matchedKey;
+            }); return headerMap;
+        };
+
+
         // ==========================================
         // 🧩 공용 UI 컴포넌트 (인라인 통합)
         // ==========================================
@@ -165,7 +255,8 @@
                     'download':'fa-download', 'skull':'fa-skull', 'sliders-horizontal':'fa-sliders-h', 'arrow-up':'fa-arrow-up', 
                     'arrow-down':'fa-arrow-down', 'star':'fa-star', 'equals':'fa-equals'
                 };
-                return <i className={`fas ${faMap[name] || `fa-${name}`} ${className}`} style={{ fontSize: size }} />;
+                const faName = faMap[name] || `fa-${name}`;
+                return <i className={`fas ${faName} ${className}`} style={{ fontSize: size }} />;
             }
             return <span className="inline-flex shrink-0 items-center justify-center" dangerouslySetInnerHTML={{ __html: svg }} />;
         });
@@ -176,8 +267,10 @@
                 { id: 'ops', label: '운영 관리', icon: 'truck' },
                 { id: 'admin', label: '인사이트', icon: 'bar-chart-3' }
             ];
+
             const tabs = [
                 { id: 'dashboard', label: '통합 대시보드', icon: "layout-dashboard", path: 'Dashboard.html', group: 'common', isReady: true, shortTag: 'ONE BOARD' },
+                { id: 'guide', label: '시스템 가이드', icon: "book-open", path: 'Guide/guide.html', group: 'common', isReady: true, shortTag: 'SYSTEM GUIDE' },
                 { id: 'item-info', label: '마스터 DB', icon: "database", path: 'Master.html', group: 'master', isReady: true, shortTag: 'GOLDEN RECORD' },
                 { id: 'item-manage', label: '상품 관리', icon: "package-search", path: 'Item_manager.html', group: 'master', isReady: true, shortTag: 'SKU FORGE' },
                 { id: 'pipeline', label: '시세 관리', icon: "file-spreadsheet", path: 'Pipeline.html', group: 'master', isReady: true, shortTag: 'VALUATION HUB' },
@@ -289,100 +382,14 @@
             }
         }
 
-        const parseExcelRobust = (file) => new Promise((resolve, reject) => {
-            if (!window.XLSX) return reject(new Error("엑셀 파서 로드 안됨"));
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const wb = window.XLSX.read(data, { type: 'array', cellDates: true });
-                    const jsonAll = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", raw: false });
-                    if(jsonAll.length === 0) return resolve([]);
-                    let headerRowIdx = 0;
-                    for (let i = 0; i < Math.min(15, jsonAll.length); i++) {
-                        const rowStr = jsonAll[i].join('').replace(/\s/g, '');
-                        if (rowStr.includes('코드') || rowStr.includes('품명') || rowStr.includes('상품')) { headerRowIdx = i; break; }
-                    }
-                    const headers = jsonAll[headerRowIdx] || [];
-                    let endIdx = jsonAll.length - 1;
-                    while (endIdx > headerRowIdx) {
-                        const rowArr = jsonAll[endIdx]; if (!rowArr || rowArr.length === 0) { endIdx--; continue; }
-                        let filledCount = 0, rawStr = ''; rowArr.forEach(v => { if(v !== undefined && String(v).trim() !== '') { filledCount++; rawStr += String(v).replace(/\s/g, ''); } });
-                        if (rawStr === '') { endIdx--; continue; }
-                        if (rawStr.match(/출력|합계|총계/)) endIdx--; else break;
-                    }
-                    const parsedData = [];
-                    for (let i = headerRowIdx + 1; i <= endIdx; i++) {
-                        const row = jsonAll[i]; if (!row) continue;
-                        let isEmpty = true; const obj = {}; 
-                        headers.forEach((h, idx) => { if (h) { obj[h] = row[idx]; if(row[idx] !== undefined && String(row[idx]).trim() !== '') isEmpty = false; } }); 
-                        if(!isEmpty) parsedData.push(obj);
-                    } resolve(parsedData);
-                } catch (err) { reject(err); }
-            };
-            reader.readAsArrayBuffer(file);
-        });
-
-        // 💡 [Step 3 반영 대상] 단가 계산 엔진
-        const calculatePricesEngine = (baseInPrice, mItem = {}, currentFinalData = {}, marginRules = [], forceRecalc = false) => {
-            if (!baseInPrice || baseInPrice <= 0) return { ...currentFinalData, '입고가': 0, '시중가': 0, '출고가': 0, '1입고': 0, '1출고': 0 };
-
-            const outsrc = parseNum(currentFinalData?.['외주비'] ?? mItem?.['외주비']);
-            const labor = parseNum(currentFinalData?.['노무비'] ?? mItem?.['노무비']);
-            const totalCost = baseInPrice + outsrc + labor;
-
-            const whCode = String(currentFinalData?.['창고'] ?? mItem?.['창고'] ?? '').trim();
-            const unitStr = String(currentFinalData?.['단위'] ?? mItem?.['단위'] ?? '').trim().toLowerCase();
-            
-            const matchWh = (ruleWh, targetWh) => ruleWh === '*' || ruleWh.split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => s === targetWh || (targetWh !== '' && !isNaN(s) && !isNaN(targetWh) && Number(s) === Number(targetWh)));
-            const matchUnit = (ruleUnit, targetUnit) => ruleUnit === '*' || ruleUnit.toLowerCase().split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => targetUnit === s || targetUnit.includes(s));
-
-            let bestRule = { rate: 10, type: 'divide' }, bestScore = -1;
-            marginRules.forEach(r => {
-                if (matchWh(r.whCode, whCode) && matchUnit(r.unit, unitStr)) {
-                    let score = 0; if (r.whCode !== '*') score += 2; if (r.unit !== '*') score += 1;
-                    if (score > bestScore) { bestScore = score; bestRule = r; }
-                }
-            });
-
-            let calcOutPrice = totalCost;
-            if (bestRule.type === 'divide') {
-                const safeRate = Math.min(bestRule.rate, 99.99); calcOutPrice = totalCost / (1 - (safeRate / 100));
-            } else calcOutPrice = totalCost * (1 + (bestRule.rate / 100));
-            calcOutPrice = Math.round(calcOutPrice / 100) * 100;
-            if (!isFinite(calcOutPrice) || isNaN(calcOutPrice)) calcOutPrice = 0;
-
-            let newFinalData = { ...currentFinalData, '입고가': baseInPrice, '시중가': calcOutPrice };
-            const providedOutPrice = parseNum(currentFinalData?.['출고가']), mIn = parseNum(mItem?.['입고가']), mOut = parseNum(mItem?.['출고가']);
-
-            if (providedOutPrice > 0 && !forceRecalc) newFinalData['출고가'] = providedOutPrice;
-            else if (baseInPrice === mIn && mOut > 0 && !forceRecalc) newFinalData['출고가'] = mOut;
-            else newFinalData['출고가'] = calcOutPrice;
-
-            const div1 = parseNum(currentFinalData?.['1종연산'] ?? mItem?.['1종연산']), extraCost = parseNum(currentFinalData?.['경비'] ?? mItem?.['경비']); 
-            if (div1 > 0) {
-                newFinalData['1입고'] = Math.round(((baseInPrice + outsrc) / div1) / 100) * 100;
-                let calc1Out = Math.round((newFinalData['출고가'] / div1) + extraCost);
-                newFinalData['1출고'] = (!isFinite(calc1Out) || isNaN(calc1Out)) ? 0 : Math.round(calc1Out / 100) * 100; 
-            }
-            return newFinalData;
-        };
-
-        const createHeaderMap = (actualHeaders, mappingConfig) => {
-            const headerMap = {}; if(!mappingConfig) return headerMap;
-            Object.keys(mappingConfig).forEach(field => {
-                const keywords = mappingConfig[field].split(',').map(s => s.trim().toLowerCase().replace(/\s/g, '')).filter(Boolean);
-                let matchedKey = actualHeaders.find(h => h && keywords.some(kw => String(h).toLowerCase().replace(/\s/g, '') === kw));
-                if (!matchedKey) { matchedKey = actualHeaders.find(h => h && keywords.some(kw => String(h).toLowerCase().replace(/\s/g, '').includes(kw))); }
-                if(matchedKey) headerMap[field] = matchedKey;
-            }); return headerMap;
-        };
-
+        // ==========================================
+        // 🧩 Iframe Settings Modal 컴포넌트 (닫기 영역 개선 적용)
+        // ==========================================
         const IframeSettingsModal = ({ isOpen, onClose }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 z-[500] flex bg-slate-900/60 backdrop-blur-sm fade-in">
-                    <div className="w-full max-w-[1400px] h-full bg-white shadow-[-10px_0_40px_rgba(0,0,0,0.3)] flex flex-col slide-in-right border-l border-slate-300 relative overflow-hidden ml-auto">
+                <div className="fixed inset-0 z-[500] flex bg-slate-900/60 backdrop-blur-sm fade-in cursor-pointer" onClick={onClose}>
+                    <div className="w-full max-w-[1400px] h-full bg-white shadow-[-10px_0_40px_rgba(0,0,0,0.3)] flex flex-col slide-in-right border-l border-slate-300 relative overflow-hidden ml-auto cursor-default" onClick={(e) => e.stopPropagation()}>
                         <div className="bg-[#0f172a] px-6 py-4 flex justify-between items-center text-white shrink-0 border-b border-slate-700 shadow-md relative z-10">
                             <div className="flex items-center gap-3">
                                 <SafeIcon name="settings" size={20} className="text-indigo-400"/>
@@ -410,41 +417,36 @@
             );
         };
 
+        // ==========================================
+        // 🧩 Read-Only 설정 훅
+        // ==========================================
         const useMerchConfig = () => {
             const loadConfig = () => {
-                const cloudUrl = localStorage.getItem('skuSyncCloudUrl_v6') || 'https://script.google.com/macros/s/AKfycbyT3YXvGkbSWswoBDxvVV_1m0Xp2it3QmOezFIfQFBNi0TuGViPH_Jz-A8L2sQz80tW/exec';
+                const cloudUrl = localStorage.getItem(STORAGE_KEYS.CLOUD_URL) || '';
                 
                 let visibleMasterCols = JSON.parse(localStorage.getItem('merchVisMaster_v870') || 'null');
                 if (!visibleMasterCols || !visibleMasterCols.estimate) visibleMasterCols = { estimate: ['카탈로그', '견적서', '입고가', '출고가', '입고B', '도매A'] };
-                if (visibleMasterCols.estimate.includes('카테고리')) visibleMasterCols.estimate = visibleMasterCols.estimate.map(h => h === '카테고리' ? '견적서' : h);
 
                 let visibleUploadCols = JSON.parse(localStorage.getItem('merchVisUpload_v870') || 'null');
                 if (!visibleUploadCols || !visibleUploadCols.estimate) visibleUploadCols = { estimate: ['순번', '창고', '구매처', '견적서', '입고가', '출고가', '입고B', '도매A', '간단설명'] };
-                if (visibleUploadCols.estimate.includes('카테고리')) visibleUploadCols.estimate = visibleUploadCols.estimate.map(h => h === '카테고리' ? '견적서' : h);
-                
-                if (visibleUploadCols.estimate && !visibleUploadCols.estimate.includes('순번')) {
-                    visibleUploadCols.estimate = ['순번', ...visibleUploadCols.estimate];
-                }
 
                 let mappings = JSON.parse(localStorage.getItem('merchMappings_v870') || 'null');
                 if (!mappings || !mappings.master) mappings = { master: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격, 규격명, 사이즈, 단량', '출고가': '출고가, 출고, 판매가, 시중가', '입고가': '입고가, 입고, 매입가' }, estimate: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격명, 규격, 사이즈, 단량', '구매처': '거래처명, 구매처, 거래처', '견적서': '견적서, 카테고리, 템플릿, 견적분류', '입고가': '입고가, 입고, 매입가', '출고가': '출고가, 출고, 판매가', '입고B': 'B단가, 입고B', '도매A': 'A판매, A판매가, 도매A', '도매B': 'B판매, B판매가, 도매B', '간단설명': '지시사항, 간단설명, 비고' } };
-                if (!mappings.estimate['창고']) mappings.estimate['창고'] = '창고, 창고코드';
-                if (!mappings.master['창고']) mappings.master['창고'] = '창고, 창고코드';
-                if (mappings.estimate['카테고리'] !== undefined) { mappings.estimate['견적서'] = mappings.estimate['카테고리'] + ', 견적서'; delete mappings.estimate['카테고리']; }
 
                 let masterLinks = JSON.parse(localStorage.getItem('merchMasterLinks_v870') || 'null');
                 if (!masterLinks || !masterLinks.estimate) masterLinks = { estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } };
-                if (masterLinks.estimate['창고'] === undefined) masterLinks.estimate['창고'] = '창고';
-                if (masterLinks.estimate['카테고리'] !== undefined) { masterLinks.estimate['견적서'] = '견적서'; delete masterLinks.estimate['카테고리']; }
 
                 let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v878') || 'null');
                 if (!marginRules) marginRules = [ { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' }, { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' } ];
-                else try { if (marginRules.length > 0) marginRules = marginRules.map(r => ({ ...r, whCode: r.whCode || '*', unit: r.unit || '*' })); } catch(e){}
-
+                
                 return { cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules };
             };
             const [config, setConfig] = useState(loadConfig());
-            useEffect(() => { const handleStorageChange = () => setConfig(loadConfig()); window.addEventListener('storage', handleStorageChange); return () => window.removeEventListener('storage', handleStorageChange); }, []);
+            useEffect(() => {
+                const handleStorageChange = () => setConfig(loadConfig());
+                window.addEventListener('storage', handleStorageChange);
+                return () => window.removeEventListener('storage', handleStorageChange);
+            }, []);
             return config;
         };
 
@@ -1130,6 +1132,51 @@
                 showToast(`✅ ${commitCount}건 마스터 반영 완료! 필터를 해제하고 남은 작업을 계속 진행하세요.`);
             }, [managedItems, masterProducts, config.masterLinks, showToast]);
 
+            // 💡 [클라우드 연동] 최신 앱스크립트 규격 반영
+            const handlePush = async () => {
+                if (!config.cloudUrl) return showToast("⚠️ 설정에서 앱스크립트 URL을 입력하세요.");
+
+                const unsyncedMaster = await getIDB(STORAGE_KEYS.UNSYNCED_MASTER) || {};
+                const unsyncedHistory = await getIDB(STORAGE_KEYS.UNSYNCED_HISTORY) || [];
+
+                if (Object.keys(unsyncedMaster).length === 0 && unsyncedHistory.length === 0) {
+                    return showToast("⚠️ 클라우드에 새로 반영할 변경사항이 없습니다.");
+                }
+
+                setIsProcessing(true); setProcessMsg("클라우드 백업 중...");
+                
+                try {
+                    const response = await fetch(config.cloudUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'pushData', masterDelta: unsyncedMaster, historyDelta: unsyncedHistory })
+                    });
+
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        await setIDB(STORAGE_KEYS.UNSYNCED_MASTER, {});
+                        await setIDB(STORAGE_KEYS.UNSYNCED_HISTORY, []);
+                        showToast(`✅ 클라우드 동기화 완료 (수정 ${Object.keys(unsyncedMaster).length}건, 이력 ${unsyncedHistory.length}건)`);
+                    } else { throw new Error(result.message || '서버 응답 오류'); }
+                } catch (err) { console.error(err); showToast("❌ 클라우드 백업 실패: " + err.message); } finally { setIsProcessing(false); setProcessMsg(""); }
+            };
+
+            const handlePull = async () => {
+                if (!config.cloudUrl) return showToast("⚠️ 설정에서 앱스크립트 URL을 입력하세요.");
+                setIsProcessing(true); setProcessMsg("데이터 동기화 중...");
+                try {
+                    const response = await fetch(`${config.cloudUrl}?action=pullData`, { method: 'GET' });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        if (result.master) { setMasterProducts(result.master); await setIDB(STORAGE_KEYS.MASTER_DB, result.master); }
+                        if (result.history) { await setIDB(STORAGE_KEYS.HISTORY_DB, result.history); }
+                        localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
+                        showToast("✅ 클라우드 데이터 수신 완료");
+                        if (typeof handleLoadWorkspaceData === 'function') handleLoadWorkspaceData(selectedCatalogs, selectedCategories);
+                    } else { throw new Error(result.message || '서버 응답 오류'); }
+                } catch (err) { console.error(err); showToast("❌ 데이터 동기화 실패: " + err.message); } finally { setIsProcessing(false); setProcessMsg(""); }
+            };
+
             const executeExport = useCallback((option, zeroAction = { sale: '0', stock: '999' }) => {
                 if (fullDisplayRows.length === 0) { showToast("⚠️ 내보낼 데이터가 없습니다."); return setShowExportModal(false); }
                 setShowExportModal(false);
@@ -1290,76 +1337,6 @@
                 setSelectedCategories(new Set()); 
                 showToast('작업 화면이 초기화 되었습니다.');
             }, [showToast]);
-
-            const handlePush = async () => {
-                if (!config.cloudUrl) return showToast("⚠️ 설정에서 앱스크립트 URL을 입력하세요.");
-
-                const unsyncedMaster = await getIDB(STORAGE_KEYS.UNSYNCED_MASTER) || {};
-                const unsyncedHistory = await getIDB(STORAGE_KEYS.UNSYNCED_HISTORY) || [];
-
-                if (Object.keys(unsyncedMaster).length === 0 && unsyncedHistory.length === 0) {
-                    return showToast("⚠️ 클라우드에 새로 반영할 변경사항이 없습니다.");
-                }
-
-                setIsProcessing(true); setProcessMsg("클라우드 백업 중...");
-                
-                try {
-                    const response = await fetch(config.cloudUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({
-                            action: 'pushData',
-                            masterDelta: unsyncedMaster,
-                            historyDelta: unsyncedHistory
-                        })
-                    });
-
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        await setIDB(STORAGE_KEYS.UNSYNCED_MASTER, {});
-                        await setIDB(STORAGE_KEYS.UNSYNCED_HISTORY, []);
-                        showToast(`✅ 클라우드 동기화 완료 (수정 ${Object.keys(unsyncedMaster).length}건, 이력 ${unsyncedHistory.length}건)`);
-                    } else {
-                        throw new Error(result.message || '서버 응답 오류');
-                    }
-                } catch (err) {
-                    console.error(err);
-                    showToast("❌ 클라우드 백업 실패: " + err.message);
-                } finally {
-                    setIsProcessing(false); setProcessMsg("");
-                }
-            };
-
-            const handlePull = async () => {
-                if (!config.cloudUrl) return showToast("⚠️ 설정에서 앱스크립트 URL을 입력하세요.");
-                setIsProcessing(true); setProcessMsg("데이터 동기화 중...");
-                
-                try {
-                    const response = await fetch(`${config.cloudUrl}?action=pullData`, {
-                        method: 'GET'
-                    });
-                    
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        if (result.master) {
-                            setMasterProducts(result.master);
-                            await setIDB(STORAGE_KEYS.MASTER_DB, result.master);
-                        }
-                        if (result.history) {
-                            await setIDB(STORAGE_KEYS.HISTORY_DB, result.history);
-                        }
-                        localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
-                        showToast("✅ 클라우드 데이터 수신 완료");
-                    } else {
-                        throw new Error(result.message || '서버 응답 오류');
-                    }
-                } catch (err) {
-                    console.error(err);
-                    showToast("❌ 데이터 동기화 실패: " + err.message);
-                } finally {
-                    setIsProcessing(false); setProcessMsg("");
-                }
-            };
 
             const handleRemoveFromWorkspace = useCallback(() => {
                 if (selectedRows.size === 0) return showToast('⚠️ 숨길 항목을 선택하세요.');
