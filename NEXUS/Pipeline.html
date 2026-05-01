@@ -729,17 +729,28 @@
                             {visMasterCols.map(h => {
                                 const isNum = NUMERIC_HEADERS.includes(h);
                                 const mVal = mItem[h];
-                                let displayVal = mVal;
+                                let displayVal = mVal; // 💡 마스터 정보 원본을 덮어쓰지 않고 유지합니다.
                                 let isChanged = false;
+                                let newDataVal = null; // 변경될 엑셀의 새 값
 
                                 if (row.finalData && row.finalData[h] !== undefined) {
-                                    if (isNum && parseNum(row.finalData[h]) !== parseNum(mVal)) { displayVal = row.finalData[h]; isChanged = true; } 
-                                    else if (!isNum && String(row.finalData[h]) !== String(mVal)) { displayVal = row.finalData[h]; isChanged = true; }
+                                    if (isNum && parseNum(row.finalData[h]) !== parseNum(mVal)) { 
+                                        isChanged = true; 
+                                        newDataVal = row.finalData[h];
+                                    } else if (!isNum && String(row.finalData[h]) !== String(mVal)) { 
+                                        isChanged = true; 
+                                        newDataVal = row.finalData[h];
+                                    }
                                 }
                                 const formattedVal = displayVal !== undefined && displayVal !== '' ? (isNum ? parseNum(displayVal).toLocaleString() : displayVal) : '-';
                                 return (
-                                    <td key={`pm-d-${h}`} className={`px-2 py-1.5 border-r border-slate-200 transition-colors ${getCellWidthClass(h)} ${isChanged ? 'bg-amber-50 text-amber-800' : 'text-slate-600'} ${isNum ? 'text-right font-medium' : 'text-center'}`}>
-                                        <div className="truncate w-full">{formattedVal}</div>
+                                    <td key={`pm-d-${h}`} className={`px-2 py-1.5 border-r border-slate-200 transition-colors ${getCellWidthClass(h)} ${isChanged ? 'bg-amber-50/50' : ''} ${isNum ? 'text-right font-medium' : 'text-center'}`}>
+                                        <div 
+                                            className={`truncate w-full ${isChanged ? 'text-slate-400 line-through decoration-rose-400 decoration-2 cursor-help' : 'text-slate-600'}`} 
+                                            title={isChanged ? `변경 대기: ${newDataVal}` : ''}
+                                        >
+                                            {formattedVal}
+                                        </div>
                                     </td>
                                 );
                             })}
