@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
     <title>ONEAPP NEXES - Master DB</title>
-    <!-- 핵심 라이브러리 CDN 로드 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -37,7 +36,7 @@
         const { useState, useMemo, useEffect, useCallback, Fragment } = React;
 
         // ==========================================
-        // 🧩 코어 전역 상수 및 로컬 데이터베이스 컨트롤러 (nexes-core.js 병합)
+        // 🧩 코어 전역 상수 및 로컬 데이터베이스 컨트롤러
         // ==========================================
         const STORAGE_KEYS = {
             MASTER_DB: 'merchMaster_v870',
@@ -66,7 +65,6 @@
             "노무비", "경비", "1구매", "1출고", "2구매", "2출고", "1입고", "2입고", "순번"
         ];
 
-        // IndexedDB 초기화 및 제어 유틸리티
         const initIDB = () => new Promise((resolve, reject) => {
             const request = indexedDB.open('MerchOpsDB', 1);
             request.onupgradeneeded = (e) => { 
@@ -98,7 +96,6 @@
             });
         };
 
-        // 데이터 타입 방어 및 변환 유틸리티
         const safeStr = (val, def = '') => (val !== undefined && val !== null && val !== '') ? String(val) : def;
         const parseNum = (v) => (!v ? 0 : Number(String(v).replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0);
         const generateUUID = () => {
@@ -110,7 +107,7 @@
         };
 
         // ==========================================
-        // 🧩 공통 React UI 컴포넌트 모음 (nexes-ui.js 병합)
+        // 🧩 공통 React UI 컴포넌트 모음
         // ==========================================
         const SafeIcon = React.memo(function SafeIconComponent({ name, size = 18, className = "" }) {
             const [svg, setSvg] = useState("");
@@ -315,13 +312,13 @@
 
 
         // ==========================================
-        // 🧩 Iframe Settings Modal 컴포넌트
+        // 🧩 Iframe Settings Modal 컴포넌트 (닫기 영역 개선 적용)
         // ==========================================
         const IframeSettingsModal = ({ isOpen, onClose }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 z-[500] flex bg-slate-900/60 backdrop-blur-sm fade-in">
-                    <div className="w-full max-w-[1400px] h-full bg-white shadow-[-10px_0_40px_rgba(0,0,0,0.3)] flex flex-col slide-in-right border-l border-slate-300 relative overflow-hidden ml-auto">
+                <div className="fixed inset-0 z-[500] flex bg-slate-900/60 backdrop-blur-sm fade-in cursor-pointer" onClick={onClose}>
+                    <div className="w-full max-w-[1400px] h-full bg-white shadow-[-10px_0_40px_rgba(0,0,0,0.3)] flex flex-col slide-in-right border-l border-slate-300 relative overflow-hidden ml-auto cursor-default" onClick={(e) => e.stopPropagation()}>
                         <div className="bg-[#0f172a] px-6 py-4 flex justify-between items-center text-white shrink-0 border-b border-slate-700 shadow-md relative z-10">
                             <div className="flex items-center gap-3">
                                 <SafeIcon name="settings" size={20} className="text-indigo-400"/>
@@ -461,7 +458,6 @@
                         setMasterProducts(newMaster);
                         await setIDB(STORAGE_KEYS.MASTER_DB, newMaster);
                         
-                        // 💡 다른 탭(스마트 파서 등)에 데이터가 업데이트 되었음을 즉시 알림
                         localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
                         
                         showToast(`✅ ${Object.keys(newMaster).length}건 등록 완료!`);
@@ -471,41 +467,46 @@
                 e.target.value = ''; 
             };
 
+            // 💡 [클라우드 연동] 최신 앱스크립트(Code.gs) 규격 반영
             const handlePush = async () => {
                 if (!config.cloudUrl) return showToast("⚠️ 클라우드 URL 설정 필요");
                 setIsProcessing(true); setProcessMsg("전송 중...");
                 try {
-                    const response = await fetch(config.cloudUrl + '?action=push&sheet=마스터', {
+                    const response = await fetch(config.cloudUrl, {
                         method: 'POST',
-                        body: JSON.stringify({ data: Object.values(masterProducts), sheet: "마스터" })
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'push', data: Object.values(masterProducts), sheet: "마스터" })
                     });
                     const result = await response.json();
                     showToast(`✅ ${result.count}건 백업 완료!`);
-                } catch (e) { showToast("❌ 실패"); } finally { setIsProcessing(false); setProcessMsg(""); }
+                } catch (e) { showToast("❌ 실패: " + e.message); } finally { setIsProcessing(false); setProcessMsg(""); }
             };
 
             const handlePull = async () => {
                 if (!config.cloudUrl) return showToast("⚠️ 클라우드 URL 설정 필요");
                 setIsProcessing(true); setProcessMsg("수신 중...");
                 try {
-                    const response = await fetch(config.cloudUrl + '?action=pull&sheet=마스터');
+                    const response = await fetch(config.cloudUrl + '?action=pullData');
                     const result = await response.json();
+                    if (result.status !== 'success') throw new Error(result.message || '서버 응답 오류');
+                    
                     const dataToSave = {};
-                    result.data.forEach(item => { 
-                        const code = safeStr(item['코드'] || item['품목코드']); 
-                        if (code) dataToSave[code] = item; 
-                    });
-                    setMasterProducts(dataToSave);
-                    await setIDB(STORAGE_KEYS.MASTER_DB, dataToSave);
-                    
-                    // 💡 다른 탭(스마트 파서 등)에 데이터가 업데이트 되었음을 즉시 알림
-                    localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
-                    
-                    showToast(`✅ ${result.data.length}건 동기화 완료`);
-                } catch (e) { showToast("❌ 실패"); } finally { setIsProcessing(false); setProcessMsg(""); }
+                    if (result.master) {
+                        Object.values(result.master).forEach(item => { 
+                            const code = safeStr(item['코드'] || item['품목코드']); 
+                            if (code) dataToSave[code] = item; 
+                        });
+                        setMasterProducts(dataToSave);
+                        await setIDB(STORAGE_KEYS.MASTER_DB, dataToSave);
+                        
+                        localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
+                        showToast(`✅ ${Object.keys(dataToSave).length}건 동기화 완료`);
+                    } else {
+                        showToast("⚠️ 수신된 데이터가 없습니다.");
+                    }
+                } catch (e) { showToast("❌ 실패: " + e.message); } finally { setIsProcessing(false); setProcessMsg(""); }
             };
 
-            // 💡 safeStr을 적용하여 숫자 데이터로 인한 에러 방어 및 카테고리 로직 복구
             const c1List = useMemo(() => {
                 const map = new Map();
                 Object.values(masterProducts || {}).forEach(p => {
@@ -546,7 +547,6 @@
                 return Array.from(map.values()).sort((a,b) => a.code.localeCompare(b.code));
             }, [masterProducts, activeC1, activeC2]);
 
-            // 💡 [핵심] 하위 카테고리 자동 선택 로직
             useEffect(() => { if (c1List.length > 0 && !c1List.find(c => c.code === activeC1)) setActiveC1(c1List[0].code); }, [c1List, activeC1]);
             useEffect(() => { if (c2List.length > 0 && !c2List.find(c => c.code === activeC2)) setActiveC2(c2List[0].code); else if (c2List.length === 0) setActiveC2(''); }, [c2List, activeC2]);
             useEffect(() => { if (c3List.length > 0 && !c3List.find(c => c.code === activeC3)) setActiveC3(c3List[0].code); else if (c3List.length === 0) setActiveC3(''); }, [c3List, activeC3]);
