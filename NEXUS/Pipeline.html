@@ -422,7 +422,18 @@
                 if (!masterLinks || !masterLinks.estimate) masterLinks = { estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } };
 
                 let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v878') || 'null');
-                if (!marginRules) marginRules = [ { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' }, { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' } ];
+                if (!marginRules || marginRules.length <= 2) {
+                    marginRules = [
+                        { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' },
+                        { id: generateUUID(), whCode: '01', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' },
+                        { id: generateUUID(), whCode: '03, 05', unit: 'box, 박스', rate: 15, type: 'divide' },
+                        { id: generateUUID(), whCode: '03, 05', unit: 'ea, 개, 낱개', rate: 20, type: 'divide' },
+                        { id: generateUUID(), whCode: '*', unit: 'box, 박스', rate: 10, type: 'divide' },
+                        { id: generateUUID(), whCode: '*', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' },
+                        { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' }
+                    ];
+                    localStorage.setItem('merchMarginRules_v878', JSON.stringify(marginRules));
+                }
                 
                 return { cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules };
             };
@@ -1293,24 +1304,6 @@
                             if (a._isVendorMatched && !b._isVendorMatched) return -1;
                             if (!a._isVendorMatched && b._isVendorMatched) return 1;
                             
-                            if (a._isVendorMatched && b._isVendorMatched) {
-                                const getSeq = (item) => {
-                                    const rowCode = item.코드 || item.품목코드;
-                                    const m = masterProducts[rowCode] || masterProducts[item.품목코드] || {};
-                                    const val = item.finalData?.['순번'] !== undefined ? item.finalData['순번'] : (item.sources?.['estimate']?.['순번'] ?? m['순번']);
-                                    return (val === '' || val === undefined || val === null) ? 999999 : Number(val);
-                                };
-                                const seqA = getSeq(a);
-                                const seqB = getSeq(b);
-                                if (seqA !== seqB) return seqA - seqB;
-                            }
-                            
-                            return b._searchScore - a._searchScore;
-                        });
-                    }
-                } else {
-                    if (selectedCatalogs.size > 0 || selectedCategories.size > 0) {
-                        baseList.sort((a, b) => {
                             const getSeq = (item) => {
                                 const rowCode = item.코드 || item.품목코드;
                                 const m = masterProducts[rowCode] || masterProducts[item.품목코드] || {};
@@ -1322,17 +1315,26 @@
                             
                             if (seqA !== seqB) return seqA - seqB;
                             
-                            const aCode = a.코드 || a.품목코드;
-                            const bCode = b.코드 || b.품목코드;
-                            const vendorA = String(a.finalData?.['구매처'] || masterProducts[aCode]?.['구매처'] || masterProducts[a.품목코드]?.['구매처'] || '');
-                            const vendorB = String(b.finalData?.['구매처'] || masterProducts[bCode]?.['구매처'] || masterProducts[b.품목코드]?.['구매처'] || '');
-                            if (vendorA !== vendorB) return vendorA.localeCompare(vendorB);
+                            if (a._searchScore !== b._searchScore) return b._searchScore - a._searchScore;
                             
-                            return String(aCode).localeCompare(String(bCode));
+                            return String(a.코드 || a.품목코드).localeCompare(String(b.코드 || b.품목코드));
                         });
-                    } else {
-                        baseList.sort((a, b) => String(a.코드 || a.품목코드).localeCompare(String(b.코드 || b.품목코드)));
                     }
+                } else {
+                    baseList.sort((a, b) => {
+                        const getSeq = (item) => {
+                            const rowCode = item.코드 || item.품목코드;
+                            const m = masterProducts[rowCode] || masterProducts[item.품목코드] || {};
+                            const val = item.finalData?.['순번'] !== undefined ? item.finalData['순번'] : (item.sources?.['estimate']?.['순번'] ?? m['순번']);
+                            return (val === '' || val === undefined || val === null) ? 999999 : Number(val);
+                        };
+                        const seqA = getSeq(a);
+                        const seqB = getSeq(b);
+                        
+                        if (seqA !== seqB) return seqA - seqB;
+                        
+                        return String(a.코드 || a.품목코드).localeCompare(String(b.코드 || b.품목코드));
+                    });
                 }
                 return baseList;
             }, [managedItems, masterProducts, globalSearch, selectedCatalogs, selectedCategories]);
