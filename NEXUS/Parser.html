@@ -550,7 +550,10 @@
                             
                             rowData._matchCode = matchResult.code; 
                             rowData._matchStatus = matchResult.status;
-                            if(matchResult.code) { rowData.코드 = matchResult.code; }
+                            if(matchResult.code) { 
+                                rowData.코드 = matchResult.code; 
+                                rowData._apply = true; // 🌟 핵심 수정: 자동 매칭된 항목은 무조건 '체크(선택) 완료' 상태로 기본 세팅합니다!
+                            }
                             
                             rowData.finalData = {};
                             const pInNum = rowData['입고가'] ? parseNum(rowData['입고가']) : 0;
