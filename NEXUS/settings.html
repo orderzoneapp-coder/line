@@ -186,7 +186,8 @@
             });
             
             const [marginRules, setMarginRules] = useState(() => {
-                const s = localStorage.getItem('merchMarginRules_v878');
+                // 💡 [수정] 버전 키를 v879로 올려서 기존의 꼬인 데이터를 무시하고 7가지 기본값을 강제 적용합니다.
+                const s = localStorage.getItem('merchMarginRules_v879');
                 
                 // 🌟 이미지에 맞춘 7가지 강력한 기본값 하드코딩
                 const def = [ 
@@ -202,7 +203,6 @@
                 if (s) { 
                     try { 
                         const p = JSON.parse(s); 
-                        // 저장된 룰이 너무 적거나 없으면 하드코딩된 기본값으로 강제 덮어쓰기
                         if (p?.length > 2) return p.map(r => ({ ...r, whCode: r.whCode || '*', unit: r.unit || '*' })); 
                     } catch(e){} 
                 }
@@ -237,7 +237,7 @@
                 localStorage.setItem('merchVisUpload_v870', JSON.stringify(visibleUploadCols));
                 localStorage.setItem('merchMappings_v870', JSON.stringify(mappings)); 
                 localStorage.setItem('merchMasterLinks_v870', JSON.stringify(masterLinks)); 
-                localStorage.setItem('merchMarginRules_v878', JSON.stringify(marginRules));
+                localStorage.setItem('merchMarginRules_v879', JSON.stringify(marginRules)); // 💡 [수정] v879
                 localStorage.setItem('inventoryMappingsLight', JSON.stringify(opsMappings));
                 localStorage.setItem('inventoryGroupingV79', JSON.stringify(opsGrouping));
                 
@@ -330,7 +330,8 @@
             }, [masterProducts, showToast]);
 
             const handleExportSettings = () => {
-                const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v878', 'inventoryMappingsLight', 'inventoryGroupingV79'];
+                // 💡 [수정] 내보내기 키 v879 적용
+                const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v879', 'inventoryMappingsLight', 'inventoryGroupingV79'];
                 const data = {};
                 keys.forEach(k => { data[k] = localStorage.getItem(k); });
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -368,7 +369,8 @@
                         config.setVisibleUploadCols(safeParse('merchVisUpload_v870', config.visibleUploadCols));
                         config.setMappings(safeParse('merchMappings_v870', config.mappings));
                         config.setMasterLinks(safeParse('merchMasterLinks_v870', config.masterLinks));
-                        config.setMarginRules(safeParse('merchMarginRules_v878', config.marginRules));
+                        // 💡 [수정] 가져오기 키 v879 적용 (혹시 백업본이 v878이면 덮어쓰지 않고 최신 유지)
+                        config.setMarginRules(safeParse('merchMarginRules_v879', config.marginRules) || safeParse('merchMarginRules_v878', config.marginRules));
                         config.setOpsMappings(safeParse('inventoryMappingsLight', config.opsMappings));
                         config.setOpsGrouping(safeParse('inventoryGroupingV79', config.opsGrouping));
 
@@ -405,7 +407,8 @@
                 if (dangerLock !== '데이터를 모두 삭제합니다') return showToast('⚠️ 안전 잠금 해제 문구를 정확히 띄어쓰기하여 입력하세요.');
                 if (!window.confirm("경고: 커스텀된 매핑 규칙과 환경설정이 모두 초기화됩니다.\n진행하시겠습니까?")) return;
                 
-                const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v878', 'inventoryMappingsLight', 'inventoryGroupingV79'];
+                // 💡 [수정] 공장 초기화 키 v879 적용
+                const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v879', 'inventoryMappingsLight', 'inventoryGroupingV79'];
                 keys.forEach(k => localStorage.removeItem(k));
                 setDangerLock('');
                 showToast("🔄 설정이 기본값으로 초기화되었습니다. 화면을 새로고침합니다.");
