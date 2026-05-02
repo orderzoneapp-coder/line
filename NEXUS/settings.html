@@ -340,9 +340,21 @@
                         Object.keys(imported).forEach(k => {
                             if (imported[k] !== null && imported[k] !== undefined) localStorage.setItem(k, imported[k]);
                         });
-                        showToast("✅ 설정이 성공적으로 복원되었습니다. 적용을 위해 화면을 새로고침합니다.");
-                        setTimeout(() => window.location.reload(), 1500);
+                        
+                        // [수정] 기존 State가 복원된 localStorage 데이터를 덮어쓰는 타이밍 이슈 방지
+                        // 복원된 데이터로 React State 즉시 업데이트 (새로고침 불필요)
+                        if (imported[STORAGE_KEYS.CLOUD_URL] !== undefined) config.setCloudUrl(imported[STORAGE_KEYS.CLOUD_URL]);
+                        if (imported['merchVisMaster_v870']) config.setVisibleMasterCols(JSON.parse(imported['merchVisMaster_v870']));
+                        if (imported['merchVisUpload_v870']) config.setVisibleUploadCols(JSON.parse(imported['merchVisUpload_v870']));
+                        if (imported['merchMappings_v870']) config.setMappings(JSON.parse(imported['merchMappings_v870']));
+                        if (imported['merchMasterLinks_v870']) config.setMasterLinks(JSON.parse(imported['merchMasterLinks_v870']));
+                        if (imported['merchMarginRules_v878']) config.setMarginRules(JSON.parse(imported['merchMarginRules_v878']));
+                        if (imported['inventoryMappingsLight']) config.setOpsMappings(JSON.parse(imported['inventoryMappingsLight']));
+                        if (imported['inventoryGroupingV79']) config.setOpsGrouping(JSON.parse(imported['inventoryGroupingV79']));
+
+                        showToast("✅ 설정이 성공적으로 복원되어 화면에 즉시 적용되었습니다.");
                     } catch(err) {
+                        console.error("Import Error:", err);
                         showToast("❌ 설정 파일 형식이 올바르지 않습니다.");
                     }
                 };
