@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Smart Parser [v1.0]</title>
+    <title>NEXUS - Smart Parser [v1.3]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -26,6 +26,10 @@
         .slide-in-right { animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
         .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        
+        /* input[type=number] 화살표 숨김 */
+        input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
     </style>
 </head>
 <body class="text-slate-800">
@@ -35,33 +39,31 @@
         const { useState, useMemo, useEffect, useRef, useCallback, Fragment } = React;
 
         // ==========================================
-        // 🧩 1. 코어 전역 상수 및 DB 래퍼
+        // 🧩 1. 코어 전역 상수 및 DB 래퍼 (🌟 DB Singleton 커넥션 적용)
         // ==========================================
         const STORAGE_KEYS = {
-            MASTER_DB: 'merchMaster_v870',
-            CLOUD_URL: 'skuSyncCloudUrl_v6',
-            SYNC_TRIGGER: 'merchMaster_sync_trigger',
-            HISTORY_DB: 'merchHistory_v870',
-            UNSYNCED_MASTER: 'merchUnsyncedMaster_v1',
-            UNSYNCED_HISTORY: 'merchUnsyncedHistory_v1',
+            MASTER_DB: 'merchMaster_v870', CLOUD_URL: 'skuSyncCloudUrl_v6', SYNC_TRIGGER: 'merchMaster_sync_trigger',
+            HISTORY_DB: 'merchHistory_v870', UNSYNCED_MASTER: 'merchUnsyncedMaster_v1', UNSYNCED_HISTORY: 'merchUnsyncedHistory_v1',
             UNSYNCED_DICT: 'merchUnsyncedDict_v1',
         };
 
         const generateUUID = () => {
             if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16);
             });
         };
 
         const parseNum = (v) => (!v ? 0 : Number(String(v).replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0);
         const safeStr = (val, def = '') => (val !== undefined && val !== null && val !== '') ? String(val) : def;
 
+        // 🌟 DB 단일 연결 (병목 방지)
+        let idbInstance = null;
         const initIDB = () => new Promise((resolve, reject) => {
+            if (idbInstance) return resolve(idbInstance);
             const request = indexedDB.open('MerchOpsDB', 1);
             request.onupgradeneeded = (e) => { if (!e.target.result.objectStoreNames.contains('store')) e.target.result.createObjectStore('store'); };
-            request.onsuccess = () => resolve(request.result);
+            request.onsuccess = () => { idbInstance = request.result; resolve(idbInstance); };
             request.onerror = () => reject(request.error);
         });
 
@@ -85,7 +87,6 @@
             });
         };
 
-        // 💡 단가 계산 엔진 (Pipeline과 동일한 하드코딩 룰 적용)
         const calculatePricesEngine = (baseInPrice, mItem = {}, currentFinalData = {}, marginRules = [], forceRecalc = false) => {
             if (!baseInPrice || baseInPrice <= 0) return { ...currentFinalData, '입고가': 0, '시중가': 0, '출고가': 0, '1입고': 0, '1출고': 0 };
 
@@ -131,7 +132,7 @@
         };
 
         // ==========================================
-        // 🧩 2. 공용 UI 컴포넌트 (GlobalHeader 등)
+        // 🧩 2. 공용 UI 컴포넌트
         // ==========================================
         class ErrorBoundary extends React.Component {
             constructor(props) { super(props); this.state = { hasError: false, error: null }; }
@@ -142,8 +143,7 @@
                         <i className="fas fa-exclamation-triangle text-rose-500 text-6xl mb-6"></i>
                         <h1 className="text-2xl font-black text-slate-800 mb-2">화면 렌더링 오류 발생</h1>
                         <p className="text-slate-500 mb-6">아래 [초기화] 버튼을 눌러 복구해 주세요.</p>
-                        <div className="bg-white border border-rose-200 p-4 rounded-lg text-xs font-mono text-rose-600 w-full max-w-2xl overflow-auto mb-8 shadow-sm">{this.state.error && this.state.error.toString()}</div>
-                        <button onClick={() => { indexedDB.deleteDatabase('MerchOpsDB'); localStorage.removeItem('merchMaster_v870'); window.location.reload(); }} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg"><i className="fas fa-redo-alt"></i> 로컬 데이터 초기화</button>
+                        <button onClick={() => { indexedDB.deleteDatabase('MerchOpsDB'); localStorage.removeItem('merchMaster_v870'); window.location.reload(); }} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"><i className="fas fa-redo-alt"></i> 로컬 데이터 초기화</button>
                     </div>
                 );
                 return this.props.children;
@@ -196,7 +196,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.0</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.3</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -258,11 +258,8 @@
                 <div className="fixed inset-0 z-[500] flex bg-slate-900/60 backdrop-blur-sm fade-in cursor-pointer" onClick={onClose}>
                     <div className="w-full max-w-[1400px] h-full bg-white shadow-[-10px_0_40px_rgba(0,0,0,0.3)] flex flex-col slide-in-right border-l border-slate-300 relative overflow-hidden ml-auto cursor-default" onClick={(e) => e.stopPropagation()}>
                         <div className="bg-[#0f172a] px-6 py-4 flex justify-between items-center text-white shrink-0 border-b border-slate-700 shadow-md relative z-10">
-                            <div className="flex items-center gap-3">
-                                <SafeIcon name="settings" size={20} className="text-indigo-400"/>
-                                <h2 className="font-black text-[17px] tracking-wide">통합 환경설정 센터</h2>
-                            </div>
-                            <button onClick={onClose} className="text-slate-300 hover:text-white bg-slate-800 hover:bg-rose-500 w-8 h-8 rounded-lg flex items-center justify-center border border-slate-700 hover:border-rose-400"><SafeIcon name="x" size={18} /></button>
+                            <div className="flex items-center gap-3"><SafeIcon name="settings" size={20} className="text-indigo-400"/><h2 className="font-black text-[17px] tracking-wide">통합 환경설정 센터</h2></div>
+                            <button onClick={onClose} className="text-slate-300 hover:text-white bg-slate-800 hover:bg-rose-500 w-8 h-8 rounded-lg flex items-center justify-center"><SafeIcon name="x" size={18} /></button>
                         </div>
                         <div className="flex-1 w-full bg-slate-100 relative">
                             <iframe src="settings.html?mode=iframe" className="absolute inset-0 w-full h-full border-0 bg-white" title="Settings"></iframe>
@@ -406,7 +403,6 @@
             const [parserDict, setParserDict] = useState(() => { try { return JSON.parse(localStorage.getItem('parserDict_v870')) || {}; } catch(e){ return {}; }});
             const [cloudUrl, setCloudUrl] = useState(() => localStorage.getItem(STORAGE_KEYS.CLOUD_URL) || '');
             
-            // 하드코딩된 기본 마진 룰
             const defaultRules = [
                 { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' },
                 { id: generateUUID(), whCode: '01', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' },
@@ -782,31 +778,13 @@
                 }
             }, [selectedMissingCodes, masterProducts, currentTag, saveMaster, setSelectedMissingCodes, setIsProcessing, setProcessMsg, showToast]);
 
-            const handleRemoveTagDirect = useCallback(async (code) => {
-                if (!currentTag) return;
-                try {
-                    let newMaster = { ...masterProducts };
-                    if (newMaster[code]) {
-                        newMaster[code]['카탈로그'] = removeTag(newMaster[code]['카탈로그'], currentTag);
-                        
-                        const unsyncedMaster = await getIDB(STORAGE_KEYS.UNSYNCED_MASTER) || {};
-                        unsyncedMaster[code] = newMaster[code];
-                        await setIDB(STORAGE_KEYS.UNSYNCED_MASTER, unsyncedMaster);
-
-                        await saveMaster(newMaster);
-                        showToast(`✅ 선택한 상품을 '${currentTag}' 카탈로그에서 단종 처리했습니다.`);
-                    }
-                } catch(error) {
-                    console.error(error); showToast("❌ 제외 처리 중 오류가 발생했습니다.");
-                }
-            }, [masterProducts, currentTag, saveMaster, showToast]);
-
             // 💡 클라우드 동기화 (Push / Pull)
             const handlePush = async () => {
                 if (!cloudUrl) return showToast("⚠️ 설정에서 앱스크립트 URL을 입력하세요.");
                 const unsyncedMaster = await getIDB(STORAGE_KEYS.UNSYNCED_MASTER) || {};
                 const unsyncedHistory = await getIDB(STORAGE_KEYS.UNSYNCED_HISTORY) || [];
                 const unsyncedDict = await getIDB(STORAGE_KEYS.UNSYNCED_DICT) || {};
+                
                 if (Object.keys(unsyncedMaster).length === 0 && unsyncedHistory.length === 0 && Object.keys(unsyncedDict).length === 0) return showToast("⚠️ 클라우드에 새로 반영할 변경사항이 없습니다.");
 
                 setIsProcessing(true); setProcessMsg("클라우드 백업 중...");
@@ -858,14 +836,13 @@
 
             return { 
                 executeParser, handleApplyMatched, handleConfirmMapping, handleCancelMapping, 
-                handleCreateNewMasterItem, handleIgnoreParsedItem, handleRemoveMissingTags, handleRemoveTagDirect,
-                handleCancelErpInput,
-                handlePush, handlePull, openErpModal: () => setShowErpModal(true)
+                handleCreateNewMasterItem, handleIgnoreParsedItem, handleRemoveMissingTags,
+                handleCancelErpInput, handlePush, handlePull, openErpModal: () => setShowErpModal(true)
             };
         };
 
         // ==========================================
-        // 🧩 5. UI 컴포넌트
+        // 🧩 5. UI 컴포넌트 (🌟 가상 스크롤 / Memo 최적화 적용)
         // ==========================================
 
         const ErpCodeInputModal = ({ onClose, onSubmit, targetItem }) => {
@@ -887,17 +864,14 @@
                             <div>
                                 <label className="block text-[12px] font-black text-slate-600 mb-2">ERP 품목코드 (SKU)</label>
                                 <input 
-                                    type="text" 
-                                    value={code} 
-                                    onChange={e => setCode(e.target.value)} 
-                                    autoFocus 
+                                    type="text" value={code} onChange={e => setCode(e.target.value)} autoFocus 
                                     placeholder="예: 101012123" 
                                     className="w-full border-2 border-indigo-100 rounded-lg px-4 py-3 text-[14px] font-bold outline-none focus:border-indigo-500 transition-colors placeholder-slate-300" 
                                     onKeyDown={e => e.key === 'Enter' && code.trim() && onSubmit(code)} 
                                 />
                             </div>
                             <div className="flex gap-2 pt-2">
-                                <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-200 transition-colors text-[13px]">취소</button>
+                                <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-200 transition-colors text-[13px]">작업 취소 및 삭제</button>
                                 <button onClick={() => code.trim() && onSubmit(code)} disabled={!code.trim()} className={`flex-1 font-bold py-3 rounded-xl transition-all text-[13px] shadow-sm ${code.trim() ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:-translate-y-0.5' : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'}`}>
                                     등록 및 연결
                                 </button>
@@ -908,6 +882,7 @@
             );
         };
 
+        // 🌟 EditablePriceCell 최적화 (Pipeline v1.2와 동일하게)
         const EditablePriceCell = React.memo(({ rowId, initialVal, onUpdate }) => {
             const [localVal, setLocalVal] = useState(initialVal);
             const [isFocused, setIsFocused] = useState(false);
@@ -919,7 +894,7 @@
 
             return (
                 <input 
-                    type="text" 
+                    type="number" 
                     className="w-full bg-transparent text-right outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 rounded px-1.5 py-1 text-[12px] font-bold text-indigo-700 transition-colors" 
                     value={localVal === "오류" ? "" : localVal} 
                     onChange={(e) => setLocalVal(e.target.value)} 
@@ -928,6 +903,25 @@
                     onKeyDown={handleKeyDown}
                     onClick={(e) => e.target.select()} 
                 />
+            );
+        });
+
+        // 🌟 매핑 완료 행 컴포넌트 분리 및 Memoization
+        const MatchedRow = React.memo(({ row, mItem, onToggle, onUpdatePrice }) => {
+            const mIn = parseNum(mItem['입고가']);
+            const pIn = parseNum(row.finalData['입고가']);
+            const isDiff = mIn > 0 && mIn !== pIn;
+            return (
+                <tr className="hover:bg-slate-50 transition-colors h-[40px]">
+                    <td className="py-1.5 px-4 text-center"><input type="checkbox" className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer" checked={row._apply} onChange={() => onToggle(row._id)} /></td>
+                    <td className="py-1.5 px-3 font-mono text-[11px] text-slate-500">{row._matchCode}</td>
+                    <td className="py-1.5 px-3"><span className="font-bold text-slate-800">{mItem.품목명 || row['품목명']}</span> <span className="text-[11px] text-slate-400">({mItem.규격 || row['규격']})</span></td>
+                    <td className="py-1.5 px-3 text-emerald-800 bg-emerald-50/20 font-bold">{row['품목명']}</td>
+                    <td className="py-1.5 px-3 text-right text-slate-500 font-bold">{mIn ? mIn.toLocaleString() : '-'}</td>
+                    <td className={`py-1.5 px-3 text-right font-black ${isDiff ? 'bg-rose-50/30' : 'bg-emerald-50/20'}`}>
+                        <EditablePriceCell rowId={row._id} initialVal={row.finalData['입고가']} onUpdate={onUpdatePrice} />
+                    </td>
+                </tr>
             );
         });
 
@@ -1039,12 +1033,8 @@
 
                     list.push({
                         ...row,
-                        기존단가: oldP,
-                        새단가: newP,
-                        차액: newP - oldP,
-                        상태: status,
-                        마스터품명: mItem.품목명 || '',
-                        마스터규격: mItem.규격 || ''
+                        기존단가: oldP, 새단가: newP, 차액: newP - oldP, 상태: status,
+                        마스터품명: mItem.품목명 || '', 마스터규격: mItem.규격 || ''
                     });
                 });
 
@@ -1057,32 +1047,48 @@
                 return analysis.priceList.filter(item => item.상태 === priceFilter);
             }, [analysis.priceList, priceFilter]);
 
+            // 🌟 가상 스크롤 상태
+            const [scrollTop, setScrollTop] = useState(0);
+            const handleScroll = useCallback((e) => setScrollTop(e.target.scrollTop), []);
+
+            const ROW_HEIGHT = 40;
+            const BUFFER_SIZE = 15;
+            const VIEWPORT_HEIGHT = window.innerHeight * 0.6;
+
+            const currentList = viewMode === 'mapping' ? analysis.list : filteredPriceList;
+            const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_SIZE);
+            const endIndex = Math.min(currentList.length, Math.floor((scrollTop + VIEWPORT_HEIGHT) / ROW_HEIGHT) + BUFFER_SIZE);
+
+            const virtualRows = currentList.slice(startIndex, endIndex);
+            const topPadding = startIndex * ROW_HEIGHT;
+            const bottomPadding = Math.max(0, (currentList.length - endIndex) * ROW_HEIGHT);
+
             return (
                 <div className="fixed inset-0 bg-slate-900/80 z-[100] flex justify-center items-center backdrop-blur-sm fade-in">
-                    <div className="bg-white w-[900px] max-h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                    <div className="bg-white w-[900px] h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
                         <div className="bg-[#0f172a] p-4 text-white flex justify-between shrink-0 border-b border-slate-700">
                             <h2 className="font-black text-[16px]"><i className="fas fa-clipboard-check text-indigo-400 mr-2"></i>작업 완료 및 투트랙(매핑/단가) 검증</h2>
                             <button onClick={onClose}><i className="fas fa-times text-slate-400 hover:text-white"></i></button>
                         </div>
                         
                         <div className="flex bg-slate-100 border-b border-slate-200 shrink-0 p-2 gap-2">
-                            <button onClick={() => setViewMode('mapping')} className={`flex-1 py-2.5 rounded-lg font-black text-[13px] transition-all flex justify-center items-center ${viewMode === 'mapping' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200'}`}>
+                            <button onClick={() => {setViewMode('mapping'); setScrollTop(0);}} className={`flex-1 py-2.5 rounded-lg font-black text-[13px] transition-all flex justify-center items-center ${viewMode === 'mapping' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200'}`}>
                                 <i className="fas fa-link mr-2"></i>1. 매핑 검증 (텍스트 비교)
                             </button>
-                            <button onClick={() => setViewMode('price')} className={`flex-1 py-2.5 rounded-lg font-black text-[13px] transition-all flex justify-center items-center ${viewMode === 'price' ? 'bg-white text-emerald-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200'}`}>
+                            <button onClick={() => {setViewMode('price'); setScrollTop(0);}} className={`flex-1 py-2.5 rounded-lg font-black text-[13px] transition-all flex justify-center items-center ${viewMode === 'price' ? 'bg-white text-emerald-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200'}`}>
                                 <i className="fas fa-search-dollar mr-2"></i>2. 단가 변동 브리핑
                             </button>
                         </div>
 
-                        <div className="p-5 flex flex-col flex-1 overflow-hidden bg-slate-50">
+                        <div className="flex flex-col flex-1 overflow-hidden bg-slate-50">
                             {viewMode === 'mapping' ? (
-                                <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden fade-in">
+                                <div className="flex-1 flex flex-col bg-white overflow-hidden fade-in">
                                     <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center shrink-0">
                                         <span className="text-[12px] font-bold text-indigo-800"><i className="fas fa-info-circle mr-1.5"></i>파싱된 텍스트와 연결된 마스터 상품이 올바른지 확인하세요. 잘못된 연결은 우측에서 '취소'를 누르세요.</span>
                                         <span className="text-[11px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-black">총 {analysis.total}건 대기중</span>
                                     </div>
-                                    <div className="flex-1 overflow-auto custom-scrollbar">
-                                        <table className="w-full text-left text-[12px] whitespace-nowrap">
+                                    <div className="flex-1 overflow-auto custom-scrollbar relative" onScroll={handleScroll}>
+                                        <table className="w-full text-left text-[12px] whitespace-nowrap relative z-0">
                                             <thead className="bg-white sticky top-0 border-b border-slate-200 shadow-sm z-10">
                                                 <tr className="text-slate-500">
                                                     <th className="px-4 py-2 w-16 text-center">분류</th>
@@ -1093,96 +1099,102 @@
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                {analysis.list.map(item => (
-                                                    <tr key={`map-${item._id}`} className="hover:bg-slate-50 transition-colors">
-                                                        <td className="px-4 py-2 text-center">
+                                                {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="5"></td></tr>}
+                                                {virtualRows.map(item => (
+                                                    <tr key={`map-${item._id}`} className="hover:bg-slate-50 transition-colors h-[40px]">
+                                                        <td className="px-4 py-1 text-center">
                                                             {item._matchStatus.includes('신규등록') ? <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[10px] font-black">신규등록</span> :
                                                              item._matchStatus.includes('수동') ? <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-black">수동 연결</span> : 
                                                              <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-black">AI 자동</span>}
                                                         </td>
-                                                        <td className="px-4 py-2 bg-emerald-50/10">
+                                                        <td className="px-4 py-1 bg-emerald-50/10">
                                                             <div className="flex flex-col">
                                                                 <span className="font-black text-emerald-800 truncate">{item['품목명']}</span>
                                                                 <span className="text-[11px] text-emerald-600/70 truncate mt-0.5">{item['규격']} {item['단위'] ? `| ${item['단위']}` : ''}</span>
                                                             </div>
                                                         </td>
-                                                        <td className="px-2 py-2 text-center text-slate-300"><i className="fas fa-arrow-right"></i></td>
-                                                        <td className="px-4 py-2 bg-indigo-50/10">
+                                                        <td className="px-2 py-1 text-center text-slate-300"><i className="fas fa-arrow-right"></i></td>
+                                                        <td className="px-4 py-1 bg-indigo-50/10">
                                                             <div className="flex flex-col">
                                                                 <span className="text-[10px] font-mono text-slate-400 mb-0.5">{item._matchCode}</span>
                                                                 <span className="font-bold text-slate-800 truncate">{item.마스터품명 || item['품목명']} <span className="font-normal text-slate-500 text-[11px]">({item.마스터규격 || item['규격']})</span></span>
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-2 text-center">
+                                                        <td className="px-4 py-1 text-center">
                                                             <button onClick={() => actions.handleCancelMapping(item._id)} className="px-2.5 py-1.5 bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded text-[11px] font-bold transition-colors shadow-sm" title="연결을 해제하고 표로 되돌립니다.">취소</button>
                                                         </td>
                                                     </tr>
                                                 ))}
+                                                {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="5"></td></tr>}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex-1 flex flex-col fade-in">
-                                    <div className="grid grid-cols-4 gap-3 mb-3 shrink-0">
-                                        <div onClick={() => setPriceFilter('all')} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'all' ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>
+                                <div className="flex-1 flex flex-col fade-in bg-white">
+                                    <div className="grid grid-cols-4 gap-3 p-4 shrink-0 border-b border-slate-200">
+                                        <div onClick={() => {setPriceFilter('all'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'all' ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>
                                             <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'all' ? 'text-slate-300' : 'text-slate-500'}`}><i className="fas fa-list mr-1"></i>전체</div>
                                             <div className={`font-black text-xl ${priceFilter === 'all' ? 'text-white' : 'text-slate-700'}`}>{analysis.total}<span className="text-[11px] ml-1 font-bold">건</span></div>
                                         </div>
-                                        <div onClick={() => setPriceFilter('up')} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'up' ? 'bg-rose-500 border-rose-500 text-white' : 'bg-white border-rose-200 hover:bg-rose-50'}`}>
+                                        <div onClick={() => {setPriceFilter('up'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'up' ? 'bg-rose-500 border-rose-500 text-white' : 'bg-white border-rose-200 hover:bg-rose-50'}`}>
                                             <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'up' ? 'text-rose-100' : 'text-rose-500'}`}><i className="fas fa-arrow-up mr-1"></i>인상</div>
                                             <div className={`font-black text-xl ${priceFilter === 'up' ? 'text-white' : 'text-rose-700'}`}>{analysis.up}<span className="text-[11px] ml-1 font-bold">건</span></div>
                                         </div>
-                                        <div onClick={() => setPriceFilter('down')} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'down' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-blue-200 hover:bg-blue-50'}`}>
+                                        <div onClick={() => {setPriceFilter('down'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'down' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-blue-200 hover:bg-blue-50'}`}>
                                             <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'down' ? 'text-blue-100' : 'text-blue-500'}`}><i className="fas fa-arrow-down mr-1"></i>인하</div>
                                             <div className={`font-black text-xl ${priceFilter === 'down' ? 'text-white' : 'text-blue-700'}`}>{analysis.down}<span className="text-[11px] ml-1 font-bold">건</span></div>
                                         </div>
-                                        <div onClick={() => setPriceFilter('same')} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'same' ? 'bg-slate-500 border-slate-500 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
-                                            <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'same' ? 'text-slate-200' : 'text-slate-500'}`}><i className="fas fa-equals mr-1"></i>동결/기타 (0원 포함)</div>
+                                        <div onClick={() => {setPriceFilter('same'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'same' ? 'bg-slate-500 border-slate-500 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
+                                            <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'same' ? 'text-slate-200' : 'text-slate-500'}`}><i className="fas fa-equals mr-1"></i>동결/기타 (0원)</div>
                                             <div className={`font-black text-xl ${priceFilter === 'same' ? 'text-white' : 'text-slate-700'}`}>{analysis.same}<span className="text-[11px] ml-1 font-bold">건</span></div>
                                         </div>
                                     </div>
-                                    <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                                        <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 text-[11px] font-bold text-slate-500 flex items-center justify-between">
-                                            <span><i className="fas fa-exclamation-triangle text-amber-500 mr-1.5 text-[12px]"></i> 단가가 비정상적으로 튀는 항목은 다른 상품에 잘못 매핑했을 확률이 높습니다!</span>
-                                            <span className="text-indigo-600">노출 항목: {filteredPriceList.length}건</span>
-                                        </div>
-                                        <div className="flex-1 overflow-auto custom-scrollbar">
-                                            <table className="w-full text-left text-[12px] whitespace-nowrap">
-                                                <thead className="bg-white sticky top-0 border-b border-slate-200 shadow-sm z-10">
-                                                    <tr className="text-slate-500">
-                                                        <th className="px-4 py-2 w-12 text-center">상태</th>
-                                                        <th className="px-4 py-2">상품코드</th>
-                                                        <th className="px-4 py-2 w-full">마스터 품목명 (규격)</th>
-                                                        <th className="px-4 py-2 text-right">기존 입고가</th>
-                                                        <th className="px-4 py-2 text-right text-indigo-600">새 입고가</th>
-                                                        <th className="px-4 py-2 text-right">차액</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100">
-                                                    {filteredPriceList.length === 0 ? (
-                                                        <tr><td colSpan="6" className="p-8 text-center text-slate-400 font-bold">해당 조건의 항목이 없습니다.</td></tr>
-                                                    ) : filteredPriceList.map(item => (
-                                                        <tr key={`price-${item._id}`} className="hover:bg-slate-50 transition-colors">
-                                                            <td className="px-4 py-2 text-center">
-                                                                {item.상태 === 'up' && <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded text-[10px] font-black">인상</span>}
-                                                                {item.상태 === 'down' && <span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded text-[10px] font-black">인하</span>}
-                                                                {item.상태 === 'same' && <span className="text-slate-400 text-[10px] font-black">-</span>}
-                                                            </td>
-                                                            <td className="px-4 py-2 font-mono text-slate-500 text-[11px]">{item._matchCode}</td>
-                                                            <td className="px-4 py-2 font-bold text-slate-800 truncate max-w-[200px]">{item.마스터품명 || item['품목명']} <span className="text-slate-400 font-normal ml-1 text-[11px]">({item.마스터규격 || item['규격']})</span></td>
-                                                            <td className="px-4 py-2 text-right text-slate-500">{item.기존단가 > 0 ? item.기존단가.toLocaleString() : '-'}</td>
-                                                            <td className="px-4 py-2 text-right font-black text-indigo-600">{item.새단가 > 0 ? item.새단가.toLocaleString() : '-'}</td>
-                                                            <td className="px-4 py-2 text-right font-bold">
-                                                                {item.차액 > 0 && <span className="text-rose-500">+{item.차액.toLocaleString()}</span>}
-                                                                {item.차액 < 0 && <span className="text-blue-500">{item.차액.toLocaleString()}</span>}
-                                                                {item.차액 === 0 && <span className="text-slate-300">-</span>}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 text-[11px] font-bold text-slate-500 flex items-center justify-between shrink-0">
+                                        <span><i className="fas fa-exclamation-triangle text-amber-500 mr-1.5 text-[12px]"></i> 단가가 비정상적으로 튀는 항목은 다른 상품에 잘못 매핑했을 확률이 높습니다!</span>
+                                        <span className="text-indigo-600">노출 항목: {filteredPriceList.length}건</span>
+                                    </div>
+                                    <div className="flex-1 overflow-auto custom-scrollbar relative" onScroll={handleScroll}>
+                                        <table className="w-full text-left text-[12px] whitespace-nowrap relative z-0">
+                                            <thead className="bg-white sticky top-0 border-b border-slate-200 shadow-sm z-10">
+                                                <tr className="text-slate-500">
+                                                    <th className="px-4 py-2 w-12 text-center">상태</th>
+                                                    <th className="px-4 py-2">상품코드</th>
+                                                    <th className="px-4 py-2 w-full">마스터 품목명 (규격)</th>
+                                                    <th className="px-4 py-2 text-right">기존 입고가</th>
+                                                    <th className="px-4 py-2 text-right text-indigo-600">새 입고가</th>
+                                                    <th className="px-4 py-2 text-right">차액</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {filteredPriceList.length === 0 ? (
+                                                    <tr><td colSpan="6" className="p-8 text-center text-slate-400 font-bold">해당 조건의 항목이 없습니다.</td></tr>
+                                                ) : (
+                                                    <>
+                                                        {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="6"></td></tr>}
+                                                        {virtualRows.map(item => (
+                                                            <tr key={`price-${item._id}`} className="hover:bg-slate-50 transition-colors h-[40px]">
+                                                                <td className="px-4 py-1 text-center">
+                                                                    {item.상태 === 'up' && <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded text-[10px] font-black">인상</span>}
+                                                                    {item.상태 === 'down' && <span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded text-[10px] font-black">인하</span>}
+                                                                    {item.상태 === 'same' && <span className="text-slate-400 text-[10px] font-black">-</span>}
+                                                                </td>
+                                                                <td className="px-4 py-1 font-mono text-slate-500 text-[11px]">{item._matchCode}</td>
+                                                                <td className="px-4 py-1 font-bold text-slate-800 truncate max-w-[200px]">{item.마스터품명 || item['품목명']} <span className="text-slate-400 font-normal ml-1 text-[11px]">({item.마스터규격 || item['규격']})</span></td>
+                                                                <td className="px-4 py-1 text-right text-slate-500">{item.기존단가 > 0 ? item.기존단가.toLocaleString() : '-'}</td>
+                                                                <td className="px-4 py-1 text-right font-black text-indigo-600">{item.새단가 > 0 ? item.새단가.toLocaleString() : '-'}</td>
+                                                                <td className="px-4 py-1 text-right font-bold">
+                                                                    {item.차액 > 0 && <span className="text-rose-500">+{item.차액.toLocaleString()}</span>}
+                                                                    {item.차액 < 0 && <span className="text-blue-500">{item.차액.toLocaleString()}</span>}
+                                                                    {item.차액 === 0 && <span className="text-slate-300">-</span>}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                        {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="6"></td></tr>}
+                                                    </>
+                                                )}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             )}
@@ -1203,7 +1215,7 @@
         };
 
         // ==========================================
-        // ⚙️ 메인 컴포넌트
+        // ⚙️ 메인 렌더링 (가상 스크롤 적용)
         // ==========================================
         const ParserApp = () => {
             const appState = useParserApp();
@@ -1212,10 +1224,10 @@
             const { 
                 masterProducts, parserBuffer, currentTag, activeTab, setActiveTab,
                 showInputModal, setShowInputModal, showReviewModal, setShowReviewModal, 
-                showErpModal, setShowErpModal, showSettingsModal, setShowSettingsModal,
+                showErpModal,
                 toastMsg, isProcessing, processMsg,
                 globalSearch, setGlobalSearch, targetId, setTargetId,
-                selectedMissingCodes, setSelectedMissingCodes, processedCodes, marginRules
+                selectedMissingCodes, setSelectedMissingCodes, processedCodes
             } = appState;
 
             const handleNavigate = useCallback((e, path, isReady = true) => {
@@ -1232,10 +1244,7 @@
                 const counts = {};
                 Object.values(masterProducts).forEach(m => {
                     const tagStr = m['카탈로그'] || '';
-                    tagStr.split(',').forEach(t => {
-                        const trimmed = t.trim();
-                        if (trimmed) counts[trimmed] = (counts[trimmed] || 0) + 1;
-                    });
+                    tagStr.split(',').forEach(t => { const trimmed = t.trim(); if (trimmed) counts[trimmed] = (counts[trimmed] || 0) + 1; });
                 });
                 return Object.keys(counts).sort().map(tag => ({ name: tag, count: counts[tag] }));
             }, [masterProducts]);
@@ -1293,12 +1302,32 @@
                     if (r._id === rowId) {
                         const mItem = masterProducts[r._matchCode] || {};
                         const pInRaw = newVal;
-                        const recalculatedFinal = calculatePricesEngine(parseNum(pInRaw), mItem, r.finalData || {}, marginRules, true);
+                        const recalculatedFinal = calculatePricesEngine(parseNum(pInRaw), mItem, r.finalData || {}, appState.marginRules, true);
                         return { ...r, finalData: recalculatedFinal };
                     }
                     return r;
                 }));
-            }, [masterProducts, marginRules, appState.setParserBuffer]);
+            }, [masterProducts, appState.marginRules, appState.setParserBuffer]);
+            
+            const handleToggleApply = useCallback((id) => {
+                appState.setParserBuffer(p => p.map(r => r._id === id ? {...r, _apply: !r._apply} : r));
+            }, [appState.setParserBuffer]);
+
+            // 🌟 메인 화면 가상 스크롤
+            const [scrollTop, setScrollTop] = useState(0);
+            const handleScroll = useCallback((e) => setScrollTop(e.target.scrollTop), []);
+            
+            const ROW_HEIGHT = 40;
+            const BUFFER_SIZE = 15;
+            const VIEWPORT_HEIGHT = window.innerHeight - 250;
+
+            const currentMainList = activeTab === 'matched' ? matchedRows : activeTab === 'missing' ? missingRows : displayUnmatchedRows;
+            const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_SIZE);
+            const endIndex = Math.min(currentMainList.length, Math.floor((scrollTop + VIEWPORT_HEIGHT) / ROW_HEIGHT) + BUFFER_SIZE);
+
+            const virtualRows = currentMainList.slice(startIndex, endIndex);
+            const topPadding = startIndex * ROW_HEIGHT;
+            const bottomPadding = Math.max(0, (currentMainList.length - endIndex) * ROW_HEIGHT);
 
             return (
                 <div className="h-screen w-full bg-slate-100 flex justify-center overflow-hidden font-sans">
@@ -1306,13 +1335,10 @@
 
                     <div className="w-full max-w-[1500px] h-full flex flex-col bg-slate-50 shadow-2xl overflow-hidden mx-auto">
                         <GlobalHeader 
-                            activeTab="parser" 
-                            itemCount={Object.keys(masterProducts).length} 
-                            isProcessing={isProcessing} 
-                            processMsg={processMsg}
-                            onOpenSettings={() => setShowSettingsModal(true)}
-                            onPush={actions.handlePush}
-                            onPull={actions.handlePull}
+                            activeTab="parser" itemCount={Object.keys(masterProducts).length} 
+                            isProcessing={isProcessing} processMsg={processMsg}
+                            onOpenSettings={() => appState.setShowSettingsModal(true)}
+                            onPush={actions.handlePush} onPull={actions.handlePull}
                             onNavigate={handleNavigate}
                         />
 
@@ -1323,9 +1349,7 @@
                                         <div className="flex items-center group shrink-0">
                                             <span className="text-xl font-black text-emerald-400 mr-3">NEXUS</span>
                                             <div className="flex flex-col border-l-2 border-slate-700 pl-3">
-                                                <div className="flex items-center mb-0.5">
-                                                    <span className="text-[14px] font-black text-slate-200 leading-none">Smart Parser</span>
-                                                </div>
+                                                <div className="flex items-center mb-0.5"><span className="text-[14px] font-black text-slate-200 leading-none">Smart Parser</span></div>
                                                 <span className="text-[9px] font-extrabold text-slate-400 tracking-widest uppercase mt-0.5">TEXT ANALYSIS & DELTA SYNC</span>
                                             </div>
                                         </div>
@@ -1354,13 +1378,12 @@
                             </div>
                             
                             <div className="px-6 pt-4 pb-3 flex items-center justify-between gap-4 overflow-x-auto custom-scrollbar w-full">
-                                
                                 <div className="flex gap-1.5 shrink-0 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200">
-                                    <button onClick={()=>setActiveTab('matched')} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='matched' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟢 일치 ({matchedRows.length})</button>
-                                    <button onClick={()=>setActiveTab('similar')} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='similar' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟡 유사 ({combinedSimilarRows.length})</button>
-                                    <button onClick={()=>setActiveTab('unmatched')} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='unmatched' ? 'bg-white text-rose-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🔴 불일치 ({unmatchedRows.length})</button>
+                                    <button onClick={()=>{setActiveTab('matched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='matched' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟢 일치 ({matchedRows.length})</button>
+                                    <button onClick={()=>{setActiveTab('similar'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='similar' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟡 유사 ({combinedSimilarRows.length})</button>
+                                    <button onClick={()=>{setActiveTab('unmatched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='unmatched' ? 'bg-white text-rose-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🔴 불일치 ({unmatchedRows.length})</button>
                                     <div className="w-px bg-slate-300 mx-0.5 my-1"></div>
-                                    <button onClick={()=>setActiveTab('missing')} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all flex items-center gap-1.5 ${activeTab==='missing' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>⚪ 누락 {currentTag && missingRows.length > 0 && <span className="bg-rose-100 text-rose-600 px-1.5 rounded text-[10px]">{missingRows.length}</span>}</button>
+                                    <button onClick={()=>{setActiveTab('missing'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all flex items-center gap-1.5 ${activeTab==='missing' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>⚪ 누락 {currentTag && missingRows.length > 0 && <span className="bg-rose-100 text-rose-600 px-1.5 rounded text-[10px]">{missingRows.length}</span>}</button>
                                 </div>
 
                                 <div className="flex-1 min-w-[10px]"></div>
@@ -1388,9 +1411,9 @@
                                     <p className="text-[13px] font-bold">상단 [새 텍스트 파싱] 버튼을 눌러 작업을 시작하세요.</p>
                                 </div>
                             ) : activeTab === 'matched' ? (
-                                <div className="bg-white border border-slate-200 rounded-xl shadow-sm h-full flex flex-col overflow-hidden fade-in">
-                                    <div className="flex-1 overflow-auto custom-scrollbar">
-                                        <table className="w-full text-left text-[12px] whitespace-nowrap">
+                                <div className="bg-white border border-slate-200 rounded-xl shadow-sm h-full flex flex-col overflow-hidden fade-in relative">
+                                    <div className="flex-1 overflow-auto custom-scrollbar" onScroll={handleScroll}>
+                                        <table className="w-full text-left text-[12px] whitespace-nowrap relative z-0">
                                             <thead className="bg-[#f5f4f0] text-[#5c554d] font-bold sticky top-0 z-10 border-b border-[#e8e4db]">
                                                 <tr>
                                                     <th className="py-2.5 px-4 w-12 text-center"><input type="checkbox" className="rounded cursor-pointer" checked={matchedRows.length>0 && matchedRows.every(r=>r._apply)} onChange={() => { const all = matchedRows.every(r=>r._apply); appState.setParserBuffer(p => p.map(r => r._matchCode ? {...r, _apply: !all} : r)); }} /></th>
@@ -1402,24 +1425,21 @@
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                {matchedRows.length === 0 ? <tr><td colSpan="6" className="p-10 text-center text-slate-400">데이터가 없습니다.</td></tr> : matchedRows.map(row => {
-                                                    const mItem = masterProducts[row._matchCode] || {};
-                                                    const mIn = parseNum(mItem['입고가']);
-                                                    const pIn = parseNum(row.finalData['입고가']);
-                                                    const isDiff = mIn > 0 && mIn !== pIn;
-                                                    return (
-                                                        <tr key={row._id} className="hover:bg-slate-50 transition-colors">
-                                                            <td className="py-2 px-4 text-center"><input type="checkbox" className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer" checked={row._apply} onChange={() => appState.setParserBuffer(p => p.map(r => r._id === row._id ? {...r, _apply: !r._apply} : r))} /></td>
-                                                            <td className="py-2 px-3 font-mono text-[11px] text-slate-500">{row._matchCode}</td>
-                                                            <td className="py-2 px-3"><span className="font-bold text-slate-800">{mItem.품목명 || row['품목명']}</span> <span className="text-[11px] text-slate-400">({mItem.규격 || row['규격']})</span></td>
-                                                            <td className="py-2 px-3 text-emerald-800 bg-emerald-50/20 font-bold">{row['품목명']}</td>
-                                                            <td className="py-2 px-3 text-right text-slate-500 font-bold">{mIn ? mIn.toLocaleString() : '-'}</td>
-                                                            <td className={`py-2 px-3 text-right font-black ${isDiff ? 'bg-rose-50/30' : 'bg-emerald-50/20'}`}>
-                                                                <EditablePriceCell rowId={row._id} initialVal={row.finalData['입고가']} onUpdate={handleUpdateMatchedPrice} />
-                                                            </td>
-                                                        </tr>
-                                                    )
-                                                })}
+                                                {matchedRows.length === 0 ? <tr><td colSpan="6" className="p-10 text-center text-slate-400">데이터가 없습니다.</td></tr> : (
+                                                    <>
+                                                        {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="6"></td></tr>}
+                                                        {virtualRows.map(row => (
+                                                            <MatchedRow 
+                                                                key={row._id} 
+                                                                row={row} 
+                                                                mItem={masterProducts[row._matchCode] || {}} 
+                                                                onToggle={handleToggleApply} 
+                                                                onUpdatePrice={handleUpdateMatchedPrice} 
+                                                            />
+                                                        ))}
+                                                        {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="6"></td></tr>}
+                                                    </>
+                                                )}
                                             </tbody>
                                         </table>
                                     </div>
@@ -1446,9 +1466,9 @@
                                         <div className="flex items-center gap-2 text-slate-700 text-[13px] font-bold"><i className="fas fa-info-circle text-indigo-500"></i>마스터 DB에는 <span className="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded">'{currentTag}'</span> 카탈로그에 등록되어 있지만, 이번 파싱 텍스트에는 없는 상품들입니다. (단종 의심)</div>
                                         <div className="text-[11px] text-slate-500">목록에서 체크 후 상단의 [제외] 버튼을 누르면 단가를 훼손하지 않고 해당 카탈로그에서만 조용히 제외합니다.</div>
                                     </div>
-                                    <div className="flex-1 overflow-auto custom-scrollbar">
-                                        <table className="w-full text-left text-[12px] whitespace-nowrap">
-                                            <thead className="bg-white sticky top-0 z-10 border-b border-slate-200 text-slate-600">
+                                    <div className="flex-1 overflow-auto custom-scrollbar" onScroll={handleScroll}>
+                                        <table className="w-full text-left text-[12px] whitespace-nowrap relative z-0">
+                                            <thead className="bg-white sticky top-0 z-10 border-b border-slate-200 text-slate-600 shadow-sm">
                                                 <tr>
                                                     <th className="py-2.5 px-4 w-12 text-center">
                                                         <input type="checkbox" className="rounded cursor-pointer" checked={missingRows.length > 0 && selectedMissingCodes.size === missingRows.length} onChange={(e) => {
@@ -1466,26 +1486,32 @@
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                {missingRows.length === 0 ? <tr><td colSpan="5" className="p-10 text-center text-slate-400 font-bold">누락된 항목이 없습니다. 완벽합니다!</td></tr> : missingRows.map(mItem => {
-                                                    const isSel = selectedMissingCodes.has(mItem.코드);
-                                                    return (
-                                                        <tr key={`miss-${mItem.코드}`} onClick={() => {
-                                                            setSelectedMissingCodes(prev => {
-                                                                const next = new Set(prev);
-                                                                if(next.has(mItem.코드)) next.delete(mItem.코드); else next.add(mItem.코드);
-                                                                return next;
-                                                            });
-                                                        }} className={`cursor-pointer transition-colors ${isSel ? 'bg-rose-50/50' : 'hover:bg-slate-50'}`}>
-                                                            <td className="py-2 px-4 text-center">
-                                                                <input type="checkbox" className="rounded text-rose-500 focus:ring-rose-500 pointer-events-none" checked={isSel} readOnly />
-                                                            </td>
-                                                            <td className="py-2 px-3 font-mono text-[11px] text-slate-500">{mItem.코드}</td>
-                                                            <td className="py-2 px-3"><span className="font-bold text-slate-800">{mItem.품목명}</span> <span className="text-[11px] text-slate-400">({mItem.규격})</span></td>
-                                                            <td className="py-2 px-3 text-right text-slate-500">{mItem.입고가 ? Number(mItem.입고가).toLocaleString() : '-'}</td>
-                                                            <td className="py-2 px-3 text-[11px] text-indigo-500 font-bold max-w-[200px] truncate">{mItem['카탈로그']}</td>
-                                                        </tr>
-                                                    )
-                                                })}
+                                                {missingRows.length === 0 ? <tr><td colSpan="5" className="p-10 text-center text-slate-400 font-bold">누락된 항목이 없습니다. 완벽합니다!</td></tr> : (
+                                                    <>
+                                                        {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="5"></td></tr>}
+                                                        {virtualRows.map(mItem => {
+                                                            const isSel = selectedMissingCodes.has(mItem.코드);
+                                                            return (
+                                                                <tr key={`miss-${mItem.코드}`} onClick={() => {
+                                                                    setSelectedMissingCodes(prev => {
+                                                                        const next = new Set(prev);
+                                                                        if(next.has(mItem.코드)) next.delete(mItem.코드); else next.add(mItem.코드);
+                                                                        return next;
+                                                                    });
+                                                                }} className={`cursor-pointer transition-colors h-[40px] ${isSel ? 'bg-rose-50/50' : 'hover:bg-slate-50'}`}>
+                                                                    <td className="py-1.5 px-4 text-center">
+                                                                        <input type="checkbox" className="rounded text-rose-500 focus:ring-rose-500 pointer-events-none" checked={isSel} readOnly />
+                                                                    </td>
+                                                                    <td className="py-1.5 px-3 font-mono text-[11px] text-slate-500">{mItem.코드}</td>
+                                                                    <td className="py-1.5 px-3"><span className="font-bold text-slate-800">{mItem.품목명}</span> <span className="text-[11px] text-slate-400">({mItem.규격})</span></td>
+                                                                    <td className="py-1.5 px-3 text-right text-slate-500">{mItem.입고가 ? Number(mItem.입고가).toLocaleString() : '-'}</td>
+                                                                    <td className="py-1.5 px-3 text-[11px] text-indigo-500 font-bold max-w-[200px] truncate">{mItem['카탈로그']}</td>
+                                                                </tr>
+                                                            )
+                                                        })}
+                                                        {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="5"></td></tr>}
+                                                    </>
+                                                )}
                                             </tbody>
                                         </table>
                                     </div>
@@ -1549,30 +1575,36 @@
                                             <div className="flex items-center gap-2"><i className="fas fa-list text-slate-400"></i><span className="text-[13px] font-black text-slate-700">파싱된 외부 데이터 (대기중)</span></div>
                                             <span className="text-[11px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">총 {displayUnmatchedRows.length}건</span>
                                         </div>
-                                        <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                            <table className="w-full text-left text-[12px] whitespace-nowrap">
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar" onScroll={handleScroll}>
+                                            <table className="w-full text-left text-[12px] whitespace-nowrap relative z-0">
                                                 <thead className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm"><tr><th className="py-2.5 px-3 text-center w-10">선택</th><th className="py-2.5 px-2 text-center w-14">상태</th><th className="py-2.5 px-3">파싱 품명 및 규격</th><th className="py-2.5 px-3 text-right w-16">입고가</th><th className="py-2.5 px-2 text-center w-10">무시</th></tr></thead>
                                                 <tbody className="divide-y divide-slate-100">
-                                                    {displayUnmatchedRows.length === 0 ? <tr><td colSpan="5" className="p-10 text-center text-slate-400 font-bold">대기중인 데이터가 없습니다.</td></tr> : displayUnmatchedRows.map(row => {
-                                                        const isTarget = targetId === row._id;
-                                                        return (
-                                                            <tr key={row._id} onClick={() => { setTargetId(row._id); setGlobalSearch(row['품목명'].replace(/[()[\]{},./]/g, ' ').replace(/\s+/g, ' ').trim()); }} className={`cursor-pointer transition-colors border-l-4 ${isTarget ? 'bg-indigo-50/50 border-indigo-500' : 'hover:bg-slate-50 border-transparent'}`}>
-                                                                <td className="py-2 px-3 text-center"><div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mx-auto ${isTarget ? 'border-indigo-500 bg-white' : 'border-slate-300'}`}>{isTarget && <div className="w-2 h-2 rounded-full bg-indigo-500"></div>}</div></td>
-                                                                <td className="py-2 px-2 text-center">
-                                                                    {row._matchStatus.includes('중복품목') ? (
-                                                                        <span className="bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded text-[10px] font-black" title="ERP에 이름이 똑같은 상품이 여러 개 존재합니다. 수동으로 올바른 코드를 연결해 주세요.">선택필요</span>
-                                                                    ) : (
-                                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold w-max block mx-auto ${activeTab === 'similar' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{row._matchStatus.substring(0, 2)}</span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="py-2 px-3"><div className="flex flex-col"><span className={`text-[12px] font-extrabold truncate ${isTarget ? 'text-indigo-900' : 'text-slate-800'}`}>{row['품목명']}</span><span className="text-[11px] text-slate-500 mt-0.5 truncate">{row['규격']} {row['단위'] ? `| ${row['단위']}` : ''}</span></div></td>
-                                                                <td className={`py-2 px-3 text-right font-bold ${isTarget ? 'text-indigo-600' : 'text-slate-600'}`}>{row['입고가'] || '-'}</td>
-                                                                <td className="py-2 px-2 text-center">
-                                                                    <button onClick={(e) => { e.stopPropagation(); actions.handleIgnoreParsedItem(row._id); }} className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 px-2 py-1.5 rounded transition-colors" title="이 항목을 매핑하지 않고 휴지통에 버립니다."><i className="fas fa-trash-alt"></i></button>
-                                                                </td>
-                                                            </tr>
-                                                        )
-                                                    })}
+                                                    {displayUnmatchedRows.length === 0 ? <tr><td colSpan="5" className="p-10 text-center text-slate-400 font-bold">대기중인 데이터가 없습니다.</td></tr> : (
+                                                        <>
+                                                            {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="5"></td></tr>}
+                                                            {virtualRows.map(row => {
+                                                                const isTarget = targetId === row._id;
+                                                                return (
+                                                                    <tr key={row._id} onClick={() => { setTargetId(row._id); setGlobalSearch(row['품목명'].replace(/[()[\]{},./]/g, ' ').replace(/\s+/g, ' ').trim()); }} className={`cursor-pointer transition-colors h-[40px] border-l-4 ${isTarget ? 'bg-indigo-50/50 border-indigo-500' : 'hover:bg-slate-50 border-transparent'}`}>
+                                                                        <td className="py-1.5 px-3 text-center"><div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mx-auto ${isTarget ? 'border-indigo-500 bg-white' : 'border-slate-300'}`}>{isTarget && <div className="w-2 h-2 rounded-full bg-indigo-500"></div>}</div></td>
+                                                                        <td className="py-1.5 px-2 text-center">
+                                                                            {row._matchStatus.includes('중복품목') ? (
+                                                                                <span className="bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded text-[10px] font-black" title="ERP에 이름이 똑같은 상품이 여러 개 존재합니다. 수동으로 올바른 코드를 연결해 주세요.">선택필요</span>
+                                                                            ) : (
+                                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold w-max block mx-auto ${activeTab === 'similar' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{row._matchStatus.substring(0, 2)}</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="py-1.5 px-3"><div className="flex flex-col"><span className={`text-[12px] font-extrabold truncate ${isTarget ? 'text-indigo-900' : 'text-slate-800'}`}>{row['품목명']}</span><span className="text-[11px] text-slate-500 mt-0.5 truncate">{row['규격']} {row['단위'] ? `| ${row['단위']}` : ''}</span></div></td>
+                                                                        <td className={`py-1.5 px-3 text-right font-bold ${isTarget ? 'text-indigo-600' : 'text-slate-600'}`}>{row['입고가'] || '-'}</td>
+                                                                        <td className="py-1.5 px-2 text-center">
+                                                                            <button onClick={(e) => { e.stopPropagation(); actions.handleIgnoreParsedItem(row._id); }} className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 px-2 py-1.5 rounded transition-colors" title="이 항목을 매핑하지 않고 휴지통에 버립니다."><i className="fas fa-trash-alt"></i></button>
+                                                                        </td>
+                                                                    </tr>
+                                                                )
+                                                            })}
+                                                            {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="5"></td></tr>}
+                                                        </>
+                                                    )}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -1584,7 +1616,7 @@
                     {showInputModal && <SmartParserInputModal onClose={() => setShowInputModal(false)} executeParser={actions.executeParser} showToast={actions.showToast} availableTags={availableTags} />}
                     {showReviewModal && <ParserReviewModal onClose={() => setShowReviewModal(false)} onConfirm={actions.handleApplyMatched} state={appState} actions={actions} />}
                     {showErpModal && <ErpCodeInputModal onClose={actions.handleCancelErpInput} onSubmit={actions.handleCreateNewMasterItem} targetItem={parserBuffer.find(r => r._id === targetId)} />}
-                    <IframeSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
+                    <IframeSettingsModal isOpen={appState.showSettingsModal} onClose={() => appState.setShowSettingsModal(false)} />
                 </div>
             );
         };
