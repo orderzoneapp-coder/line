@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Smart Parser [v1.3]</title>
+    <title>NEXUS - Smart Parser [v1.4]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -84,49 +84,16 @@
         };
 
         // ==========================================
-        // 🧩 2. 핵심 알고리즘 (🌟 AI 매칭 엔진 & 딕셔너리 버그 완벽 수정)
+        // 🧩 2. 핵심 알고리즘 (ONEAPP 원본 복구)
         // ==========================================
-        const IngestEngine = {
-            cleanText: (text) => {
-                if (!text) return '';
-                let s = String(text).toUpperCase();
-                s = s.replace(/[\[\]{}()<>:;.,!?_=\-+|~'"*^]/g, ' '); 
-                s = s.replace(/(BEST|NEW|할인|특가|단독|기획|새상품|추천)\s*/ig, ' '); 
-                return s.replace(/\s+/g, ' ').trim(); 
-            },
-            getBigrams: (str) => {
-                const s = str.replace(/\s+/g, ''); 
-                const bigrams = [];
-                for (let i = 0; i < s.length - 1; i++) bigrams.push(s.slice(i, i + 2));
-                if (s.length === 1) bigrams.push(s);
-                return bigrams;
-            },
-            calculateSimilarity: (str1, str2) => {
-                const bg1 = IngestEngine.getBigrams(str1);
-                const bg2 = IngestEngine.getBigrams(str2);
-                if (bg1.length === 0 && bg2.length === 0) return 1;
-                if (bg1.length === 0 || bg2.length === 0) return 0;
-                
-                let intersection = 0;
-                const bg2Copy = [...bg2];
-                for (const b1 of bg1) {
-                    const idx = bg2Copy.indexOf(b1);
-                    if (idx !== -1) { intersection++; bg2Copy.splice(idx, 1); }
-                }
-                return (2.0 * intersection) / (bg1.length + bg2.length);
-            },
-            extractSpecNum: (str) => {
-                if (!str) return null;
-                // 🌟 규격 꼬임 방지: EA, BOX 등 포장단위 무시하고 순수 중량/부피/길이 단위만 깐깐하게 비교
-                const match = String(str).toLowerCase().match(/\d+(?:\.\d+)?(?:kg|g|ml|l|mm|cm|m)/g);
-                return match ? match.sort().join('') : null;
-            },
-            generateDictKey: (name, spec) => {
-                // 🌟 딕셔너리 키 생성 공용화: 띄어쓰기나 기호 때문에 매칭이 빗나가는 문제 해결
-                const n = IngestEngine.cleanText(name).replace(/\s+/g, '');
-                const s = IngestEngine.cleanText(spec).replace(/\s+/g, '');
-                return `${n}|${s}`;
-            }
+        const normalizeText = (text) => text ? String(text).replace(/\s+/g, '').toLowerCase() : '';
+        
+        const tokenize = (str) => str ? String(str).replace(/[^\w가-힣]/g, ' ').split(/\s+/).filter(Boolean) : [];
+        
+        const extractSpec = (str) => {
+            if (!str) return '';
+            const match = String(str).toLowerCase().match(/\d+(?:\.\d+)?(?:kg|g|ml|l|ea|박스|개|포|단|박|캔|병|봉|팩|입|t|입수)/g);
+            return match ? match.join('') : '';
         };
 
         const calculatePricesEngine = (baseInPrice, mItem = {}, currentFinalData = {}, marginRules = [], forceRecalc = false) => {
@@ -174,28 +141,40 @@
         };
 
         const parseTextSemantically = (rawText) => {
-            let lines = rawText.split('\n').map(l => l.trim()).filter(l => l !== '');
+            // 1. 특수 공백 치환 후 텍스트 분할 및 기본 정제
+            let cleanText = rawText.replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ');
+            let lines = cleanText.split('\n').map(l => l.trim()).filter(l => l !== '');
             const results = []; let currentItem = {};
+            
             const pushItem = () => {
                 if (currentItem.품목명) {
                     if (currentItem.입고가) currentItem.입고가 = String(currentItem.입고가).replace(/[^\d]/g, '');
-                    currentItem.품목명 = IngestEngine.cleanText(currentItem.품목명);
                     results.push({ _id: generateUUID(), _apply: false, ...currentItem });
                 }
                 currentItem = {};
             };
 
             lines.forEach(line => {
-                if (/^전체\s*상품/.test(line) || /^clock$/i.test(line) || /이미지\s*준비중/i.test(line)) return;
-                if (/마감|배송|도착|출발|택배|휴무|공지/i.test(line)) return; 
-                if (/\d{1,2}월\s*\d{1,2}일/.test(line) || /\d{4}-\d{2}-\d{2}/.test(line) || /\d{2}\/\d{2}/.test(line)) return;
-                if (/오전\s*\d{1,2}시/.test(line) || /오후\s*\d{1,2}시/.test(line) || /\d{1,2}:\d{2}/.test(line)) return;
-                
-                // 🌟 [핵심 수정] 마켓봄 등 B2B 사이트의 UI 찌꺼기 텍스트(별표 아이콘, 장바구니 버튼 등) 완벽 차단
-                if (/^(STARLINE|starline|담기|\+|-|찜하기)$/.test(line)) return;
-                // 단독으로 있는 짧은 숫자(예: 수량 '1') 무시
-                if (/^\d{1,2}$/.test(line) && !line.includes('원')) return; 
+                // 2. 무의미한 찌꺼기 텍스트 필터링 (Noise Filtering)
+                if (
+                    /^전체\s*상품/i.test(line) || 
+                    /^clock$/i.test(line) || 
+                    /^starLine$/i.test(line) || 
+                    /마감/.test(line) || 
+                    /\d{1,2}월\s*\d{1,2}일/.test(line) || 
+                    /\d{1,2}:\d{2}/.test(line) ||
+                    /default-thumbnail/i.test(line) || 
+                    /상품이미지/.test(line) || 
+                    /이미지\s*준비중/i.test(line) ||
+                    /마켓보로/.test(line) || 
+                    /통신판매업의 중개자/.test(line) || 
+                    /당사자가 아닙니다/.test(line) || 
+                    /책임을 지지 않습니다/.test(line) || 
+                    /데이터가 없습니다/.test(line) || 
+                    /- 끝 -/.test(line)
+                ) return;
 
+                // 3. 가격(단가) 추출 및 행 분리 (Price Extraction)
                 const priceMatch = line.match(/(?:^|\s|\/|\|)(\d{1,3}(?:,\d{3})*|\d+)\s*원$/);
                 let extractedPrice = null;
                 if (priceMatch) {
@@ -206,79 +185,111 @@
                 if (extractedPrice) currentItem.입고가 = extractedPrice;
                 if (!line) { if (extractedPrice) pushItem(); return; }
 
+                // 4. 품목명, 단위, 규격 추론 (State-based Extraction)
                 if (!currentItem.품목명) {
+                    // A. 아직 '품목명'을 찾지 못한 상태 (새로운 상품 시작)
                     if (line.includes(' / ')) {
                         const splitParts = line.split(' / ');
-                        let namePart = splitParts[0].trim(); let specPart = splitParts.slice(1).join(' / ').trim();
+                        let namePart = splitParts[0].trim(); 
+                        let specPart = splitParts.slice(1).join(' / ').trim();
+                        
                         const unitMatch = namePart.match(/(EA|BOX|포|개|박스|봉|캔|병|팩|단|마리)$/i);
-                        if (unitMatch) { currentItem.단위 = unitMatch[0]; currentItem.품목명 = namePart.slice(0, -unitMatch[0].length).trim(); } 
-                        else { currentItem.품목명 = namePart; }
+                        if (unitMatch) { 
+                            currentItem.단위 = unitMatch[0]; 
+                            currentItem.품목명 = namePart.slice(0, -unitMatch[0].length).trim(); 
+                        } else { 
+                            currentItem.품목명 = namePart; 
+                        }
+                        
                         const specParts = specPart.split('/').map(s => s.trim());
                         currentItem.규격 = specParts[0] || '';
-                    } else { currentItem.품목명 = line; }
+                    } else { 
+                        currentItem.품목명 = line; 
+                    }
                 } else {
+                    // B. 이미 '품목명'을 찾은 상태 (추가 정보 줄)
                     if (line.includes('/')) {
                         const parts = line.split('/').map(s => s.trim());
                         if (!currentItem.단위) currentItem.단위 = parts[0] || '';
                         if (parts.length > 1 && !currentItem.규격) currentItem.규격 = parts[1] || '';
-                    } else if (!currentItem.규격 && /^\d+(?:kg|g|ml|l|ea|box|박스|개|포|단|박|캔|병|봉|팩|입)/i.test(line)) {
+                        // 추가 정보가 더 있다면 간단설명에 이어붙임
+                        if (parts.length > 2) {
+                            const desc = parts.slice(2).join(' / ');
+                            currentItem.간단설명 = currentItem.간단설명 ? currentItem.간단설명 + ' | ' + desc : desc;
+                        }
+                    } else if (/^\d+(?:\.\d+)?(?:kg|g|ml|l|ea|box|박스|개|포|단|박|캔|병|봉|팩|입)/i.test(line) && !currentItem.규격) {
                         currentItem.규격 = line;
+                    } else {
+                        // 위 조건에 모두 해당하지 않으면 이전 줄에 이어지는 부가 설명으로 간주
+                        currentItem.간단설명 = currentItem.간단설명 ? currentItem.간단설명 + ' | ' + line : line;
                     }
                 }
+                
+                // 5. 아이템 조립 및 저장 (Commit Item)
                 if (extractedPrice) pushItem();
             });
+            
             if (currentItem.품목명) pushItem();
             return results;
         };
 
         const runSmartMatch = (extName, extSpec, mProducts, pDict) => {
-            const cleanExt = IngestEngine.cleanText(extName + " " + extSpec);
-            
-            // 🌟 버그 수정 1: 일관된 딕셔너리 식별 키 적용
-            const dictKey = IngestEngine.generateDictKey(extName, extSpec);
-            const fallbackKey = cleanExt.replace(/\s+/g, ''); // 과거에 꼬인 방식으로 저장된 데이터 호환 유지
+            const normExtName = normalizeText(extName);
+            const normExtSpec = normalizeText(extSpec);
+            const extFullText = normalizeText((extName || '') + " " + (extSpec || ''));
+            const dictKey = `${normExtName}|${normExtSpec}`;
 
-            // 1. 사전 학습 데이터 최우선 검색
             if (pDict[dictKey]) return { code: pDict[dictKey], status: '🔵 사전학습일치' };
-            if (pDict[fallbackKey]) return { code: pDict[fallbackKey], status: '🔵 사전학습일치' };
-
-            const extSpecNum = IngestEngine.extractSpecNum(extName + " " + extSpec);
 
             let bestMatch = null;
             let bestScore = 0;
+            
+            const extTokens = tokenize((extName || '') + " " + (extSpec || ''));
+            const extSpecNum = extractSpec((extName || '') + " " + (extSpec || ''));
+
             let perfectMatches = [];
 
-            // 2. 마스터 DB 순회 탐색
             for (const mCode in mProducts) {
                 const m = mProducts[mCode];
-                const cleanMaster = IngestEngine.cleanText((m.브랜드 || '') + " " + (m.품목명 || '') + " " + (m.규격 || ''));
+                const mBrand = String(m.브랜드 || '').trim();
+                const mName = String(m.품목명 || '').trim();
+                const mSpec = String(m.규격 || '').trim();
 
-                // 1. 완전 일치 검사 (기호/띄어쓰기 완벽 무시)
-                if (cleanExt.replace(/\s+/g, '') === cleanMaster.replace(/\s+/g, '')) {
+                const mFullWithBrand = normalizeText(mBrand + mName + mSpec);
+                const mFullNoBrand = normalizeText(mName + mSpec);
+                const mSpecNum = extractSpec(mBrand + " " + mName + " " + mSpec);
+
+                let isSpecMatch = true;
+                if (extSpecNum && mSpecNum && extSpecNum !== mSpecNum) {
+                    isSpecMatch = false; 
+                }
+
+                if ((extFullText === mFullWithBrand || extFullText === mFullNoBrand) && isSpecMatch) {
                     perfectMatches.push(m);
                     continue;
                 }
 
-                // 2. N-Gram (다이스 계수) 유사도 분석
-                let score = IngestEngine.calculateSimilarity(cleanExt, cleanMaster);
+                const mTokens = tokenize(mBrand + " " + mName + " " + mSpec);
+                const intersection = extTokens.filter(t => mTokens.includes(t));
+                
+                let score = intersection.length / Math.max(extTokens.length, mTokens.length);
 
-                // 3. 규격 충돌 페널티 완화
-                const mSpecNum = IngestEngine.extractSpecNum((m.브랜드 || '') + " " + (m.품목명 || '') + " " + (m.규격 || ''));
-                if (extSpecNum && mSpecNum && extSpecNum !== mSpecNum) {
-                    score *= 0.6; // 규격 다르면 점수 삭감 (기존 0.1보다 완화하여 유연성 부여)
+                if (!isSpecMatch) {
+                    score = score * 0.1; 
                 }
 
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = m;
+                if (score >= 0.7) {
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = m;
+                    }
                 }
             }
 
             if (perfectMatches.length === 1) return { code: perfectMatches[0].코드 || perfectMatches[0].품목코드, status: '🟢 완전일치' };
             if (perfectMatches.length > 1) return { code: '', status: '🟡 중복품목(선택필요)' }; 
-            
-            // 🌟 버그 수정 3: 50% 이상만 일치해도 적극적으로 추천(유사) 리스트에 노출
-            if (bestMatch && bestScore >= 0.5) return { code: '', status: '🟡 유사발견', suggested: bestMatch.코드 || bestMatch.품목코드 };
+
+            if (bestMatch && bestScore >= 0.7) return { code: '', status: '🟡 유사발견', suggested: bestMatch.코드 || bestMatch.품목코드 };
             
             return { code: '', status: '🔴 불일치' };
         };
@@ -308,7 +319,7 @@
                         <i className="fas fa-exclamation-triangle text-rose-500 text-6xl mb-6"></i>
                         <h1 className="text-2xl font-black text-slate-800 mb-2">화면 렌더링 오류 발생</h1>
                         <p className="text-slate-500 mb-6">아래 [초기화] 버튼을 눌러 복구해 주세요.</p>
-                        <button onClick={() => { indexedDB.deleteDatabase('MerchOpsDB'); localStorage.removeItem('merchMaster_v870'); window.location.reload(); }} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"><i className="fas fa-redo-alt"></i> 로컬 데이터 초기화</button>
+                        <button onClick={() => { indexedDB.deleteDatabase('MerchOpsDB'); localStorage.removeItem('merchMaster_v870'); window.location.reload(); }} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"><i className="fas fa-redo-alt mr-2"></i> 로컬 데이터 초기화</button>
                     </div>
                 );
                 return this.props.children;
@@ -343,7 +354,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.3</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.4</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -550,6 +561,7 @@
                             } else {
                                 rowData.finalData['입고가'] = pInNum;
                             }
+                            if (matchResult.suggested) rowData.suggested = matchResult.suggested;
                             results.push(rowData);
                         });
                         
@@ -622,7 +634,9 @@
                         unsyncedMaster[code] = newMaster[code]; 
 
                         if (row['품목명']) {
-                            const dictKey = IngestEngine.generateDictKey(row['품목명'], row['규격']);
+                            const normExtName = normalizeText(row['품목명']);
+                            const normExtSpec = normalizeText(row['규격']);
+                            const dictKey = `${normExtName}|${normExtSpec}`;
                             newDict[dictKey] = code;
                             newEntriesForDict[dictKey] = code;
                         }
@@ -724,7 +738,9 @@
 
                     await saveMaster(newMaster);
 
-                    const dictKey = IngestEngine.generateDictKey(row['품목명'], row['규격']);
+                    const normExtName = normalizeText(row['품목명']);
+                    const normExtSpec = normalizeText(row['규격']);
+                    const dictKey = `${normExtName}|${normExtSpec}`;
                     const newDict = { ...parserDict, [dictKey]: newCode };
                     await saveDict(newDict, { [dictKey]: newCode });
 
@@ -925,18 +941,33 @@
             useEffect(() => { if (!isFocused) setLocalVal(initialVal); }, [initialVal, isFocused]);
 
             const commitChange = (v) => { if (String(v) !== String(initialVal)) onUpdate(rowId, v); };
-            const handleKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } };
+            const handleKeyDown = (e) => {
+                if (['Enter', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+                    e.preventDefault();
+                    const inputs = Array.from(document.querySelectorAll('.review-price-input'));
+                    const currentIndex = inputs.indexOf(e.target);
+                    if (currentIndex === -1) return;
+                    let nextIndex = currentIndex;
+                    if (e.key === 'ArrowUp') nextIndex = Math.max(0, currentIndex - 1);
+                    if (e.key === 'ArrowDown' || e.key === 'Enter') nextIndex = Math.min(inputs.length - 1, currentIndex + 1);
+                    if (nextIndex !== currentIndex) {
+                        inputs[nextIndex].focus();
+                        setTimeout(() => inputs[nextIndex].select(), 0);
+                    } else if (e.key === 'Enter') {
+                        e.target.blur();
+                    }
+                }
+            };
 
             return (
                 <input 
                     type="number" 
-                    className="w-full bg-transparent text-right outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 rounded px-1.5 py-1 text-[12px] font-bold text-indigo-700 transition-colors" 
+                    className="review-price-input w-full bg-transparent text-right outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 rounded px-1.5 py-1 text-[12px] font-bold text-indigo-700 transition-colors" 
                     value={localVal === "오류" ? "" : localVal} 
                     onChange={(e) => setLocalVal(e.target.value)} 
-                    onFocus={() => setIsFocused(true)}
+                    onFocus={(e) => { setIsFocused(true); setTimeout(() => e.target.select(), 0); }}
                     onBlur={(e) => { setIsFocused(false); commitChange(e.target.value); }}
                     onKeyDown={handleKeyDown}
-                    onClick={(e) => e.target.select()} 
                 />
             );
         });
@@ -1178,7 +1209,7 @@
                                             <div className={`font-black text-xl ${priceFilter === 'down' ? 'text-white' : 'text-blue-700'}`}>{analysis.down}<span className="text-[11px] ml-1 font-bold">건</span></div>
                                         </div>
                                         <div onClick={() => {setPriceFilter('same'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'same' ? 'bg-slate-500 border-slate-500 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
-                                            <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'same' ? 'text-slate-200' : 'text-slate-500'}`}><i className="fas fa-equals mr-1"></i>동결/기타 (0원)</div>
+                                            <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'same' ? 'text-slate-200' : 'text-slate-500'}`}><i className="fas fa-equals mr-1"></i>동결/기타 (0원 포함)</div>
                                             <div className={`font-black text-xl ${priceFilter === 'same' ? 'text-white' : 'text-slate-700'}`}>{analysis.same}<span className="text-[11px] ml-1 font-bold">건</span></div>
                                         </div>
                                     </div>
@@ -1247,7 +1278,7 @@
         };
 
         // ==========================================
-        // ⚙️ 메인 렌더링 (가상 스크롤 적용)
+        // ⚙️ 메인 렌더링
         // ==========================================
         const ParserApp = () => {
             const appState = useParserApp();
@@ -1259,7 +1290,7 @@
                 showErpModal,
                 toastMsg, isProcessing, processMsg,
                 globalSearch, setGlobalSearch, targetId, setTargetId,
-                selectedMissingCodes, setSelectedMissingCodes, processedCodes
+                selectedMissingCodes, setSelectedMissingCodes
             } = appState;
 
             const handleNavigate = useCallback((e, path, isReady = true) => {
@@ -1283,7 +1314,6 @@
 
             const searchMasterProducts = (productsObj, keyword) => {
                 if (!keyword || !keyword.trim()) return [];
-                // 🌟 검색 키워드 보정: 너무 엄격한 필터링 제외 (유사 검색)
                 const cleanKw = keyword.toLowerCase().replace(/[()[\]{},./|]/g, ' ');
                 const tokens = cleanKw.split(/\s+/).filter(t => t.length > 0);
                 if (tokens.length === 0) return [];
@@ -1310,7 +1340,7 @@
             const missingRows = useMemo(() => {
                 if (!currentTag) return [];
                 const matchedCodes = new Set(matchedRows.map(r => String(r._matchCode)));
-                const processedStr = new Set(Array.from(processedCodes).map(String));
+                const processedStr = new Set(Array.from(appState.processedCodes).map(String));
                 const missing = [];
                 for (const code in masterProducts) {
                     const mItem = masterProducts[code];
@@ -1320,7 +1350,7 @@
                     }
                 }
                 return missing;
-            }, [masterProducts, matchedRows, currentTag, processedCodes]);
+            }, [masterProducts, matchedRows, currentTag, appState.processedCodes]);
 
             const masterSearchResults = useMemo(() => {
                 if ((activeTab !== 'similar' && activeTab !== 'unmatched') || !globalSearch.trim()) return [];
@@ -1346,7 +1376,6 @@
                 appState.setParserBuffer(p => p.map(r => r._id === id ? {...r, _apply: !r._apply} : r));
             }, [appState.setParserBuffer]);
 
-            // 🌟 메인 화면 가상 스크롤
             const [scrollTop, setScrollTop] = useState(0);
             const handleScroll = useCallback((e) => setScrollTop(e.target.scrollTop), []);
             
@@ -1618,12 +1647,10 @@
                                                             {virtualRows.map(row => {
                                                                 const isTarget = targetId === row._id;
                                                                 
-                                                                // 🌟 검색 키워드 자동 주입 시 불필요한 기호 제거
                                                                 const handleRowClick = () => {
                                                                     setTargetId(row._id);
                                                                     const cleanSearchName = row['품목명'].replace(/[()[\]{},./|]/g, ' ').replace(/\s+/g, ' ').trim();
                                                                     
-                                                                    // 만약 AI가 50% 이상 유사한 항목을 찾아뒀다면, 그 항목의 이름으로 검색창을 채워줍니다!
                                                                     if (row._matchStatus.includes('유사발견') && row.suggested) {
                                                                         const suggestedItem = masterProducts[row.suggested];
                                                                         if (suggestedItem) {
@@ -1650,7 +1677,6 @@
                                                                                     {row['품목명']}
                                                                                 </span>
                                                                                 <span className="text-[11px] text-slate-500 mt-0.5 truncate">{row['규격']} {row['단위'] ? `| ${row['단위']}` : ''}</span>
-                                                                                {/* 🌟 추천 항목 노출 */}
                                                                                 {row._matchStatus.includes('유사발견') && row.suggested && masterProducts[row.suggested] && (
                                                                                     <span className="text-[10px] font-bold text-amber-600 mt-1 bg-amber-50 w-max px-1.5 py-0.5 rounded">
                                                                                         💡 AI 추천: {masterProducts[row.suggested].품목명}
