@@ -1052,7 +1052,7 @@
                                             const rowCode = row.코드 || row.품목코드;
                                             const mItem = masterProducts[rowCode] || masterProducts[row.품목코드] || {};
                                             const isSel = selectedRows.has(rowCode);
-                                            return <MemoizedTableRow key={rowCode} row={{...row, 코드: rowCode}} idx={idx} isSel={isSel} mItem={mItem} isEstimateUploaded={isEstimateUploaded} visMasterCols={visUploadCols} visUploadCols={visUpload} masterLinksEst={masterLinksEst} onToggleSelection={actions.toggleRowSelection} onMouseDown={handleMouseDown} onMouseEnter={handleMouseEnter} onUpdateCell={actions.handleUpdateCell} />;
+                                            return <MemoizedTableRow key={rowCode} row={{...row, 코드: rowCode}} idx={idx} isSel={isSel} mItem={mItem} isEstimateUploaded={isEstimateUploaded} visMasterCols={visMaster} visUploadCols={visUpload} masterLinksEst={masterLinksEst} onToggleSelection={actions.toggleRowSelection} onMouseDown={handleMouseDown} onMouseEnter={handleMouseEnter} onUpdateCell={actions.handleUpdateCell} />;
                                         })}
                                         
                                         {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="50" className="p-0 border-0"></td></tr>}
