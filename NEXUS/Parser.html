@@ -1292,8 +1292,25 @@
                 showErpModal,
                 toastMsg, isProcessing, processMsg,
                 globalSearch, setGlobalSearch, targetId, setTargetId,
-                selectedMissingCodes, setSelectedMissingCodes
+                selectedMissingCodes, setSelectedMissingCodes, processedCodes
             } = appState;
+
+            // 🌟 메인 화면에서 F8을 눌렀을 때 '반영하기 검토' 창을 여는 전역 단축키 추가
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'F8') {
+                        if (!showReviewModal) { // 모달이 닫혀 있을 때만 작동
+                            e.preventDefault();
+                            const btn = document.getElementById('btn-open-review');
+                            if (btn && !btn.disabled) {
+                                setShowReviewModal(true);
+                            }
+                        }
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [showReviewModal, setShowReviewModal]);
 
             const handleNavigate = useCallback((e, path, isReady = true) => {
                 if (e && e.preventDefault) e.preventDefault();
@@ -1434,9 +1451,9 @@
                                 </button>
                                 <div className="w-px h-6 bg-slate-300 mx-1"></div>
                                 
-                                {/* 🌟 언제나 확인 및 진입 가능한 반영하기(프리뷰) 버튼 */}
-                                <button onClick={() => setShowReviewModal(true)} disabled={matchedRows.filter(r=>r._apply).length === 0} className={`h-9 px-5 rounded-lg text-[12px] font-black shadow-sm transition-colors flex items-center ${matchedRows.filter(r=>r._apply).length > 0 ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`} title="매핑 작업을 완료하고 투트랙 프리뷰를 검토합니다.">
-                                    <i className="fas fa-check-circle mr-1.5 text-[13px]"></i> 반영하기 검토
+                                {/* 🌟 언제나 확인 및 진입 가능한 반영하기(프리뷰) 버튼 + F8 단축키 추가 */}
+                                <button id="btn-open-review" onClick={() => setShowReviewModal(true)} disabled={matchedRows.filter(r=>r._apply).length === 0} className={`h-9 px-5 rounded-lg text-[12px] font-black shadow-sm transition-colors flex items-center ${matchedRows.filter(r=>r._apply).length > 0 ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`} title="매핑 작업을 완료하고 투트랙 프리뷰를 검토합니다. [단축키: F8]">
+                                    <i className="fas fa-check-circle mr-1.5 text-[13px]"></i> 반영하기 검토 [F8]
                                 </button>
                                 
                                 {activeTab === 'missing' && (
