@@ -513,18 +513,18 @@
                     let status = 'same'; let issues = [];
 
                     if (!mItem.품목명 && !mItem.코드) { 
-                        status = 'new'; newItems++; issues.push({ text: '신규 품목 추가', color: 'text-emerald-500 font-bold bg-emerald-50 px-1 rounded' });
+                        status = 'new'; newItems++; issues.push({ text: '신규', color: 'text-emerald-500 font-bold bg-emerald-50 px-1.5 py-0.5 rounded' });
                     } else {
                         let priceChanged = false;
-                        if (newP > oldP && oldP > 0) { status = 'up'; up++; priceChanged = true; issues.push({ text: `단가 인상: +${(newP-oldP).toLocaleString()}원`, color: 'text-rose-500 font-bold bg-rose-50 px-1 rounded' }); } 
-                        else if (newP < oldP && newP > 0) { status = 'down'; down++; priceChanged = true; issues.push({ text: `단가 인하: ${(newP-oldP).toLocaleString()}원`, color: 'text-blue-500 font-bold bg-blue-50 px-1 rounded' }); }
+                        if (newP > oldP && oldP > 0) { status = 'up'; up++; priceChanged = true; issues.push({ text: `+${(newP-oldP).toLocaleString()}`, color: 'text-rose-500 font-bold bg-rose-50 px-1.5 py-0.5 rounded' }); } 
+                        else if (newP < oldP && newP > 0) { status = 'down'; down++; priceChanged = true; issues.push({ text: `${(newP-oldP).toLocaleString()}`, color: 'text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded' }); }
 
                         let textChanged = false;
                         if (masterName && excelName && String(masterName).trim() !== String(excelName).trim()) {
-                            textChanged = true; issues.push({ text: `M품명: ${masterName}`, color: 'text-amber-600 bg-amber-50 px-1 rounded' });
+                            textChanged = true; issues.push({ text: `${masterName}`, color: 'text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded' });
                         }
                         if (masterSpec && excelSpec && String(masterSpec).trim() !== String(excelSpec).trim()) {
-                            textChanged = true; issues.push({ text: `M규격: ${masterSpec}`, color: 'text-amber-600 bg-amber-50 px-1 rounded' });
+                            textChanged = true; issues.push({ text: `${masterSpec}`, color: 'text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded' });
                         }
 
                         if (!priceChanged) {
@@ -1683,7 +1683,7 @@
 
                             shopData.push([rowCode, dName, dSpec, pOut, priceA, priceMarketShop, 0, 0, 0, 0, 0, 0, dBrand, dInfo, isForSale, stockQty, '', '', '', '', '', dSearch]);
 
-                            [1, 2].forEach(type => { 
+                            [1].forEach(type => { 
                                 const cCodeRaw = getFirstValidStr([final, source, mItem], [`${type}종코드`]); 
                                 if (isValidSubItemCode(cCodeRaw)) { 
                                     const cCode = String(cCodeRaw).trim();
