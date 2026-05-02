@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="ko" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="google" content="notranslate">
+    <title>NEXUS - Trend Report & Dashboard V1.7</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- 🌟 그래프를 그리기 위한 Recharts 라이브러리 추가 및 의존성 해결 -->
+    <script src="https://unpkg.com/react-is@18.2.0/umd/react-is.production.min.js"></script>
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; -webkit-font-smoothing: antialiased; background-color: #e2e8f0; margin: 0; overflow: hidden; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; } 
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="text-slate-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect, useRef, useCallback, Fragment } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } = window.Recharts || {}; // 🌟 차트 컴포넌트 불러오기 (오류 방지)
+
+        // ==========================================
+        // 🧩 코어 전역 상수 및 DB 래퍼
+        // ==========================================
+        const STORAGE_KEYS = {
+            MASTER_DB: 'merchMaster_v870', CLOUD_URL: 'skuSyncCloudUrl_v6', SYNC_TRIGGER: 'merchMaster_sync_trigger',
+            HISTORY_DB: 'merchHistory_v870', UNSYNCED_MASTER: 'merchUnsyncedMaster_v1', UNSYNCED_HISTORY: 'merchUnsyncedHistory_v1',
+            UNSYNCED_DICT: 'merchUnsyncedDict_v1',
+        };
+
+        const parseNum = (v) => (!v ? 0 : Number(String(v).replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0);
+
+        let idbInstance = null;
+        const initIDB = () => new Promise((resolve, reject) => {
+            if (idbInstance) return resolve(idbInstance);
+            const request = indexedDB.open('MerchOpsDB', 1);
+            request.onupgradeneeded = (e) => { if (!e.target.result.objectStoreNames.contains('store')) e.target.result.createObjectStore('store'); };
+            request.onsuccess = () => { idbInstance = request.result; resolve(idbInstance); };
+            request.onerror = () => reject(request.error);
+        });
+
+        const getIDB = async (key) => {
+            const db = await initIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('store', 'readonly');
+                const req = tx.objectStore('store').get(key);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(tx.error);
+            });
+        };
+
+        const setIDB = async (key, val) => {
+            const db = await initIDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('store', 'readwrite');
+                tx.objectStore('store').put(val, key);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        };
+
+        // ==========================================
+        // 🧩 2. 공용 UI 컴포넌트
+        // ==========================================
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            render() {
+                if (this.state.hasError) return (
+                    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+                        <i className="fas fa-exclamation-triangle text-rose-500 text-6xl mb-6"></i>
+                        <h1 className="text-2xl font-black text-slate-800 mb-2">화면 렌더링 오류 발생</h1>
+                        <p className="text-slate-500 mb-6">아래 [초기화] 버튼을 눌러 복구해 주세요.</p>
+                        <button onClick={() => { indexedDB.deleteDatabase('MerchOpsDB'); window.location.reload(); }} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"><i className="fas fa-redo-alt"></i> 로컬 데이터 초기화</button>
+                    </div>
+                );
+                return this.props.children;
+            }
+        }
+
+        const SafeIcon = React.memo(function SafeIconComponent({ name, size = 18, className = "" }) {
+            const [svg, setSvg] = useState("");
+            useEffect(() => {
+                if (window.lucide && window.lucide.icons) {
+                    const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+                    const possibleNames = [kebabName, name, name==='cloud-download'?'download-cloud':name, name==='cloud-upload'?'upload-cloud':name, name==='bar-chart-3'?'bar-chart':name];
+                    for (const pName of possibleNames) {
+                        if (window.lucide.icons[pName]) { setSvg(window.lucide.icons[pName].toSvg({ width: size, height: size, class: className, 'stroke-width': 2.5 })); return; }
+                    }
+                }
+            }, [name, size, className]);
+            if (!svg) {
+                const faMap = { 'cloud-download':'fa-cloud-download-alt', 'cloud-upload':'fa-cloud-upload-alt', 'settings':'fa-cogs', 'layout-dashboard':'fa-th-large', 'package-search':'fa-box-open', 'file-spreadsheet':'fa-table', 'zap':'fa-bolt', 'truck':'fa-truck', 'boxes':'fa-boxes', 'bar-chart-3':'fa-chart-bar', 'check-circle-2':'fa-check-circle', 'x':'fa-times', 'database':'fa-database', 'upload':'fa-upload', 'pie-chart':'fa-chart-pie', 'shopping-cart':'fa-shopping-cart', 'users':'fa-users', 'megaphone':'fa-bullhorn', 'book-open':'fa-address-book', 'shopping-bag':'fa-shopping-bag', 'credit-card':'fa-credit-card', 'line-chart':'fa-chart-line', 'printer':'fa-print', 'search':'fa-search', 'plus':'fa-plus', 'trash-alt':'fa-trash-alt', 'edit':'fa-edit', 'save':'fa-save', 'link':'fa-link', 'folder-open':'fa-folder-open', 'folder-plus':'fa-folder-plus', 'magic':'fa-magic', 'clipboard-check':'fa-clipboard-check', 'hand-point-right':'fa-hand-point-right', 'arrow-right':'fa-arrow-right', 'arrow-up':'fa-arrow-up', 'arrow-down':'fa-arrow-down', 'equals':'fa-equals', 'eraser':'fa-eraser' };
+                return <i className={`fas ${faMap[name] || `fa-${name}`} ${className}`} style={{ fontSize: size }} />;
+            }
+            return <span className="inline-flex shrink-0 items-center justify-center" dangerouslySetInnerHTML={{ __html: svg }} />;
+        });
+
+        const GlobalHeader = ({ activeTab, itemCount, isProcessing, processMsg, onOpenSettings, onPush, onPull, onNavigate }) => {
+            const groups = [ { id: 'master', label: '정보 관리', icon: 'database' }, { id: 'ops', label: '운영 관리', icon: 'truck' }, { id: 'admin', label: '인사이트', icon: 'bar-chart-3' } ];
+            const groupLabels = { master: "MerchOps", ops: "DataOps", admin: "Insite", common: "Platform" };
+            const tabs = [
+                { id: 'dashboard', label: '통합 대시보드', icon: "layout-dashboard", path: 'Dashboard.html', group: 'common', isReady: true, shortTag: 'TOTAL BOARD' },
+                { id: 'item-info', label: '마스터 DB', icon: "database", path: 'Master.html', group: 'master', isReady: true, shortTag: 'GOLDEN MASTER' },
+                { id: 'item-manage', label: '상품 관리', icon: "package-search", path: 'Item_manager.html', group: 'master', isReady: true, shortTag: 'ITEM FORGE' },
+                { id: 'pipeline', label: '시세 관리', icon: "file-spreadsheet", path: 'Pipeline.html', group: 'master', isReady: true, shortTag: 'PRICE HUB' },
+                { id: 'parser', label: '스마트 파서', icon: "zap", path: 'Parser.html', group: 'master', isReady: true, shortTag: 'AUTO PARSER' },
+                { id: 'partner-db', label: '거래처 DB', icon: "book-open", path: 'partner_db.html', group: 'master', isReady: true, shortTag: 'ENTITY REGISTER' },
+                { id: 'partners', label: '거래처 관리', icon: "users", path: 'partners.html', group: 'master', isReady: true, shortTag: 'NETWORK CRM' },
+                { id: 'orders', label: '주문 관리', icon: "shopping-bag", path: 'orders.html', group: 'ops', isReady: true, shortTag: 'ORDER FLOW' },
+                { id: 'purchases', label: '구매 관리', icon: "credit-card", path: 'purchases.html', group: 'ops', isReady: true, shortTag: 'SOURCING' },
+                { id: 'sales', label: '판매 관리', icon: "line-chart", path: 'sales.html', group: 'ops', isReady: true, shortTag: 'REVENUE' },
+                { id: 'inventory', label: '재고 마감', icon: "boxes", path: 'inventory.html', group: 'ops', isReady: true, shortTag: 'STOCK CLOSING' },
+                { id: 'print-center', label: '출력 센터', icon: "printer", path: 'print_center.html', group: 'ops', isReady: true, shortTag: 'OUTPUT TERM' },
+                { id: 'insight', label: '경영 보고서', icon: "pie-chart", path: 'Report.html', group: 'admin', isReady: true, shortTag: 'INSIGHT CORE' },
+                { id: 'cs', label: '정보 마당', icon: "megaphone", path: 'cs.html', group: 'admin', isReady: true, shortTag: 'BOARD' }
+            ];
+
+            const currentTab = tabs.find(t => t.id === activeTab);
+            const activeGroup = currentTab ? currentTab.group : 'common';
+            const [selectedGroup, setSelectedGroup] = useState(activeGroup);
+            const activeGroupLabel = groupLabels[selectedGroup] || "Platform";
+
+            return (
+                <div className="flex flex-col shrink-0 z-40 relative w-full shadow-sm bg-[#0B1021]">
+                    <header className="h-[72px] bg-[#0B1021] text-white flex justify-between px-6 border-b border-slate-800/80 relative z-20">
+                        <div className="flex items-center h-full">
+                            <div className="flex items-center cursor-pointer group mr-10 h-full" onClick={(e) => {setSelectedGroup('common'); onNavigate(e, 'Dashboard.html');}}>
+                                <span className="font-black text-[24px] tracking-wider text-slate-100 mr-4 group-hover:text-indigo-400 transition-colors">NEXUS</span>
+                                <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
+                                    <div className="flex items-center">
+                                        <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.4</span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
+                                </div>
+                            </div>
+                            <div className="flex items-end h-full gap-8">
+                                {groups.map(g => (
+                                    <button key={g.id} onClick={() => setSelectedGroup(prev => prev === g.id ? 'common' : g.id)} className={`pb-[16px] text-[14px] font-bold transition-colors flex items-center gap-1.5 ${selectedGroup === g.id ? 'text-slate-100 border-b-[3px] border-indigo-500 -mb-[2px]' : 'text-slate-500 hover:text-slate-300'}`}>
+                                        <SafeIcon name={g.icon} size={15} /> {g.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 h-full">
+                            <div className="flex items-center bg-[#151B2B] rounded-lg border border-slate-700/50 h-9 px-3 shadow-inner gap-3">
+                                <div className="flex items-center justify-center" title={isProcessing ? processMsg : "시스템 정상 대기중"}>
+                                    {isProcessing ? ( <i className="fas fa-circle-notch fa-spin text-amber-500 text-[12px]"></i> ) : (
+                                        <div className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></div>
+                                    )}
+                                </div>
+                                <div className="w-px h-3.5 bg-slate-700"></div>
+                                <div className="flex items-center gap-1.5 text-slate-300 cursor-help" title="마스터 DB 데이터 수">
+                                    <SafeIcon name="database" size={10} className="text-slate-500" />
+                                    <span className="text-[11px] font-mono font-bold tracking-tight">{itemCount ? itemCount.toLocaleString() : 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {selectedGroup && (
+                        <div className="bg-[#0B1021] px-6 pt-3 flex items-end gap-1 overflow-x-auto custom-scrollbar border-b border-slate-200 fade-in">
+                            {tabs.filter(t => t.group === selectedGroup).map(tab => {
+                                const isActive = activeTab === tab.id;
+                                const isPlaceholder = !tab.isReady;
+                                return (
+                                    <a key={tab.id} href={tab.path} onClick={(e) => onNavigate(e, tab.path, tab.isReady)}
+                                        className={`flex items-center gap-2 px-6 py-3 text-[14px] font-bold rounded-t-xl transition-all whitespace-nowrap border-x border-t-[3px] ${isActive ? 'bg-white text-indigo-600 border-t-indigo-500 border-x-slate-200 relative z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]' : isPlaceholder ? 'bg-[#151B2B] text-slate-500 border-t-transparent border-x-transparent cursor-not-allowed opacity-50 pb-2.5' : 'bg-[#151B2B] text-slate-400 border-t-transparent border-x-transparent hover:text-slate-200 pb-2.5'}`}
+                                        style={{ marginBottom: isActive ? '-1px' : '0', paddingBottom: isActive ? '13px' : '10px' }}
+                                    >
+                                        <SafeIcon name={tab.icon} size={16} className={isActive ? 'text-indigo-600' : 'opacity-70'} /> {tab.label}
+                                    </a>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const ActionToolbar = ({ activeTab, setActiveTab }) => {
+            const TabButton = ({ id, label, icon }) => {
+                const active = activeTab === id;
+                return (
+                    <button 
+                        onClick={() => setActiveTab(id)}
+                        className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-t-lg border border-b-0 transition-colors
+                            ${active ? 'bg-white border-gray-200 text-indigo-700 z-10 relative shadow-[0_-2px_4px_rgba(0,0,0,0.02)]' : 'bg-slate-100 border-transparent text-slate-500 hover:bg-slate-200 hover:text-slate-700'}`}
+                        style={{ marginBottom: active ? '-1px' : '0' }}
+                    >
+                        {icon && <i className={`fas ${icon} ${active ? 'text-indigo-600' : 'text-slate-400'}`}></i>}
+                        {label} 
+                    </button>
+                );
+            };
+
+            return (
+                <div className="px-6 pt-5 bg-slate-50 border-b border-gray-200 flex items-end justify-between shrink-0 relative z-10">
+                    <div className="flex gap-1">
+                        <TabButton id="dashboard" label="인사이트 대시보드" icon="fa-chart-line" />
+                        <TabButton id="category" label="카테고리별 단가 통계" icon="fa-sitemap" />
+                        <TabButton id="trends" label="단가 추이 분석 (그래프)" icon="fa-chart-area" />
+                        <TabButton id="editor" label="고객 안내장(레터) 발행" icon="fa-envelope-open-text" />
+                    </div>
+                </div>
+            );
+        };
+
+        // ==========================================
+        // 📱 고객 안내용 모바일 뷰어 컴포넌트
+        // ==========================================
+        const CustomerReportView = ({ data }) => {
+            if (!data || !data.title) return (
+                <div className="h-screen flex flex-col items-center justify-center bg-slate-100 text-slate-400 font-bold p-6 text-center">
+                    <i className="fas fa-file-signature text-6xl mb-4 text-slate-300"></i>
+                    <p className="text-lg">아직 관리자가 발행한 시황 리포트가 없습니다.</p>
+                </div>
+            );
+
+            const hasCategories = data.categories && Object.keys(data.categories).length > 0;
+
+            return (
+                <div id="customer-report-capture-area" className="w-full max-w-[480px] bg-white shadow-2xl relative min-h-screen flex flex-col mx-auto overflow-hidden">
+                    <header className="bg-[#0B1021] text-white px-6 py-8 rounded-b-[2rem] shadow-md relative z-10 shrink-0">
+                        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
+                        <div className="flex justify-between items-center mb-5">
+                            <span className="text-xl font-black tracking-tight text-white"><i className="fas fa-layer-group text-indigo-400 mr-2"></i>Orderz</span>
+                            <span className="bg-indigo-500/30 text-indigo-200 text-[10px] font-bold px-2.5 py-1 rounded-full">공식 시황 안내</span>
+                        </div>
+                        <h1 className="text-2xl font-black leading-snug break-keep">{data.title}</h1>
+                        <div className="mt-4 text-[11px] text-slate-400 flex items-center"><i className="far fa-clock mr-1.5"></i> {data.publishDate || new Date().toLocaleDateString('ko-KR')} 발행</div>
+                    </header>
+
+                    <main className="flex-1 px-5 py-6 space-y-6 overflow-y-auto hide-scrollbar bg-slate-50/50">
+                        {data.greeting && (
+                            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                <div className="p-5">
+                                    <h2 className="text-[13px] font-black text-slate-800 flex items-center mb-3"><i className="fas fa-bullhorn text-indigo-500 mr-2"></i>전체 시황 브리핑</h2>
+                                    <div className="text-[13px] leading-relaxed text-slate-600 whitespace-pre-wrap font-medium break-keep">
+                                        {data.greeting}
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {hasCategories && (
+                            <div className="space-y-5">
+                                <h3 className="text-sm font-black text-slate-800 px-1 border-l-4 border-slate-800 pl-2.5 mt-2">카테고리별 주요 변동 내역</h3>
+                                {Object.entries(data.categories).map(([catName, catData], idx) => {
+                                    if (!catData.items || catData.items.length === 0) return null;
+                                    return (
+                                        <section key={catName} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden fade-in">
+                                            <div className="bg-slate-50 p-4 border-b border-slate-200">
+                                                <h4 className="text-[15px] font-black text-slate-800 mb-2">{catName}</h4>
+                                                {catData.comment && (
+                                                    <div className="bg-white rounded-lg p-3 relative border border-slate-100 shadow-sm">
+                                                        <div className="absolute top-2 left-2 text-indigo-300 text-sm"><i className="fas fa-quote-left"></i></div>
+                                                        <p className="text-[12px] text-slate-600 pl-6 leading-relaxed font-bold break-keep">{catData.comment}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="divide-y divide-slate-100">
+                                                {catData.items.map(item => {
+                                                    const isUp = item.diff > 0; const isDown = item.diff < 0;
+                                                    const colorClass = isUp ? 'text-rose-500' : isDown ? 'text-blue-500' : 'text-slate-500';
+                                                    const bgClass = isUp ? 'bg-rose-50' : isDown ? 'bg-blue-50' : 'bg-slate-50';
+                                                    const icon = isUp ? 'fa-arrow-up' : isDown ? 'fa-arrow-down' : 'fa-minus';
+                                                    return (
+                                                        <div key={item.code} className="p-4 bg-white">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div className="flex flex-col pr-2">
+                                                                    <span className="text-[13px] font-extrabold text-slate-800 leading-snug">{item.name}</span>
+                                                                    <span className="text-[11px] text-slate-400 font-medium mt-0.5">{item.spec}</span>
+                                                                </div>
+                                                                <div className={`px-2 py-1 rounded-md flex items-center text-[11px] font-black shrink-0 ${bgClass} ${colorClass}`}>
+                                                                    <i className={`fas ${icon} text-[9px] mr-1`}></i>{Math.abs(item.diff).toLocaleString()}원
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex justify-between items-end mt-1.5">
+                                                                <div className="flex items-center text-xs font-bold text-slate-400 gap-2">
+                                                                    <span className="line-through decoration-slate-300">{item.oldVal.toLocaleString()}원</span>
+                                                                    <i className="fas fa-caret-right text-slate-300"></i>
+                                                                    <span className="text-slate-800 text-[14px]">{item.newVal.toLocaleString()}원</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </section>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </main>
+
+                    <footer className="bg-slate-100 p-6 text-center shrink-0 border-t border-slate-200">
+                        <div className="text-indigo-300 text-2xl mb-2"><i className="fas fa-leaf"></i></div>
+                        <p className="text-xs text-slate-500 font-bold mb-1">항상 더 나은 서비스로 보답하겠습니다.</p>
+                        <p className="text-[10px] text-slate-400">문의사항: 1588-0000 | 카카오톡 @orderz</p>
+                    </footer>
+                </div>
+            );
+        };
+
+        // Custom Tooltip for Chart
+        const CustomTooltip = ({ active, payload, label }) => {
+            if (active && payload && payload.length) {
+                return (
+                    <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
+                        <p className="text-[11px] text-slate-500 mb-1">{label}</p>
+                        <p className="text-[13px] font-black text-indigo-600">
+                            {Number(payload[0].value).toLocaleString()}원
+                        </p>
+                    </div>
+                );
+            }
+            return null;
+        };
+
+        // ==========================================
+        // 📊 관리자 대시보드 메인 앱
+        // ==========================================
+        const App = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isCustomerMode = urlParams.get('mode') === 'customer';
+
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [masterProducts, setMasterProducts] = useState({});
+            const [historyLogs, setHistoryLogs] = useState([]);
+            const [isLoading, setIsLoading] = useState(true);
+            const [toastMsg, setToastMsg] = useState("");
+            
+            const [publishedReport, setPublishedReport] = useState(null);
+            
+            const [editorDraft, setEditorDraft] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('merchReportDraft_v1');
+                    return saved ? JSON.parse(saved) : { title: '[Orderz] 시황 변동 안내', greeting: '최근 수입 원자재 및 부자재의 매입 원가가 전반적으로 크게 상승하였습니다.\n안정적인 상품 공급을 위해 부득이하게 일부 품목의 출고가를 조정하게 되었습니다. 고객님들의 너른 양해 부탁드립니다.', categories: {} };
+                } catch(e) { return { title: '', greeting: '', categories: {} }; }
+            });
+
+            const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+            const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(""), 3000); };
+
+            const handleNavigate = useCallback((e, path, isReady = true) => {
+                if (e && e.preventDefault) e.preventDefault();
+                if (!path || path === '#' || !isReady) return showToast("⚠️ 해당 페이지는 현재 준비 중이거나 경로가 올바르지 않습니다.");
+                try {
+                    const protocol = window.location.protocol;
+                    if (protocol === 'about:' || protocol === 'blob:' || protocol === 'data:') showToast(`💡 미리보기 환경: [${path}] 로 이동을 시뮬레이션 합니다.`);
+                    else window.location.href = path;
+                } catch (err) { showToast(`💡 이동 시뮬레이션: [${path}]`); }
+            }, [showToast]);
+
+            useEffect(() => {
+                const loadData = async () => {
+                    try {
+                        const mData = await getIDB(STORAGE_KEYS.MASTER_DB) || {};
+                        setMasterProducts(mData);
+                        
+                        const hData = await getIDB(STORAGE_KEYS.HISTORY_DB) || [];
+                        setHistoryLogs(hData);
+
+                        const pData = JSON.parse(localStorage.getItem('merchCustomerReport_v1'));
+                        if (pData) setPublishedReport(pData);
+                    } catch (error) { 
+                        console.error(error); 
+                    } finally { 
+                        setIsLoading(false); 
+                    }
+                };
+                loadData();
+            }, []);
+
+            useEffect(() => {
+                if (!isLoading && !isCustomerMode) localStorage.setItem('merchReportDraft_v1', JSON.stringify(editorDraft));
+            }, [editorDraft, isLoading, isCustomerMode]);
+
+            // 💡 통합 인사이트 계산
+            const insights = useMemo(() => {
+                const marginRisks = Object.values(masterProducts).filter(item => {
+                    const inP = parseNum(item['입고가']); const outP = parseNum(item['출고가']);
+                    if (inP <= 0 || outP <= 0) return false;
+                    const margin = ((outP - inP) / outP) * 100;
+                    item._margin = margin;
+                    return margin < 15;
+                }).sort((a, b) => a._margin - b._margin).slice(0, 30);
+
+                const priceChanges = historyLogs.filter(log => log.field === '입고가' || log.field === '입고').reduce((acc, log) => {
+                    if (!acc[log.code] || new Date(log.timestamp) > new Date(acc[log.code].timestamp)) {
+                        acc[log.code] = log; 
+                    }
+                    return acc;
+                }, {});
+
+                const volatilityList = Object.values(priceChanges)
+                    .filter(log => Math.abs(log.diff) > 0)
+                    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+                    .slice(0, 15);
+
+                const upCount = Object.values(priceChanges).filter(log => log.diff > 0).length;
+                const downCount = Object.values(priceChanges).filter(log => log.diff < 0).length;
+
+                return { marginRisks, volatilityList, changeStats: { total: Object.keys(priceChanges).length, up: upCount, down: downCount } };
+            }, [masterProducts, historyLogs]);
+
+            // 💡 1/2/3 Depth 카테고리 계층 구조 생성 엔진 
+            const categoryHierarchy = useMemo(() => {
+                const hierarchy = {};
+                Object.values(masterProducts).forEach(item => {
+                    let c1Name = item['1그룹명'];
+                    let c2Name = item['2그룹명'];
+                    let c3Name = item['3그룹명'] || (item['카탈로그'] ? item['카탈로그'].split(',')[0].trim() : '');
+
+                    const pCode = String(item['품목코드'] || item['코드'] || '');
+                    let c1Code = String(item['1코드'] || (pCode.length >= 2 ? pCode.substring(0, 2) : ''));
+                    let c2Code = String(item['2코드'] || (pCode.length >= 4 ? pCode.substring(0, 4) : ''));
+                    let c3Code = String(item['오더즈'] || item['3코드'] || (pCode.length >= 6 ? pCode.substring(0, 6) : ''));
+
+                    if (!c1Name || !c1Code) { c1Name = '기타'; c1Code = 'ZZZ99_기타'; }
+                    if (!c2Name || !c2Code) { c2Name = '기타'; c2Code = 'ZZZ9999_기타'; }
+                    if (!c3Name || !c3Code) { c3Name = '기타'; c3Code = 'ZZZ999999_기타'; }
+
+                    if (!hierarchy[c1Code]) hierarchy[c1Code] = { name: c1Name, code: c1Code, sub: {} };
+                    if (!hierarchy[c1Code].sub[c2Code]) hierarchy[c1Code].sub[c2Code] = { name: c2Name, code: c2Code, sub: {} };
+                    if (!hierarchy[c1Code].sub[c2Code].sub[c3Code]) {
+                        hierarchy[c1Code].sub[c2Code].sub[c3Code] = {
+                            name: c3Name, code: c3Code, items: [], totalItems: 0, marginSum: 0, validMarginCount: 0, upCount: 0, downCount: 0
+                        };
+                    }
+
+                    const c = hierarchy[c1Code].sub[c2Code].sub[c3Code];
+                    c.items.push(item);
+                    c.totalItems++;
+
+                    const inP = parseNum(item['입고가']); const outP = parseNum(item['출고가']);
+                    if (inP > 0 && outP > 0) {
+                        const margin = ((outP - inP) / outP) * 100;
+                        c.marginSum += margin;
+                        c.validMarginCount++;
+                    }
+                });
+
+                // 히스토리 변동 내역 합산
+                const priceChanges = historyLogs.reduce((acc, log) => {
+                    if (!acc[log.code] || new Date(log.timestamp) > new Date(acc[log.code].timestamp)) acc[log.code] = log;
+                    return acc;
+                }, {});
+
+                Object.values(priceChanges).forEach(log => {
+                    const mItem = masterProducts[log.code];
+                    if (mItem) {
+                        let c1Name = mItem['1그룹명'];
+                        let c2Name = mItem['2그룹명'];
+                        let c3Name = mItem['3그룹명'] || (mItem['카탈로그'] ? mItem['카탈로그'].split(',')[0].trim() : '');
+
+                        const pCode = String(mItem['품목코드'] || mItem['코드'] || '');
+                        let c1Code = String(mItem['1코드'] || (pCode.length >= 2 ? pCode.substring(0, 2) : ''));
+                        let c2Code = String(mItem['2코드'] || (pCode.length >= 4 ? pCode.substring(0, 4) : ''));
+                        let c3Code = String(mItem['오더즈'] || mItem['3코드'] || (pCode.length >= 6 ? pCode.substring(0, 6) : ''));
+
+                        if (!c1Name || !c1Code) c1Code = 'ZZZ99_기타';
+                        if (!c2Name || !c2Code) c2Code = 'ZZZ9999_기타';
+                        if (!c3Name || !c3Code) c3Code = 'ZZZ999999_기타';
+                        
+                        if (hierarchy[c1Code] && hierarchy[c1Code].sub[c2Code] && hierarchy[c1Code].sub[c2Code].sub[c3Code]) {
+                            const c = hierarchy[c1Code].sub[c2Code].sub[c3Code];
+                            if (log.diff > 0) c.upCount++;
+                            if (log.diff < 0) c.downCount++;
+                        }
+                    }
+                });
+
+                // 평균 마진율 계산
+                Object.keys(hierarchy).forEach(c1 => {
+                    Object.keys(hierarchy[c1].sub).forEach(c2 => {
+                        Object.keys(hierarchy[c1].sub[c2].sub).forEach(c3 => {
+                            const c = hierarchy[c1].sub[c2].sub[c3];
+                            c.avgMargin = c.validMarginCount > 0 ? (c.marginSum / c.validMarginCount) : 0;
+                        });
+                    });
+                });
+
+                return hierarchy;
+            }, [masterProducts, historyLogs]);
+
+            // 계층별 선택 상태 관리 
+            const [activeC1, setActiveC1] = useState(null);
+            const [activeC2, setActiveC2] = useState(null);
+            const [activeC3, setActiveC3] = useState(null);
+            
+            // 🌟 단가 추이 분석 탭 관련 State
+            const [selectedTrendItem, setSelectedTrendItem] = useState(null);
+            const [trendOnlyChanged, setTrendOnlyChanged] = useState(true);
+
+            const c1List = useMemo(() => Object.values(categoryHierarchy).sort((a,b) => a.code.localeCompare(b.code)), [categoryHierarchy]);
+            
+            useEffect(() => {
+                if (c1List.length > 0 && !c1List.find(c => c.code === activeC1)) setActiveC1(c1List[0].code);
+            }, [c1List, activeC1]);
+
+            const c2List = useMemo(() => activeC1 && categoryHierarchy[activeC1] ? Object.values(categoryHierarchy[activeC1].sub).sort((a,b) => a.code.localeCompare(b.code)) : [], [categoryHierarchy, activeC1]);
+            
+            useEffect(() => {
+                if (c2List.length > 0 && !c2List.find(c => c.code === activeC2)) setActiveC2(c2List[0].code);
+                else if (c2List.length === 0) setActiveC2(null);
+            }, [c2List, activeC1, activeC2]);
+
+            const c3List = useMemo(() => {
+                if (activeC1 && activeC2 && categoryHierarchy[activeC1]?.sub[activeC2]) {
+                    return Object.values(categoryHierarchy[activeC1].sub[activeC2].sub).sort((a,b) => a.code.localeCompare(b.code));
+                }
+                return [];
+            }, [categoryHierarchy, activeC1, activeC2]);
+
+            useEffect(() => {
+                if (c3List.length > 0 && !c3List.find(c => c.code === activeC3)) setActiveC3(c3List[0].code);
+                else if (c3List.length === 0) setActiveC3(null);
+            }, [c3List, activeC1, activeC2, activeC3]);
+
+            // 🌟 선택된 카테고리(3Depth)에 속한 상품 목록 추출 및 정렬 (최근 변경된 상품 우선)
+            const trendItemList = useMemo(() => {
+                if (!activeC3) return [];
+                const catData = c3List.find(c => c.code === activeC3);
+                if (!catData) return [];
+                
+                let items = [...catData.items];
+                
+                // 각 아이템에 마지막 변동 내역 매핑
+                items = items.map(item => {
+                    const code = item.코드 || item.품목코드;
+                    // 해당 코드의 로그를 최신순으로 정렬
+                    const logs = historyLogs.filter(l => l.code === code && (l.field === '입고가' || l.field === '입고'))
+                                            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    
+                    return {
+                        ...item,
+                        lastChange: logs.length > 0 ? logs[0] : null,
+                        hasHistory: logs.length > 0
+                    };
+                });
+                
+                if (trendOnlyChanged) {
+                    items = items.filter(item => item.hasHistory);
+                }
+
+                // 최근 변경된 상품이 가장 위에 오도록 정렬
+                items.sort((a, b) => {
+                    if (a.hasHistory && !b.hasHistory) return -1;
+                    if (!a.hasHistory && b.hasHistory) return 1;
+                    if (a.hasHistory && b.hasHistory) {
+                        return new Date(b.lastChange.timestamp) - new Date(a.lastChange.timestamp);
+                    }
+                    return a.품목명.localeCompare(b.품목명);
+                });
+
+                return items;
+            }, [c3List, activeC3, historyLogs, trendOnlyChanged]);
+
+            // 선택된 아이템의 차트 데이터 생성
+            const chartDataInfo = useMemo(() => {
+                if (!selectedTrendItem) return { data: [], max: 0, min: 0, current: 0 };
+                const code = selectedTrendItem.코드 || selectedTrendItem.품목코드;
+                const currentPrice = parseNum(selectedTrendItem.입고가);
+                
+                // 1. 해당 코드의 가격 변동 로그만 가져와서 오래된 순서대로 정렬
+                const logs = historyLogs.filter(l => l.code === code && (l.field === '입고가' || l.field === '입고'))
+                                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                
+                let data = [];
+                let min = currentPrice;
+                let max = currentPrice;
+
+                if (logs.length > 0) {
+                    // 최초 시작점 (제일 첫 로그의 oldVal)
+                    const firstLog = logs[0];
+                    const firstDateObj = new Date(firstLog.timestamp);
+                    firstDateObj.setDate(firstDateObj.getDate() - 1); // 변동 전날 기준
+                    data.push({
+                        date: `${firstDateObj.getMonth()+1}.${firstDateObj.getDate()}`,
+                        fullDate: firstDateObj.toLocaleDateString(),
+                        price: parseNum(firstLog.oldVal),
+                        diff: 0
+                    });
+
+                    // 각 변경 포인트 추가
+                    logs.forEach(log => {
+                        const d = new Date(log.timestamp);
+                        const price = parseNum(log.newVal);
+                        data.push({
+                            date: `${d.getMonth()+1}.${d.getDate()}`,
+                            fullDate: d.toLocaleDateString(),
+                            price: price,
+                            diff: log.diff
+                        });
+                        if (price < min) min = price;
+                        if (price > max) max = price;
+                    });
+                } else {
+                    // 변동 로그가 아예 없는 경우: 1달 전부터 현재까지 직선으로 표시
+                    const now = new Date();
+                    const past = new Date(); past.setMonth(now.getMonth() - 1);
+                    data.push({ date: `${past.getMonth()+1}.${past.getDate()}`, price: currentPrice });
+                    data.push({ date: `${now.getMonth()+1}.${now.getDate()}`, price: currentPrice });
+                }
+
+                // 현재가 (마스터의 최신가)가 로그의 마지막 값과 다르거나, 오늘 날짜로 한 번 더 찍어줌
+                if (data.length > 0 && data[data.length-1].price !== currentPrice) {
+                     const now = new Date();
+                     data.push({
+                        date: '현재',
+                        fullDate: now.toLocaleDateString(),
+                        price: currentPrice,
+                        diff: currentPrice - data[data.length-1].price
+                    });
+                     if (currentPrice < min) min = currentPrice;
+                     if (currentPrice > max) max = currentPrice;
+                }
+
+                return { data, max, min, current: currentPrice };
+            }, [selectedTrendItem, historyLogs]);
+
+            // 에디터 핸들러
+            const handleLoadRecentChanges = () => {
+                if(insights.changeStats.total === 0) return showToast("⚠️ 최근 변동된 히스토리 내역이 없습니다.");
+                const newCats = {};
+                historyLogs.forEach(log => {
+                    if ((log.field === '입고가' || log.field === '입고') && Math.abs(log.diff) > 0) {
+                        const catName = log.catalog || '기타 카탈로그';
+                        if (!newCats[catName]) newCats[catName] = { comment: '', items: [] };
+                        const existingIdx = newCats[catName].items.findIndex(i => i.code === log.code);
+                        if (existingIdx === -1) {
+                            newCats[catName].items.push(log);
+                        } else {
+                            if (new Date(log.timestamp) > new Date(newCats[catName].items[existingIdx].timestamp)) {
+                                newCats[catName].items[existingIdx] = log;
+                            }
+                        }
+                    }
+                });
+
+                Object.keys(newCats).forEach(k => { newCats[k].items.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)); });
+                setEditorDraft(prev => ({ ...prev, categories: newCats }));
+                showToast(`✅ 최근 변경된 ${insights.changeStats.total}건의 내역을 불러왔습니다.`);
+            };
+
+            const handlePublish = () => {
+                const cleanData = { ...editorDraft, publishDate: new Date().toLocaleDateString('ko-KR') };
+                for (const cat in cleanData.categories) {
+                    if (cleanData.categories[cat].items.length === 0) delete cleanData.categories[cat];
+                }
+                localStorage.setItem('merchCustomerReport_v1', JSON.stringify(cleanData));
+                setPublishedReport(cleanData);
+                showToast("🚀 고객용 웹페이지에 성공적으로 적용(발행)되었습니다!");
+            };
+
+            const handleCopyLink = () => {
+                const url = window.location.href.split('?')[0] + '?mode=customer';
+                const textArea = document.createElement("textarea");
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try { document.execCommand('copy'); showToast("✅ 고객용 링크가 복사되었습니다!"); } 
+                catch (err) { showToast("❌ 복사 실패"); }
+                document.body.removeChild(textArea);
+            };
+
+            const handleDownloadImage = async () => {
+                const captureEl = document.getElementById('customer-report-capture-area');
+                if (!captureEl) return showToast("⚠️ 이미지를 생성할 영역을 찾을 수 없습니다.");
+                showToast("⏳ 이미지를 생성 중입니다...");
+                try {
+                    const canvas = await html2canvas(captureEl, { scale: 2, useCORS: true, backgroundColor: '#f8fafc' });
+                    const link = document.createElement('a');
+                    link.download = `시황안내장_${new Date().toISOString().slice(0,10)}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    showToast("✅ 이미지 다운로드가 완료되었습니다!");
+                } catch (e) {
+                    console.error(e);
+                    showToast("❌ 이미지 생성 중 오류가 발생했습니다.");
+                }
+            };
+
+            // ----------------------------------------------------
+            if (isCustomerMode) {
+                return isLoading ? <div className="h-screen flex items-center justify-center text-slate-500 font-bold">로딩중...</div> : <CustomerReportView data={publishedReport} />;
+            }
+            if (isLoading) return <div className="h-screen flex items-center justify-center text-indigo-500 font-bold"><i className="fas fa-circle-notch fa-spin mr-2"></i>데이터 로딩중...</div>;
+
+            return (
+                <div className="h-screen w-full max-w-[1500px] mx-auto flex flex-col font-sans overflow-hidden bg-slate-100 relative shadow-2xl border-x border-slate-300">
+                    <GlobalHeader activeTab="insight" itemCount={Object.keys(masterProducts).length} isProcessing={isLoading} onNavigate={handleNavigate} />
+                    <ActionToolbar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+                    {toastMsg && (
+                        <div className="absolute bottom-10 right-6 z-[1000] bg-slate-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 text-sm font-bold fade-in">
+                            <i className="fas fa-check-circle text-emerald-400"></i>{toastMsg}
+                        </div>
+                    )}
+
+                    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 border-t border-slate-200">
+                        
+                        {/* ================= TAB 1: 통합 대시보드 ================= */}
+                        {activeTab === 'dashboard' && (
+                            <div className="h-full flex flex-col overflow-y-auto custom-scrollbar p-6 fade-in space-y-6">
+                                {/* 요약 카드 */}
+                                <div className="grid grid-cols-3 gap-5">
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+                                        <span className="text-[12px] font-bold text-slate-500 mb-2">마스터 등록 상품 (Total)</span>
+                                        <span className="text-3xl font-black text-slate-800">{Object.keys(masterProducts).length.toLocaleString()} <span className="text-sm font-bold text-slate-400">건</span></span>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-xl border border-rose-200 shadow-sm flex flex-col">
+                                        <span className="text-[12px] font-bold text-rose-500 mb-2"><i className="fas fa-exclamation-triangle mr-1"></i> 마진 15% 미만 위험 상품</span>
+                                        <span className="text-3xl font-black text-rose-600">{insights.marginRisks.length.toLocaleString()} <span className="text-sm font-bold text-rose-400">건</span></span>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-xl border border-indigo-200 shadow-sm flex flex-col">
+                                        <span className="text-[12px] font-bold text-indigo-500 mb-2"><i className="fas fa-history mr-1"></i> 누적된 단가 변경 이력</span>
+                                        <div className="flex items-end gap-3">
+                                            <span className="text-3xl font-black text-indigo-600">{insights.changeStats.total.toLocaleString()} <span className="text-sm font-bold text-indigo-400">건</span></span>
+                                            <span className="text-xs font-bold text-slate-500 mb-1">(인상 {insights.changeStats.up} / 인하 {insights.changeStats.down})</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 인사이트 테이블 영역 */}
+                                <div className="grid grid-cols-2 gap-6 flex-1 min-h-[400px]">
+                                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                                        <div className="bg-slate-50 p-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                                            <h3 className="text-[14px] font-black text-rose-700"><i className="fas fa-siren-on text-rose-500 mr-2"></i>🚨 역마진 위험 상품 (Top 30)</h3>
+                                            <span className="text-[11px] font-bold text-slate-500">마진율 15% 미만 타겟</span>
+                                        </div>
+                                        <div className="flex-1 overflow-auto custom-scrollbar">
+                                            <table className="w-full text-left text-[12px] whitespace-nowrap">
+                                                <thead className="bg-white sticky top-0 border-b border-slate-200 z-10 shadow-sm text-slate-500">
+                                                    <tr><th className="px-4 py-2.5">품목명 (규격)</th><th className="px-3 py-2.5 text-right">원가(입고)</th><th className="px-3 py-2.5 text-right text-indigo-600">출고가</th><th className="px-4 py-2.5 text-right text-rose-600 w-16">마진율</th></tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 text-slate-700">
+                                                    {insights.marginRisks.length === 0 ? <tr><td colSpan="4" className="p-10 text-center font-bold text-emerald-500">위험 상품이 없습니다!</td></tr> : insights.marginRisks.map(item => (
+                                                        <tr key={item.코드} className="hover:bg-slate-50">
+                                                            <td className="px-4 py-2"><div className="font-bold text-slate-800 truncate max-w-[180px]">{item.품목명} <span className="text-slate-400 font-normal">({item.규격})</span></div></td>
+                                                            <td className="px-3 py-2 text-right">{item.입고가?.toLocaleString()}</td>
+                                                            <td className="px-3 py-2 text-right font-black text-indigo-600">{item.출고가?.toLocaleString()}</td>
+                                                            <td className="px-4 py-2 text-right font-black text-rose-600">{item._margin.toFixed(1)}%</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                                        <div className="bg-slate-50 p-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                                            <h3 className="text-[14px] font-black text-slate-800"><i className="fas fa-fire text-amber-500 mr-2"></i>🔥 최근 입고가 급등락 (Top 15)</h3>
+                                        </div>
+                                        <div className="flex-1 overflow-auto custom-scrollbar">
+                                            <table className="w-full text-left text-[12px] whitespace-nowrap">
+                                                <thead className="bg-white sticky top-0 border-b border-slate-200 z-10 shadow-sm text-slate-500">
+                                                    <tr><th className="px-4 py-2.5">품목명 (규격)</th><th className="px-3 py-2.5">출처(카탈로그)</th><th className="px-3 py-2.5 text-right">이전 단가</th><th className="px-4 py-2.5 text-right w-20">차액</th></tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 text-slate-700">
+                                                    {insights.volatilityList.length === 0 ? <tr><td colSpan="4" className="p-10 text-center font-bold text-slate-400">변동 이력이 없습니다.</td></tr> : insights.volatilityList.map(log => {
+                                                        const isUp = log.diff > 0;
+                                                        return (
+                                                            <tr key={log.id} className="hover:bg-slate-50">
+                                                                <td className="px-4 py-2"><div className="font-bold text-slate-800 truncate max-w-[150px]">{log.name} <span className="text-slate-400 font-normal">({log.spec})</span></div></td>
+                                                                <td className="px-3 py-2 text-[11px] text-slate-400 truncate max-w-[80px]">{log.catalog}</td>
+                                                                <td className="px-3 py-2 text-right">{log.oldVal?.toLocaleString()}</td>
+                                                                <td className={`px-4 py-2 text-right font-black ${isUp ? 'text-rose-500' : 'text-blue-500'}`}>{isUp ? '▲' : '▼'} {Math.abs(log.diff).toLocaleString()}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ================= TAB 2: 카테고리별 분석 (1,2,3 그룹 네비게이션) ================= */}
+                        {activeTab === 'category' && (
+                            <div className="h-full flex flex-col bg-slate-50 fade-in">
+                                {/* 1Depth Categories (Top Row) */}
+                                <div className="flex items-end px-6 pt-3 border-b border-gray-200 bg-slate-100 shrink-0 h-[56px]">
+                                    <div className="flex overflow-x-auto custom-scrollbar h-full items-end w-full gap-1">
+                                        {c1List.length === 0 && <span className="text-sm text-slate-400 px-4 pb-2 font-bold">분류 데이터가 없습니다.</span>}
+                                        {c1List.map(c1 => {
+                                            const isEtc = c1.name === '기타';
+                                            const isActive = activeC1 === c1.code;
+                                            return (
+                                                <button 
+                                                    key={c1.code} onClick={() => setActiveC1(c1.code)} 
+                                                    className={`px-5 py-2.5 text-[13px] font-bold rounded-t-lg transition-colors border-b-[3px]
+                                                    ${isActive 
+                                                        ? (isEtc ? 'border-slate-500 text-slate-700 bg-white shadow-[0_-2px_5px_rgba(0,0,0,0.02)]' : 'border-indigo-600 text-indigo-700 bg-white shadow-[0_-2px_5px_rgba(0,0,0,0.02)]') 
+                                                        : (isEtc ? 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-200/30' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-200/50')}`}
+                                                >
+                                                    {c1.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Main Split Body */}
+                                <div className="flex-1 flex overflow-hidden">
+                                    {/* 2Depth Categories (Left Vertical Column) */}
+                                    <div className="w-[200px] bg-white border-r border-gray-200 overflow-y-auto py-2 shrink-0 custom-scrollbar shadow-[2px_0_10px_rgba(0,0,0,0.02)] z-20">
+                                        {c2List.map(c2 => {
+                                            const isEtc = c2.name === '기타';
+                                            const isActive = activeC2 === c2.code;
+                                            return (
+                                                <button 
+                                                    key={c2.code} onClick={() => setActiveC2(c2.code)}
+                                                    className={`w-full text-left px-5 py-3.5 text-[13px] font-bold transition-all border-l-4 
+                                                    ${isActive 
+                                                        ? (isEtc ? 'bg-slate-100/50 text-slate-700 border-slate-500' : 'bg-indigo-50/50 text-indigo-700 border-indigo-600') 
+                                                        : (isEtc ? 'border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-500' : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900')}`}
+                                                >
+                                                    {c2.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* 3Depth Categories List (Middle Column) */}
+                                    <div className="w-[280px] bg-slate-50 border-r border-gray-200 flex flex-col overflow-hidden shrink-0 z-10 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+                                        <div className="px-5 py-4 border-b border-gray-200 bg-white shrink-0">
+                                            <h3 className="text-[13px] font-black text-slate-800 flex items-center"><i className="fas fa-sitemap text-indigo-400 mr-2"></i>3차 분류(소분류) 목록</h3>
+                                            <p className="text-[11px] text-slate-500 mt-1">{c3List.length}개의 하위 카테고리 감지됨</p>
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+                                            {c3List.map(cat => {
+                                                const isEtc = cat.name === '기타';
+                                                const isActive = activeC3 === cat.code;
+                                                return (
+                                                    <button 
+                                                        key={cat.code} 
+                                                        onClick={() => setActiveC3(cat.code)}
+                                                        className={`w-full text-left px-4 py-3 rounded-lg text-[13px] font-bold transition-all mb-1.5
+                                                        ${isActive 
+                                                            ? (isEtc ? 'bg-white text-slate-700 border border-slate-300 shadow-sm ring-1 ring-slate-100' : 'bg-white text-indigo-700 border border-indigo-200 shadow-sm ring-1 ring-indigo-100') 
+                                                            : (isEtc ? 'border border-transparent text-slate-400 hover:bg-white hover:border-slate-200 hover:shadow-sm opacity-70' : 'border border-transparent text-slate-600 hover:bg-white hover:border-slate-200 hover:shadow-sm')}`}
+                                                    >
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="truncate pr-2">{cat.name}</span>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? (isEtc ? 'bg-slate-200 text-slate-700' : 'bg-indigo-100 text-indigo-700') : 'bg-slate-200 text-slate-500'}`}>{cat.totalItems}건</span>
+                                                        </div>
+                                                        <div className="flex gap-2 mt-2 text-[10px] font-medium">
+                                                            <span className={cat.upCount > 0 ? 'text-rose-500' : 'text-slate-400'}>↑ {cat.upCount}</span>
+                                                            <span className={cat.downCount > 0 ? 'text-blue-500' : 'text-slate-400'}>↓ {cat.downCount}</span>
+                                                            <span className={`ml-auto font-bold ${cat.avgMargin < 15 ? 'text-rose-500' : 'text-slate-400'}`}>마진 {cat.avgMargin.toFixed(1)}%</span>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Right Pane: Selected 3Depth Details */}
+                                    <div className="flex-1 bg-white flex flex-col overflow-hidden z-0">
+                                        {activeC3 && c3List.find(c => c.code === activeC3) ? (() => {
+                                            const catData = c3List.find(c => c.code === activeC3);
+                                            const parentC1 = categoryHierarchy[activeC1]?.name || '';
+                                            const parentC2 = categoryHierarchy[activeC1]?.sub[activeC2]?.name || '';
+                                            
+                                            return (
+                                                <>
+                                                    <div className="bg-white px-6 py-5 border-b border-gray-200 flex items-center justify-between shrink-0">
+                                                        <div>
+                                                            <h2 className="text-lg font-black text-slate-900 flex items-center">
+                                                                <i className={`fas fa-folder-open ${catData.name === '기타' ? 'text-slate-400' : 'text-indigo-500'} mr-2`}></i>
+                                                                {catData.name}
+                                                            </h2>
+                                                            <div className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-2">
+                                                                <span className="bg-slate-100 px-1.5 py-0.5 rounded">{parentC1}</span> <i className="fas fa-chevron-right text-[8px] text-slate-300"></i>
+                                                                <span className="bg-slate-100 px-1.5 py-0.5 rounded">{parentC2}</span> <i className="fas fa-chevron-right text-[8px] text-slate-300"></i>
+                                                                <span className="font-bold text-slate-700">{catData.name}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-3">
+                                                            <div className="bg-slate-50 px-4 py-2 rounded-lg border border-gray-200 text-center shadow-sm">
+                                                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">평균 마진율</div>
+                                                                <div className={`text-sm font-black ${catData.avgMargin < 15 ? 'text-rose-500' : 'text-emerald-600'}`}>{catData.avgMargin.toFixed(1)}%</div>
+                                                            </div>
+                                                            <div className="bg-slate-50 px-4 py-2 rounded-lg border border-gray-200 text-center shadow-sm">
+                                                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">단가 인상</div>
+                                                                <div className="text-sm font-black text-rose-500">{catData.upCount}건</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/30">
+                                                        <table className="w-full text-left text-sm whitespace-nowrap">
+                                                            <thead className="bg-slate-50 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+                                                                <tr>
+                                                                    <th className="py-3 px-5 font-bold text-slate-500 text-[11px] w-[100px]">품목코드</th>
+                                                                    <th className="py-3 px-4 font-bold text-slate-500 text-[11px]">품목명 (규격)</th>
+                                                                    <th className="py-3 px-4 font-bold text-slate-500 text-[11px] text-right w-24">입고가</th>
+                                                                    <th className="py-3 px-4 font-bold text-slate-500 text-[11px] text-right w-24 text-indigo-600">출고가</th>
+                                                                    <th className="py-3 px-5 font-bold text-slate-500 text-[11px] text-right w-20">마진율</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-100 text-slate-700 bg-white">
+                                                                {catData.items.map(item => {
+                                                                    const inP = parseNum(item['입고가']); const outP = parseNum(item['출고가']);
+                                                                    const margin = inP > 0 && outP > 0 ? ((outP - inP) / outP) * 100 : 0;
+                                                                    return (
+                                                                        <tr key={item.코드} className="hover:bg-indigo-50/40 transition-colors">
+                                                                            <td className="py-2.5 px-5 text-xs font-mono text-slate-400">{item.코드}</td>
+                                                                            <td className="py-2.5 px-4">
+                                                                                <div className="font-bold text-slate-800 text-[13px]">{item.품목명} <span className="font-normal text-slate-500 text-xs ml-1">({item.규격})</span></div>
+                                                                            </td>
+                                                                            <td className="py-2.5 px-4 text-right text-[13px] font-medium">{inP > 0 ? inP.toLocaleString() : '-'}</td>
+                                                                            <td className="py-2.5 px-4 text-right text-[13px] font-black text-indigo-600">{outP > 0 ? outP.toLocaleString() : '-'}</td>
+                                                                            <td className={`py-2.5 px-5 text-right text-xs font-black ${margin < 15 ? 'text-rose-500' : 'text-emerald-600'}`}>{margin.toFixed(1)}%</td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </>
+                                            );
+                                        })() : (
+                                            <div className="h-full flex flex-col justify-center items-center text-slate-300 bg-slate-50/30">
+                                                <i className="fas fa-hand-point-left text-5xl mb-4 opacity-50 text-indigo-200"></i><p className="text-sm font-bold text-slate-400">좌측에서 3차 분류를 선택하시면<br/>해당하는 상품 목록과 통계를 표시합니다.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ================= 🌟 NEW TAB: 단가 추이 분석 (그래프) ================= */}
+                        {activeTab === 'trends' && (
+                            <div className="h-full flex flex-col bg-slate-50 fade-in">
+                                <div className="flex items-end px-6 pt-3 border-b border-gray-200 bg-slate-100 shrink-0 h-[56px]">
+                                    <div className="flex overflow-x-auto custom-scrollbar h-full items-end w-full gap-1">
+                                        {c1List.length === 0 && <span className="text-sm text-slate-400 px-4 pb-2 font-bold">분류 데이터가 없습니다.</span>}
+                                        {c1List.map(c1 => {
+                                            const isActive = activeC1 === c1.code;
+                                            return (
+                                                <button 
+                                                    key={c1.code} onClick={() => { setActiveC1(c1.code); setSelectedTrendItem(null); }} 
+                                                    className={`px-5 py-2.5 text-[13px] font-bold rounded-t-lg transition-colors border-b-[3px]
+                                                    ${isActive ? 'border-indigo-600 text-indigo-700 bg-white shadow-[0_-2px_5px_rgba(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                                                >
+                                                    {c1.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 flex overflow-hidden">
+                                    <div className="w-[200px] bg-white border-r border-gray-200 overflow-y-auto py-2 shrink-0 custom-scrollbar z-20">
+                                        {c2List.map(c2 => (
+                                            <button 
+                                                key={c2.code} onClick={() => { setActiveC2(c2.code); setSelectedTrendItem(null); }}
+                                                className={`w-full text-left px-5 py-3.5 text-[13px] font-bold transition-all border-l-4 
+                                                ${activeC2 === c2.code ? 'bg-indigo-50/50 text-indigo-700 border-indigo-600' : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                                            >
+                                                {c2.name}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="w-[280px] bg-slate-50 border-r border-gray-200 flex flex-col overflow-hidden shrink-0 z-10">
+                                        <div className="px-5 py-4 border-b border-gray-200 bg-white shrink-0">
+                                            <h3 className="text-[13px] font-black text-slate-800 flex items-center"><i className="fas fa-sitemap text-indigo-400 mr-2"></i>3차 분류(소분류) 목록</h3>
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+                                            {c3List.map(cat => (
+                                                <button 
+                                                    key={cat.code} 
+                                                    onClick={() => { setActiveC3(cat.code); setSelectedTrendItem(null); }}
+                                                    className={`w-full text-left px-4 py-3 rounded-lg text-[13px] font-bold transition-all mb-1.5
+                                                    ${activeC3 === cat.code ? 'bg-white text-indigo-700 border border-indigo-200 shadow-sm ring-1 ring-indigo-100' : 'border border-transparent text-slate-600 hover:bg-white hover:border-slate-200 hover:shadow-sm'}`}
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="truncate pr-2">{cat.name}</span>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeC3 === cat.code ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'}`}>{cat.totalItems}건</span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 🌟 4번째 컬럼: 상품 리스트 (최근 변동 내역 존재 항목 우선) */}
+                                    <div className="w-[320px] bg-white border-r border-slate-200 flex flex-col overflow-hidden shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.02)] z-0">
+                                        <div className="p-4 border-b border-slate-200 shrink-0 bg-slate-50">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h3 className="text-[13px] font-black text-slate-800">상품 리스트 (히스토리)</h3>
+                                            </div>
+                                            <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors">
+                                                <input type="checkbox" checked={trendOnlyChanged} onChange={(e) => {setTrendOnlyChanged(e.target.checked); setSelectedTrendItem(null);}} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                                                <span className="text-[12px] font-bold text-slate-700">단가 변동 이력이 있는 상품만 보기</span>
+                                            </label>
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                                            {trendItemList.length === 0 ? (
+                                                <div className="p-8 text-center text-slate-400 font-bold text-[12px]">조건에 맞는 상품이 없습니다.</div>
+                                            ) : (
+                                                trendItemList.map(item => {
+                                                    const code = item.코드 || item.품목코드;
+                                                    const isSelected = selectedTrendItem && (selectedTrendItem.코드 === code || selectedTrendItem.품목코드 === code);
+                                                    return (
+                                                        <div 
+                                                            key={code} 
+                                                            onClick={() => setSelectedTrendItem(item)}
+                                                            className={`cursor-pointer p-3 border-b border-slate-100 hover:bg-indigo-50/50 transition-colors flex justify-between items-center ${isSelected ? 'bg-indigo-50 border-l-4 border-l-indigo-500 shadow-inner' : 'border-l-4 border-l-transparent'}`}
+                                                        >
+                                                            <div className="flex flex-col min-w-0 pr-2">
+                                                                <span className={`text-[12px] font-black truncate ${isSelected ? 'text-indigo-800' : 'text-slate-800'}`}>{item.품목명}</span>
+                                                                <span className="text-[10px] text-slate-400 mt-0.5 truncate">{item.규격}</span>
+                                                            </div>
+                                                            {item.hasHistory && item.lastChange && (
+                                                                <div className="flex flex-col items-end shrink-0">
+                                                                    <span className="text-[9px] text-slate-400 mb-0.5">{new Date(item.lastChange.timestamp).toLocaleDateString().slice(2)}</span>
+                                                                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded ${item.lastChange.diff > 0 ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'}`}>
+                                                                        {item.lastChange.diff > 0 ? '▲' : '▼'}{Math.abs(item.lastChange.diff).toLocaleString()}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 🌟 5번째 컬럼: 차트 영역 */}
+                                    <div className="flex-1 bg-slate-50 flex flex-col p-6 overflow-hidden fade-in relative z-0">
+                                        {selectedTrendItem ? (
+                                            <div className="h-full flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden p-6 relative">
+                                                <div className="mb-6 flex justify-between items-start">
+                                                    <div>
+                                                        <h2 className="text-2xl font-black text-slate-900 mb-1">{selectedTrendItem.품목명}</h2>
+                                                        <p className="text-[13px] text-slate-500 font-bold">코드: {selectedTrendItem.코드 || selectedTrendItem.품목코드} | 규격: {selectedTrendItem.규격} | 단위: {selectedTrendItem.단위}</p>
+                                                    </div>
+                                                    <div className="flex gap-4">
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-widest">현재 입고가</span>
+                                                            <span className="text-2xl font-black text-indigo-600">{chartDataInfo.current.toLocaleString()}<span className="text-sm ml-1 text-indigo-400">원</span></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Recharts 그래프 렌더링 */}
+                                                <div className="flex-1 min-h-[300px] bg-slate-50/50 rounded-xl border border-slate-100 p-4 relative">
+                                                    {chartDataInfo.data.length > 0 ? (
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <LineChart data={chartDataInfo.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                                                <XAxis dataKey="date" tick={{fontSize: 11, fill: '#64748b', fontWeight: 'bold'}} axisLine={false} tickLine={false} dy={10} />
+                                                                <YAxis domain={['auto', 'auto']} tickFormatter={(value) => value.toLocaleString()} tick={{fontSize: 11, fill: '#64748b', fontWeight: 'bold'}} axisLine={false} tickLine={false} dx={-10} />
+                                                                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                                                <Line 
+                                                                    type="monotone" 
+                                                                    dataKey="price" 
+                                                                    stroke="#6366f1" 
+                                                                    strokeWidth={3} 
+                                                                    dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#6366f1' }} 
+                                                                    activeDot={{ r: 6, fill: '#4f46e5', stroke: '#c7d2fe', strokeWidth: 3 }}
+                                                                    animationDuration={1000}
+                                                                />
+                                                            </LineChart>
+                                                        </ResponsiveContainer>
+                                                    ) : (
+                                                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                                                            <i className="fas fa-chart-line text-4xl mb-3 text-slate-300"></i>
+                                                            <p className="text-sm font-bold">표시할 데이터가 부족합니다.</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="mt-6 border-t border-slate-100 pt-4">
+                                                    <h3 className="text-[13px] font-black text-slate-700 mb-3"><i className="fas fa-history mr-2 text-slate-400"></i>히스토리 상세 (최근 5건)</h3>
+                                                    <table className="w-full text-left text-[12px] whitespace-nowrap">
+                                                        <thead className="bg-slate-100 text-slate-500 rounded-t-md">
+                                                            <tr>
+                                                                <th className="py-2 px-4 rounded-tl-md">일자</th>
+                                                                <th className="py-2 px-4">변동단가</th>
+                                                                <th className="py-2 px-4 text-right rounded-tr-md">차액</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-100">
+                                                            {chartDataInfo.data.slice().reverse().slice(0, 5).map((d, i) => (
+                                                                <tr key={i} className="hover:bg-slate-50">
+                                                                    <td className="py-2.5 px-4 font-medium text-slate-600">{d.fullDate || d.date}</td>
+                                                                    <td className="py-2.5 px-4 font-black text-slate-800">{d.price.toLocaleString()}원</td>
+                                                                    <td className={`py-2.5 px-4 text-right font-black ${d.diff > 0 ? 'text-rose-500' : d.diff < 0 ? 'text-blue-500' : 'text-slate-300'}`}>
+                                                                        {d.diff > 0 ? '▲' : d.diff < 0 ? '▼' : '-'} {d.diff ? Math.abs(d.diff).toLocaleString() : ''}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="h-full flex flex-col justify-center items-center text-slate-400 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                                                <i className="fas fa-chart-area text-6xl mb-6 opacity-30 text-indigo-300"></i>
+                                                <p className="text-[15px] font-black text-slate-600 mb-2">단가 추이를 확인할 상품을 선택하세요</p>
+                                                <p className="text-[13px] font-bold text-slate-400 text-center leading-relaxed">
+                                                    좌측 리스트에서 상품을 클릭하면<br/>
+                                                    해당 상품의 단가 변동 그래프가 여기에 표시됩니다.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ================= TAB 4: 안내장 에디터 ================= */}
+                        {activeTab === 'editor' && (
+                            <div className="h-full overflow-y-auto custom-scrollbar p-6 fade-in">
+                                <div className="max-w-[900px] mx-auto pb-10">
+                                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                                        <div className="p-6 border-b border-gray-100 flex justify-between items-end bg-slate-50">
+                                            <div>
+                                                <h2 className="text-lg font-black text-slate-800 mb-1"><i className="fas fa-pen-nib text-indigo-500 mr-2"></i>고객 안내장(레터) 에디터</h2>
+                                                <p className="text-xs text-slate-500 font-bold">작성 내용은 브라우저에 자동 임시저장됩니다. 작성을 마치고 '적용'을 눌러야 뷰어가 갱신됩니다.</p>
+                                            </div>
+                                            <button onClick={handleLoadRecentChanges} className="bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-md text-[12px] font-bold transition-all shadow-sm flex items-center">
+                                                <i className="fas fa-magic mr-1.5"></i> 변동 데이터 불러오기
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="p-6 space-y-6">
+                                            {/* 1. 타이틀 & 인사말 */}
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-[12px] font-black text-slate-700 mb-1.5">안내장 제목</label>
+                                                    <input type="text" value={editorDraft.title} onChange={e => setEditorDraft(p => ({...p, title: e.target.value}))} className="w-full border border-gray-300 rounded-md px-3 py-2 text-[14px] font-bold outline-none focus:border-indigo-500 focus:ring-1 transition-shadow" placeholder="예: [Orderz] 4월 3주차 주요 품목 단가 안내" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[12px] font-black text-slate-700 mb-1.5">전체 인사말 (Global Briefing)</label>
+                                                    <textarea value={editorDraft.greeting} onChange={e => setEditorDraft(p => ({...p, greeting: e.target.value}))} className="w-full h-28 border border-gray-300 rounded-md px-3 py-2 text-[13px] outline-none focus:border-indigo-500 focus:ring-1 resize-none leading-relaxed transition-shadow" placeholder="인사말 및 전반적인 시장 상황을 안내하세요." />
+                                                </div>
+                                            </div>
+
+                                            <div className="w-full h-px bg-gray-200 my-2"></div>
+
+                                            {/* 2. 카테고리별 브리핑 & 항목 */}
+                                            <div>
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <label className="text-[14px] font-black text-slate-800"><i className="fas fa-list text-indigo-400 mr-2"></i>카테고리(출처)별 세부 안내</label>
+                                                    <span className="text-[11px] text-slate-400 font-bold">항목 우측의 휴지통을 눌러 고객에게 숨길 상품을 뺄 수 있습니다.</span>
+                                                </div>
+                                                
+                                                {Object.keys(editorDraft.categories).length === 0 ? (
+                                                    <div className="text-center py-10 bg-slate-50 border border-dashed border-gray-300 rounded-xl">
+                                                        <p className="text-[13px] text-slate-400 font-bold mb-3">불러온 변동 데이터가 없습니다.</p>
+                                                        <button onClick={handleLoadRecentChanges} className="text-indigo-500 hover:text-indigo-600 font-black text-[12px] underline">우측 상단 '자동 불러오기' 클릭</button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-6">
+                                                        {Object.entries(editorDraft.categories).map(([catName, catData]) => (
+                                                            <div key={catName} className="bg-slate-50 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                                                <div className="p-4 bg-white border-b border-gray-200 flex justify-between items-center">
+                                                                    <div className="font-black text-slate-800 text-[14px]"><i className="fas fa-folder-open text-indigo-400 mr-2"></i>{catName} <span className="text-indigo-500 text-[11px] ml-1">({catData.items.length}건)</span></div>
+                                                                    <button onClick={() => { const n = {...editorDraft.categories}; delete n[catName]; setEditorDraft(p => ({...p, categories: n})); }} className="text-[11px] text-rose-400 hover:text-rose-600 font-bold px-2 py-1 rounded hover:bg-rose-50 transition-colors"><i className="fas fa-times mr-1"></i>카테고리 삭제</button>
+                                                                </div>
+                                                                <div className="p-4 space-y-3">
+                                                                    <textarea value={catData.comment} onChange={e => { const n = {...editorDraft.categories}; n[catName].comment = e.target.value; setEditorDraft(p => ({...p, categories: n})); }} className="w-full h-16 border border-gray-300 rounded-md px-3 py-2 text-[12px] outline-none focus:border-indigo-400 focus:ring-1 resize-none bg-white transition-shadow" placeholder={`${catName} 카테고리에 대한 변동 사유나 코멘트를 적어주세요. (선택사항)`} />
+                                                                    <div className="bg-white border border-gray-200 rounded-md divide-y divide-gray-100 max-h-[250px] overflow-y-auto custom-scrollbar">
+                                                                        {catData.items.map(item => (
+                                                                            <div key={item.id} className="flex justify-between items-center p-3 hover:bg-slate-50 transition-colors">
+                                                                                <div className="flex flex-col min-w-0">
+                                                                                    <span className="text-[12px] font-bold text-slate-800 truncate">{item.name}</span>
+                                                                                    <span className="text-[10px] text-slate-400 mt-0.5">{item.spec}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-3 shrink-0">
+                                                                                    <span className="text-[11px] text-slate-400 font-mono line-through decoration-slate-300">{item.oldVal?.toLocaleString()}</span>
+                                                                                    <span className="text-[12px] font-black text-indigo-600 font-mono bg-indigo-50 px-1.5 py-0.5 rounded">{item.newVal?.toLocaleString()}</span>
+                                                                                    <button onClick={() => { const n = {...editorDraft.categories}; n[catName].items = n[catName].items.filter(i => i.id !== item.id); setEditorDraft(p => ({...p, categories: n})); }} className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 w-6 h-6 flex items-center justify-center rounded transition-colors ml-1"><i className="fas fa-trash-alt"></i></button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-slate-100 p-5 border-t border-gray-200 flex justify-between items-center shrink-0">
+                                            <button onClick={() => setIsPreviewOpen(true)} className="px-5 py-2.5 bg-white border border-gray-300 text-slate-700 hover:bg-slate-50 rounded-md text-[13px] font-bold transition-all shadow-sm"><i className="fas fa-mobile-alt mr-2 text-indigo-500"></i>모바일 미리보기</button>
+                                            <button onClick={handlePublish} className="px-8 py-2.5 bg-[#1A2235] text-white font-black rounded-md hover:bg-black shadow-md transition-all flex items-center hover:-translate-y-0.5">
+                                                <i className="fas fa-paper-plane mr-2 text-indigo-400"></i> 고객용 웹페이지 적용 (발행)
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* 3. 공유/다운로드 액션 패널 (발행 데이터가 있을 때만 노출) */}
+                                    {publishedReport && (
+                                        <div className="mt-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-6 shadow-sm flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-[14px] font-black text-indigo-900 mb-1"><i className="fas fa-check-circle mr-1.5 text-emerald-500"></i>발행 완료! 이제 고객에게 공유하세요.</h3>
+                                                <p className="text-[11px] font-bold text-indigo-600/80">링크를 복사하여 카톡으로 보내거나, 한 장의 깔끔한 이미지로 저장할 수 있습니다.</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={handleCopyLink} className="px-4 py-2.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-md text-[12px] font-bold transition-all shadow-sm flex items-center"><i className="fas fa-link mr-1.5"></i> URL 링크 복사</button>
+                                                <button onClick={handleDownloadImage} className="px-4 py-2.5 bg-indigo-600 text-white rounded-md text-[12px] font-bold hover:bg-indigo-700 transition-all shadow-sm flex items-center"><i className="fas fa-camera retro mr-1.5"></i> 카톡 전송용 이미지 다운로드</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 💡 [모달] 뷰어 모드 렌더링 + 이미지 캡처용 영역 */}
+                    {isPreviewOpen && (
+                        <div className="fixed inset-0 bg-slate-900/90 z-[1000] flex flex-col items-center justify-center p-4 fade-in overflow-hidden">
+                            <div className="w-full max-w-md flex justify-between items-center mb-4 shrink-0 text-white">
+                                <span className="font-bold text-sm"><i className="fas fa-mobile-alt mr-2"></i>고객 뷰어 (가로 폭 480px 기준)</span>
+                                <button onClick={() => setIsPreviewOpen(false)} className="text-slate-400 hover:text-white text-xl"><i className="fas fa-times"></i></button>
+                            </div>
+                            <div className="flex-1 w-full max-w-md bg-white rounded-[2rem] overflow-hidden shadow-2xl relative">
+                                <CustomerReportView data={editorDraft} />
+                            </div>
+                            <div className="mt-4 shrink-0">
+                                <button onClick={() => setIsPreviewOpen(false)} className="px-6 py-2.5 bg-slate-700 text-white rounded-full text-sm font-bold hover:bg-slate-600 border border-slate-600">닫기</button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* 이미지 캡처를 위한 보이지 않는 렌더링 영역 */}
+                    {publishedReport && (
+                        <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+                            <CustomerReportView data={publishedReport} />
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
+    </script>
+</body>
+</html>
