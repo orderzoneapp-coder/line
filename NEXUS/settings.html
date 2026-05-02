@@ -255,11 +255,23 @@
             const [customEstColInput, setCustomEstColInput] = useState('');
             const [isProcessing, setIsProcessing] = useState(false);
             const [dangerLock, setDangerLock] = useState('');
+            
+            // 💡 [추가] 팝업창인지 단독 실행인지 감지하는 상태
+            const [isStandalone, setIsStandalone] = useState(true);
 
             const showToast = useCallback((msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); }, []);
 
             useEffect(() => {
                 getIDB(STORAGE_KEYS.MASTER_DB).then(data => { if (data) setMasterProducts(data); }).catch(console.error);
+                
+                // 💡 [추가] iframe 내부이거나 팝업으로 열렸는지 감지
+                try {
+                    if (window.self !== window.top || window.opener) {
+                        setIsStandalone(false);
+                    }
+                } catch (e) {
+                    setIsStandalone(false); // 권한 오류 발생 시 보통 iframe 환경임
+                }
             }, []);
 
             const availableCatalogs = useMemo(() => {
@@ -338,7 +350,7 @@
                     try {
                         const imported = JSON.parse(evt.target.result);
                         
-                        // [수정] 데이터 로딩 중 일부 값이 없거나 형식이 달라도 전체가 중단되지 않도록 보호
+                        // 💡 [유지] 데이터 로딩 중 일부 값이 없거나 형식이 달라도 전체가 중단되지 않도록 보호
                         const safeParse = (key, fallbackState) => {
                             if (!imported[key]) return fallbackState;
                             try {
@@ -349,7 +361,7 @@
                             }
                         };
 
-                        // [수정] 화면 상태만 업데이트하면 기존에 만들어둔 자동저장 기능이 알아서 완벽하게 덮어씁니다.
+                        // 💡 [유지] 화면 상태만 업데이트하면 기존에 만들어둔 자동저장 기능이 알아서 완벽하게 덮어씁니다.
                         if (imported[STORAGE_KEYS.CLOUD_URL] !== undefined) config.setCloudUrl(imported[STORAGE_KEYS.CLOUD_URL]);
                         
                         config.setVisibleMasterCols(safeParse('merchVisMaster_v870', config.visibleMasterCols));
@@ -372,7 +384,7 @@
 
             const handleDataClear = async () => {
                 if (dangerLock !== '데이터를 모두 삭제합니다') return showToast('⚠️ 안전 잠금 해제 문구를 정확히 띄어쓰기하여 입력하세요.');
-                if (!window.confirm("경고: 실무 데이터(마스터, 주문, 구매, 판매, 재고)가 모두 영구 삭제됩니다.\n이 작업은 복구할 수 없습니다. 계속하시겠습니까?")) return;
+                if (!window.confirm("경고: 실무 데이터(마스터, 주문, 구매, 판매, 재고)가 정답 삭제됩니다.\n이 작업은 복구할 수 없습니다. 계속하시겠습니까?")) return;
                 
                 setIsProcessing(true);
                 try {
@@ -416,7 +428,6 @@
                 showToast(`✅ [${cleanVal}] 항목이 추가되어 마스터 필드와 자동 연결되었습니다.`);
             };
 
-            // 💡 [수정] config 접두어 제거하여 올바르게 함수 참조 
             const addMarginRule = () => config.setMarginRules([...config.marginRules, { id: generateUUID(), whCode: '', unit: '', rate: 10, type: 'divide' }]);
             const updateMarginRule = (id, field, value) => config.setMarginRules(config.marginRules.map(r => r.id === id ? { ...r, [field]: value } : r));
             const deleteMarginRule = (id) => config.setMarginRules(config.marginRules.filter(r => r.id !== id));
@@ -432,6 +443,30 @@
 
             return (
                 <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 relative select-none">
+                    
+                    {/* 💡 [추가] 단독 실행(isStandalone)일 때만 보이는 글로벌 네비게이션 헤더 */}
+                    {isStandalone && (
+                        <header className="bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between shrink-0 z-20 shadow-md">
+                            <div className="flex items-center gap-8">
+                                <div className="font-black text-lg tracking-wider text-indigo-400 flex items-center">
+                                    <SafeIcon name="boxes" size={20} className="mr-2.5"/> ONEAPP
+                                </div>
+                                <nav className="flex gap-6 text-[14px] font-bold">
+                                    <a href="#" className="text-slate-400 hover:text-white transition-colors py-1">대시보드</a>
+                                    <a href="#" className="text-slate-400 hover:text-white transition-colors py-1">상품·시세</a>
+                                    <a href="#" className="text-slate-400 hover:text-white transition-colors py-1">주문·운영</a>
+                                    <a href="#" className="text-white border-b-2 border-indigo-500 pb-1">시스템 설정</a>
+                                </nav>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <button onClick={() => showToast("☁️ 글로벌 클라우드 동기화가 실행됩니다.")} className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-indigo-600 rounded-full transition-colors tooltip-trigger shadow-inner">
+                                    <SafeIcon name="cloud-upload" size={16} className="text-indigo-300"/>
+                                </button>
+                                <div className="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-[12px] font-bold text-white shadow-md cursor-pointer border-2 border-slate-700">A</div>
+                            </div>
+                        </header>
+                    )}
+
                     <div className="px-8 py-5 bg-white border-b border-slate-200 flex items-center justify-between shadow-sm shrink-0 z-10">
                         <div>
                             <h1 className="text-xl font-black text-slate-900 flex items-center"><SafeIcon name="settings" size={22} className="mr-2.5 text-indigo-500" /> 통합 환경설정 센터</h1>
@@ -466,7 +501,7 @@
                                         </h3>
                                         <p className="text-[13px] text-emerald-700 font-bold mb-4 leading-relaxed">
                                             현재 세팅된 엑셀 매핑 규칙, 화면 노출 항목, 단가 마진 룰을 파일로 안전하게 저장하거나 불러옵니다.<br/>
-                                            PC 교체 시나 시스템 초기화 전 필수 백업용으로 사용하세요.
+                                            PC 교체 시나 시스템 초기화 전 필수 백업용 전용으로 사용하세요.
                                         </p>
                                         <div className="flex gap-3">
                                             <button onClick={handleExportSettings} className="px-5 py-2.5 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center">
@@ -656,7 +691,7 @@
                             {activeTab === 'opsMap' && (
                                 <div className="w-full max-w-[1400px] space-y-6 fade-in mx-auto">
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="bg-slate-50 p-5 border-b border-slate-200"><h3 className="text-[15px] font-black text-slate-800 flex items-center"><SafeIcon name="layer-group" size={18} className="text-blue-500 mr-2"/>운영 관리(Ops) 엑셀 매핑 설정</h3><p className="text-[12px] text-slate-500 mt-1.5 font-medium">구매, 판매, 재고 마감 등 운영 모듈에서 업로드되는 엑셀의 열을 추적하고 차감 룰을 결정하는 키워드입니다.</p></div>
+                                        <div className="bg-slate-50 p-5 border-b border-slate-200"><h3 className="text-[15px] font-black text-slate-800 flex items-center"><SafeIcon name="layer-group" size={18} className="text-blue-500 mr-2"/>운영 관리(Ops) 엑셀 매핑 설정</h3><p className="text-[12px] text-slate-500 mt-1.5 font-medium">구매, 판매, 재고 마마감 등 운영 모듈에서 업로드되는 엑셀의 열을 추적하고 차감 룰을 결정하는 키워드입니다.</p></div>
                                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-white">
                                             {Object.entries({ code: '품목코드 (필수)', name: '품목명 (필수)', spec: '규격 열 (선택)', qty: '수량/실사 (필수)', price: '단가 (필수)', date: '일자 (필수)', vendor: '거래처명 (선택)', matchVendor: '판매전표 내 매입처(Lot 매칭)', excludeVendor: '제외 거래처(창고이동 등)', lifoVendor: '당일우선 출고(LIFO) 거래처', internalLot: '내부분배/공용 로트 (LIFO 예외)', priorityVendor: '출고 우선순위(A>B)' }).map(([k, lbl]) => (
                                                 <div key={k} className="flex flex-col relative group">
