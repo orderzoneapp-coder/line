@@ -144,6 +144,7 @@
             let cleanText = rawText.replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ');
             let lines = cleanText.split('\n').map(l => l.trim()).filter(l => l !== '');
             const results = []; let currentItem = {};
+            
             const pushItem = () => {
                 if (currentItem.품목명) {
                     if (currentItem.입고가) currentItem.입고가 = String(currentItem.입고가).replace(/[^\d]/g, '');
@@ -153,11 +154,23 @@
             };
 
             lines.forEach(line => {
-                if (/^전체\s*상품/.test(line) || /^clock$/i.test(line) || /^마감$/.test(line) || /이미지\s*준비중/i.test(line)) return;
-                
-                // 날짜 및 시간 안내문 무시 (v1.4 병합 기능)
-                if (/^\d{1,2}월\s*\d{1,2}일/.test(line) || /^\d{1,2}:\d{2}/.test(line)) return;
-                if (/(마감|배송|도착)$/.test(line) && (line.includes(':') || line.includes('일') || line.length < 20)) return;
+                if (
+                    /^전체\s*상품/i.test(line) || 
+                    /^clock$/i.test(line) || 
+                    /^starLine$/i.test(line) || 
+                    /마감/.test(line) || 
+                    /\d{1,2}월\s*\d{1,2}일/.test(line) || 
+                    /\d{1,2}:\d{2}/.test(line) ||
+                    /default-thumbnail/i.test(line) || 
+                    /상품이미지/.test(line) || 
+                    /이미지\s*준비중/i.test(line) ||
+                    /마켓보로/.test(line) || 
+                    /통신판매업의 중개자/.test(line) || 
+                    /당사자가 아닙니다/.test(line) || 
+                    /책임을 지지 않습니다/.test(line) || 
+                    /데이터가 없습니다/.test(line) || 
+                    /- 끝 -/.test(line)
+                ) return;
 
                 const priceMatch = line.match(/(?:^|\s|\/|\|)(\d{1,3}(?:,\d{3})*|\d+)\s*원$/);
                 let extractedPrice = null;
@@ -169,89 +182,116 @@
                 if (extractedPrice) currentItem.입고가 = extractedPrice;
                 if (!line) { if (extractedPrice) pushItem(); return; }
 
-                // 원본 분리 알고리즘
                 if (!currentItem.품목명) {
                     if (line.includes(' / ')) {
                         const splitParts = line.split(' / ');
-                        let namePart = splitParts[0].trim(); let specPart = splitParts.slice(1).join(' / ').trim();
+                        let namePart = splitParts[0].trim(); 
+                        let specPart = splitParts.slice(1).join(' / ').trim();
+                        
                         const unitMatch = namePart.match(/(EA|BOX|포|개|박스|봉|캔|병|팩|단|마리)$/i);
-                        if (unitMatch) { currentItem.단위 = unitMatch[0]; currentItem.품목명 = namePart.slice(0, -unitMatch[0].length).trim(); } 
-                        else { currentItem.품목명 = namePart; }
+                        if (unitMatch) { 
+                            currentItem.단위 = unitMatch[0]; 
+                            currentItem.품목명 = namePart.slice(0, -unitMatch[0].length).trim(); 
+                        } else { 
+                            currentItem.품목명 = namePart; 
+                        }
+                        
                         const specParts = specPart.split('/').map(s => s.trim());
                         currentItem.규격 = specParts[0] || '';
-                    } else { currentItem.품목명 = line; }
+                    } else { 
+                        currentItem.품목명 = line; 
+                    }
                 } else {
                     if (line.includes('/')) {
                         const parts = line.split('/').map(s => s.trim());
                         if (!currentItem.단위) currentItem.단위 = parts[0] || '';
                         if (parts.length > 1 && !currentItem.규격) currentItem.규격 = parts[1] || '';
-                    } else if (!currentItem.규격 && /^\d+(?:kg|g|ml|l|ea|box|박스|개|포|단|박|캔|병|봉|팩|입)/i.test(line)) {
+                        if (parts.length > 2) {
+                            const desc = parts.slice(2).join(' / ');
+                            currentItem.간단설명 = currentItem.간단설명 ? currentItem.간단설명 + ' | ' + desc : desc;
+                        }
+                    } else if (/^\d+(?:\.\d+)?(?:kg|g|ml|l|ea|box|박스|개|포|단|박|캔|병|봉|팩|입)/i.test(line) && !currentItem.규격) {
                         currentItem.규격 = line;
+                    } else {
+                        currentItem.간단설명 = currentItem.간단설명 ? currentItem.간단설명 + ' | ' + line : line;
                     }
                 }
+                
                 if (extractedPrice) pushItem();
             });
+            
             if (currentItem.품목명) pushItem();
             return results;
         };
 
-        const runSmartMatch = (extName, extSpec, mProducts, pDict) => {
-            const normExtName = normalizeText(extName);
-            const normExtSpec = normalizeText(extSpec);
-            const extFullText = normalizeText((extName || '') + " " + (extSpec || ''));
-            const dictKey = `${normExtName}|${normExtSpec}`;
-
+        const runSmartMatch = (extName, extSpec, extPriceRaw, mProducts, pDict) => {
+            const dictKey = MatchEngine.cleanForDict(extName) + "|" + MatchEngine.cleanForDict(extSpec);
             if (pDict[dictKey]) return { code: pDict[dictKey], status: '🔵 사전학습일치' };
+
+            const tokens = MatchEngine.tokenize(extName + " " + extSpec).filter(t => !/^(ea|box|박스|개|봉|팩|단|캔)$/i.test(t));
+            if (tokens.length === 0) return { code: '', status: '🔴 불일치' };
 
             let bestMatch = null;
             let bestScore = 0;
-            
-            const extTokens = tokenize((extName || '') + " " + (extSpec || ''));
-            const extSpecNum = extractSpec((extName || '') + " " + (extSpec || ''));
-
             let perfectMatches = [];
+            
+            const extPrice = parseNum(extPriceRaw);
 
             for (const mCode in mProducts) {
                 const m = mProducts[mCode];
-                const mBrand = String(m.브랜드 || '').trim();
-                const mName = String(m.품목명 || '').trim();
-                const mSpec = String(m.규격 || '').trim();
+                const mBrand = String(m.브랜드 || '').toLowerCase();
+                const mName = String(m.품목명 || '').toLowerCase();
+                const mSpec = String(m.규격 || '').toLowerCase();
 
-                const mFullWithBrand = normalizeText(mBrand + mName + mSpec);
-                const mFullNoBrand = normalizeText(mName + mSpec);
-                const mSpecNum = extractSpec(mBrand + " " + mName + " " + mSpec);
-
-                let isSpecMatch = true;
-                if (extSpecNum && mSpecNum && extSpecNum !== mSpecNum) {
-                    isSpecMatch = false; 
-                }
-
-                if ((extFullText === mFullWithBrand || extFullText === mFullNoBrand) && isSpecMatch) {
+                const mDictKey = MatchEngine.cleanForDict(mName) + "|" + MatchEngine.cleanForDict(mSpec);
+                if (dictKey === mDictKey) {
                     perfectMatches.push(m);
                     continue;
                 }
 
-                const mTokens = tokenize(mBrand + " " + mName + " " + mSpec);
-                const intersection = extTokens.filter(t => mTokens.includes(t));
-                
-                let score = intersection.length / Math.max(extTokens.length, mTokens.length);
+                let score = 0;
+                const fullTarget = (mBrand + " " + mName + " " + mSpec).replace(/[()[\]{},./|]/g, ' ');
 
-                if (!isSpecMatch) {
-                    score = score * 0.1; 
+                tokens.forEach(token => {
+                    if (token.length <= 1 && !/\d/.test(token)) return; 
+                    if (mName.includes(token)) score += token.length * 10;
+                    else if (mSpec.includes(token)) score += token.length * 10;
+                    else if (mBrand.includes(token)) score += token.length * 8;
+                    else if (fullTarget.includes(token)) score += token.length * 5;
+                });
+
+                // 🌟 단가(가격) 기반 강력한 가산점 로직 추가!
+                const mPrice = parseNum(m.입고가);
+                if (score > 0 && extPrice > 0 && mPrice > 0) {
+                    const diffRatio = Math.abs(extPrice - mPrice) / Math.max(extPrice, mPrice);
+                    if (diffRatio === 0) {
+                        score += 40; // 단가가 완벽히 일치하면 강력한 보너스 부여
+                    } else if (diffRatio <= 0.05) {
+                        score += 20; // 단가 오차 5% 이내
+                    } else if (diffRatio <= 0.1) {
+                        score += 10; // 단가 오차 10% 이내
+                    } else if (diffRatio <= 0.2) {
+                        score += 5;  // 단가 오차 20% 이내
+                    }
                 }
 
-                if (score >= 0.7) {
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestMatch = m;
-                    }
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = m;
                 }
             }
 
             if (perfectMatches.length === 1) return { code: perfectMatches[0].코드 || perfectMatches[0].품목코드, status: '🟢 완전일치' };
             if (perfectMatches.length > 1) return { code: '', status: '🟡 중복품목(선택필요)' }; 
+            
+            // 단가 보너스를 고려하여 자동매칭 커트라인을 40점으로 상향 (안정성 확보)
+            if (bestMatch && bestScore >= 40) {
+                return { code: bestMatch.코드 || bestMatch.품목코드, status: '🟢 자동매칭' };
+            }
 
-            if (bestMatch && bestScore >= 0.7) return { code: '', status: '🟡 유사발견', suggested: bestMatch.코드 || bestMatch.품목코드 };
+            if (bestMatch && bestScore >= 15) {
+                return { code: '', status: '🟡 유사발견', suggested: bestMatch.코드 || bestMatch.품목코드 };
+            }
             
             return { code: '', status: '🔴 불일치' };
         };
@@ -505,16 +545,17 @@
                         parsedData.forEach(rowData => {
                             const extName = rowData['품목명'] || '';
                             const extSpec = rowData['규격'] || '';
+                            const extPriceRaw = rowData['입고가'] || 0;
                             
                             let matchResult;
                             if (forceManual) matchResult = { code: '', status: '🔴 불일치' };
-                            else matchResult = runSmartMatch(extName, extSpec, masterProducts, parserDict);
+                            else matchResult = runSmartMatch(extName, extSpec, extPriceRaw, masterProducts, parserDict);
                             
                             rowData._matchCode = matchResult.code; 
                             rowData._matchStatus = matchResult.status;
                             if(matchResult.code) { 
                                 rowData.코드 = matchResult.code; 
-                                rowData._apply = true; 
+                                rowData._apply = true; // 🌟 자동 매칭된 항목 무조건 체크 완료
                             }
                             
                             rowData.finalData = {};
@@ -546,9 +587,8 @@
                 }, 100);
             }, [masterProducts, parserDict, marginRules]);
 
-            const handleApplyMatched = useCallback(async () => {
-                const toApply = parserBuffer.filter(r => r._apply && r._matchCode);
-                if (toApply.length === 0) {
+            const handleApplyMatched = useCallback(async (targetCodes, options, editedPrices) => {
+                if (targetCodes.length === 0) {
                     showToast("⚠️ 적용할 항목이 없습니다.");
                     return false;
                 }
@@ -566,21 +606,24 @@
                     const unsyncedHist = await getIDB(STORAGE_KEYS.UNSYNCED_HISTORY) || [];
                     let newEntriesForDict = {};
 
-                    toApply.forEach(row => {
-                        const code = row._matchCode;
-                        newlyProcessed.add(code);
+                    targetCodes.forEach(code => {
+                        const item = parserBuffer.find(r => r.코드 === code || r._matchCode === code);
+                        if (!item) return;
 
+                        newlyProcessed.add(code);
                         const oldItem = newMaster[code] || {};
-                        if (!newMaster[code]) newMaster[code] = { 코드: code };
-                        else newMaster[code] = { ...newMaster[code] };
+                        newMaster[code] = { ...(newMaster[code] || { 코드: code }) };
                         
-                        const pInNum = parseNum(row.finalData?.['입고가'] || row['입고가']);
+                        const pInNum = editedPrices && editedPrices[code] !== undefined 
+                            ? parseNum(editedPrices[code]) 
+                            : parseNum(item.finalData?.['입고가'] || item['입고가']);
+
                         if (pInNum > 0) {
                             const oldP = parseNum(oldItem['입고가']);
                             if (oldP > 0 && oldP !== pInNum) {
                                 const logItem = {
                                     id: generateUUID(), timestamp: nowStr, code: code, 
-                                    name: oldItem.품목명 || row['품목명'], spec: oldItem.규격 || row['규격'], 
+                                    name: oldItem.품목명 || item['품목명'], spec: oldItem.규격 || item['규격'], 
                                     field: '입고가', oldVal: oldP, newVal: pInNum, diff: pInNum - oldP, catalog: currentTag
                                 };
                                 localLogs.push(logItem);
@@ -588,20 +631,30 @@
                             }
 
                             newMaster[code]['입고가'] = pInNum;
-                            const recalculated = calculatePricesEngine(pInNum, newMaster[code], row.finalData || {}, marginRules, false);
+                            const recalculated = calculatePricesEngine(pInNum, newMaster[code], item.finalData || {}, marginRules, false);
                             Object.assign(newMaster[code], recalculated);
                         }
 
-                        if (currentTag) {
-                            newMaster[code]['카탈로그'] = addTag(newMaster[code]['카탈로그'], currentTag);
+                        // 🌟 2번 탭에서 선택된 항목에 한하여 파싱 텍스트로 마스터 품명/규격 덮어쓰기
+                        if (options?.selectedOverrides && options.selectedOverrides.has(code)) {
+                            if (item['품목명']) newMaster[code]['품목명'] = item['품목명'];
+                            if (item['규격']) newMaster[code]['규격'] = item['규격'];
+                            if (item['단위']) newMaster[code]['단위'] = item['단위'];
+                        }
+
+                        // 카탈로그 저장 옵션
+                        let targetCatalog = currentTag;
+                        if (options?.catalogOption === 'existing' && options.selectedExistingCatalog) targetCatalog = options.selectedExistingCatalog.trim();
+                        else if (options?.catalogOption === 'new' && options.newCatalogName) targetCatalog = options.newCatalogName.trim();
+                        
+                        if (targetCatalog) {
+                            newMaster[code]['카탈로그'] = addTag(newMaster[code]['카탈로그'], targetCatalog);
                         }
 
                         unsyncedMaster[code] = newMaster[code]; 
 
-                        if (row['품목명']) {
-                            const normExtName = normalizeText(row['품목명']);
-                            const normExtSpec = normalizeText(row['규격']);
-                            const dictKey = `${normExtName}|${normExtSpec}`;
+                        if (item['품목명']) {
+                            const dictKey = MatchEngine.cleanForDict(item['품목명']) + "|" + MatchEngine.cleanForDict(item['규격']);
                             newDict[dictKey] = code;
                             newEntriesForDict[dictKey] = code;
                         }
@@ -620,10 +673,10 @@
                     await saveDict(newDict, newEntriesForDict); 
                     
                     setProcessedCodes(newlyProcessed);
-                    const appliedIds = new Set(toApply.map(r => r._id));
-                    setParserBuffer(prev => prev.filter(r => !appliedIds.has(r._id)));
+                    const appliedIds = new Set(targetCodes);
+                    setParserBuffer(prev => prev.filter(r => !appliedIds.has(r.코드) && !appliedIds.has(r._matchCode)));
 
-                    showToast(`✅ ${toApply.length}건 최종 반영 완료! (마스터 갱신 및 AI 학습됨)`);
+                    showToast(`✅ ${targetCodes.length}건 최종 반영 완료! (마스터 갱신 및 AI 학습됨)`);
                     return true;
                 } catch (error) {
                     console.error(error);
@@ -656,13 +709,13 @@
 
                     setParserBuffer(nextBuffer);
                     setTargetId(null); setGlobalSearch(''); 
-                    setActiveTab('matched');
                     
-                    showToast(`✅ 수동 연결 대기 완료! (일치 탭으로 이동되었습니다)`);
+                    // 🌟 수동 연결 시 탭을 변경하지 않고 원래 작업 탭에 머무름
+                    showToast(`✅ 수동 연결 완료! 우측 [반영하기 검토] 대기열로 이동되었습니다.`);
                 } catch(error) {
                     console.error(error); showToast("❌ 수동 매핑 처리 중 오류가 발생했습니다.");
                 }
-            }, [targetId, parserBuffer, masterProducts, marginRules, setParserBuffer, setTargetId, setGlobalSearch, setActiveTab, showToast]);
+            }, [targetId, parserBuffer, masterProducts, marginRules, setParserBuffer, setTargetId, setGlobalSearch, showToast]);
 
             const handleCancelMapping = useCallback((rowId) => {
                 setParserBuffer(prev => prev.map(r => {
@@ -703,9 +756,7 @@
 
                     await saveMaster(newMaster);
 
-                    const normExtName = normalizeText(row['품목명']);
-                    const normExtSpec = normalizeText(row['규격']);
-                    const dictKey = `${normExtName}|${normExtSpec}`;
+                    const dictKey = MatchEngine.cleanForDict(row['품목명']) + "|" + MatchEngine.cleanForDict(row['규격']);
                     const newDict = { ...parserDict, [dictKey]: newCode };
                     await saveDict(newDict, { [dictKey]: newCode });
 
@@ -719,15 +770,16 @@
                     });
                     
                     setParserBuffer(nextBuffer);
-                    setTargetId(null); setGlobalSearch(''); setActiveTab('matched'); setShowErpModal(false);
+                    setTargetId(null); setGlobalSearch(''); setShowErpModal(false);
 
-                    showToast(`✅ [${newCode}] 신규 마스터 등록 및 매핑이 완료되었습니다!`);
+                    // 🌟 신규 등록 시 탭을 변경하지 않고 원래 작업 탭에 머무름
+                    showToast(`✅ [${newCode}] 신규 마스터 등록 완료! 우측 [반영하기 검토] 대기열로 이동되었습니다.`);
                 } catch(error) {
                     console.error(error); showToast("❌ 신규 등록 처리 중 오류가 발생했습니다.");
                 } finally {
                     setIsProcessing(false); setProcessMsg('');
                 }
-            }, [targetId, parserBuffer, masterProducts, currentTag, marginRules, parserDict, processedCodes, saveMaster, saveDict, setProcessedCodes, setParserBuffer, setTargetId, setGlobalSearch, setActiveTab, setShowErpModal, setIsProcessing, setProcessMsg, showToast]);
+            }, [targetId, parserBuffer, masterProducts, currentTag, marginRules, parserDict, processedCodes, saveMaster, saveDict, setProcessedCodes, setParserBuffer, setTargetId, setGlobalSearch, setShowErpModal, setIsProcessing, setProcessMsg, showToast]);
 
             const handleCancelErpInput = useCallback(() => {
                 if (window.confirm("ERP 코드를 입력하지 않으면 이 파싱 항목은 작업 목록에서 영구히 무시(삭제)됩니다. 취소하시겠습니까?")) {
@@ -899,60 +951,93 @@
             );
         };
 
-        const EditablePriceCell = React.memo(({ rowId, initialVal, onUpdate }) => {
+        const ReviewPriceCell = React.memo(({ code, initialVal, oldVal, disabled, onUpdate }) => {
             const [localVal, setLocalVal] = useState(initialVal);
             const [isFocused, setIsFocused] = useState(false);
 
-            useEffect(() => { if (!isFocused) setLocalVal(initialVal); }, [initialVal, isFocused]);
+            useEffect(() => {
+                if (!isFocused) setLocalVal(initialVal);
+            }, [initialVal, isFocused]);
 
-            const commitChange = (v) => { if (String(v) !== String(initialVal)) onUpdate(rowId, v); };
+            const commitChange = (val) => {
+                if (String(val) !== String(initialVal)) onUpdate(code, val);
+            };
+
             const handleKeyDown = (e) => {
-                if (['Enter', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+                if (['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) {
                     e.preventDefault();
-                    const inputs = Array.from(document.querySelectorAll('.review-price-input'));
+                    const inputs = Array.from(document.querySelectorAll('.review-price-input:not([disabled])'));
                     const currentIndex = inputs.indexOf(e.target);
                     if (currentIndex === -1) return;
+
                     let nextIndex = currentIndex;
                     if (e.key === 'ArrowUp') nextIndex = Math.max(0, currentIndex - 1);
                     if (e.key === 'ArrowDown' || e.key === 'Enter') nextIndex = Math.min(inputs.length - 1, currentIndex + 1);
+
                     if (nextIndex !== currentIndex) {
+                        e.target.blur(); 
                         inputs[nextIndex].focus();
                         setTimeout(() => inputs[nextIndex].select(), 0);
                     } else if (e.key === 'Enter') {
-                        e.target.blur();
+                        e.target.blur(); 
                     }
                 }
             };
 
+            const isDiff = oldVal > 0 && Number(localVal) !== oldVal;
+
             return (
                 <input 
                     type="number" 
-                    className="review-price-input w-full bg-transparent text-right outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 rounded px-1.5 py-1 text-[12px] font-bold text-indigo-700 transition-colors" 
-                    value={localVal === "오류" ? "" : localVal} 
-                    onChange={(e) => setLocalVal(e.target.value)} 
+                    className={`review-price-input w-full text-right px-2 py-1.5 rounded bg-transparent border-b outline-none font-black text-[13px] transition-colors focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300 shadow-sm ${isDiff ? 'text-indigo-600 border-indigo-200' : 'text-slate-700 border-transparent hover:border-slate-300'}`}
+                    value={localVal === 0 ? '' : localVal}
+                    onChange={(e) => setLocalVal(e.target.value)}
                     onFocus={(e) => { setIsFocused(true); setTimeout(() => e.target.select(), 0); }}
                     onBlur={(e) => { setIsFocused(false); commitChange(e.target.value); }}
                     onKeyDown={handleKeyDown}
+                    placeholder={oldVal > 0 ? oldVal : ''}
+                    disabled={disabled}
                 />
             );
         });
 
-        const MatchedRow = React.memo(({ row, mItem, onToggle, onUpdatePrice }) => {
-            const mIn = parseNum(mItem['입고가']);
-            const pIn = parseNum(row.finalData['입고가']);
-            const isDiff = mIn > 0 && mIn !== pIn;
+        const ReviewModalRow = React.memo(({ item, isChecked, onToggleCheck, onPriceChange }) => {
             return (
-                <tr className="hover:bg-slate-50 transition-colors h-[40px]">
-                    <td className="py-1.5 px-4 text-center"><input type="checkbox" className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer" checked={row._apply} onChange={() => onToggle(row._id)} /></td>
-                    <td className="py-1.5 px-3 font-mono text-[11px] text-slate-500">{row._matchCode}</td>
-                    <td className="py-1.5 px-3"><span className="font-bold text-slate-800">{mItem.품목명 || row['품목명']}</span> <span className="text-[11px] text-slate-400">({mItem.규격 || row['규격']})</span></td>
-                    <td className="py-1.5 px-3 text-emerald-800 bg-emerald-50/20 font-bold">{row['품목명']}</td>
-                    <td className="py-1.5 px-3 text-right text-slate-500 font-bold">{mIn ? mIn.toLocaleString() : '-'}</td>
-                    <td className={`py-1.5 px-3 text-right font-black ${isDiff ? 'bg-rose-50/30' : 'bg-emerald-50/20'}`}>
-                        <EditablePriceCell rowId={row._id} initialVal={row.finalData['입고가']} onUpdate={onUpdatePrice} />
+                <tr className={`transition-colors h-[44px] ${isChecked ? 'hover:bg-slate-50' : 'bg-slate-50/50 opacity-60'}`}>
+                    <td className="px-3 py-1.5 text-center">
+                        <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                            checked={isChecked}
+                            onChange={() => onToggleCheck(item.코드)}
+                        />
+                    </td>
+                    <td className="px-2 py-1.5 text-slate-600 truncate max-w-[100px] font-bold">{item.거래처}</td>
+                    <td className="px-4 py-1.5 font-black truncate max-w-[250px] text-slate-800">{item.엑셀품명}</td>
+                    <td className="px-4 py-1.5 text-slate-500 truncate max-w-[150px]">{item.엑셀규격}</td>
+                    <td className="px-4 py-1.5 text-right text-slate-400 line-through decoration-slate-300">
+                        {item.기존단가 > 0 ? item.기존단가.toLocaleString() : '-'}
+                    </td>
+                    <td className="px-4 py-1 bg-indigo-50/30">
+                        <ReviewPriceCell 
+                            code={item.코드} 
+                            initialVal={item.새단가} 
+                            oldVal={item.기존단가} 
+                            disabled={!isChecked} 
+                            onUpdate={onPriceChange} 
+                        />
+                    </td>
+                    <td className="px-4 py-1.5 text-[11px]">
+                        <div className="flex flex-col gap-0.5 items-start">
+                            {item.issues.length === 0 ? <span className="text-slate-300">-</span> : item.issues.map((iss, jdx) => <span key={jdx} className={iss.color}>{iss.text}</span>)}
+                        </div>
                     </td>
                 </tr>
             );
+        }, (prev, next) => {
+            return prev.item.코드 === next.item.코드 &&
+                   prev.isChecked === next.isChecked &&
+                   prev.item.새단가 === next.item.새단가;
         });
 
         const SmartParserInputModal = ({ onClose, executeParser, showToast, availableTags = [] }) => {
@@ -1031,59 +1116,192 @@
             );
         };
 
+        // 🌟 최적화 및 목적에 맞게 재구성된 모달
         const ParserReviewModal = ({ onClose, onConfirm, state, actions }) => {
-            const [viewMode, setViewMode] = useState('mapping'); // 'mapping' | 'price'
+            // 🌟 1번 탭을 단가 변동 브리핑(메인)으로 설정
+            const [viewMode, setViewMode] = useState('price'); // 'price' | 'mapping'
             const [priceFilter, setPriceFilter] = useState('all'); 
+            const [vendorFilter, setVendorFilter] = useState('all');
+            const [editedPrices, setEditedPrices] = useState({}); 
             
-            const { parserBuffer, masterProducts } = state;
+            const [catalogOption, setCatalogOption] = useState('none'); 
+            const [selectedExistingCatalog, setSelectedExistingCatalog] = useState('');
+            const [newCatalogName, setNewCatalogName] = useState('');
+            
+            // 🌟 2번 탭(수동매핑건 텍스트 덮어쓰기)을 위한 선택된 항목 Set
+            const [selectedOverrides, setSelectedOverrides] = useState(new Set());
+
+            const [isReadyToSave, setIsReadyToSave] = useState(false);
+            const [checkedItems, setCheckedItems] = useState(new Set());
+
+            const [scrollTop, setScrollTop] = useState(0);
+            const handleScroll = useCallback((e) => setScrollTop(e.target.scrollTop), []);
+
+            const { parserBuffer, masterProducts, availableCategories } = state;
 
             const targetRows = useMemo(() => {
                 return parserBuffer.filter(r => r._apply && r._matchCode);
             }, [parserBuffer]);
 
+            // 수동 매핑된 항목만 필터링 (텍스트 덮어쓰기 대상)
+            const manualMappedRows = useMemo(() => {
+                return targetRows.filter(r => r._matchStatus && r._matchStatus.includes('수동'));
+            }, [targetRows]);
+
             useEffect(() => {
                 if (targetRows.length === 0) onClose();
             }, [targetRows.length, onClose]);
 
+            useEffect(() => {
+                const timer = setTimeout(() => setIsReadyToSave(true), 800); 
+                return () => clearTimeout(timer);
+            }, []);
+
             const analysis = useMemo(() => {
-                let up = 0, down = 0, same = 0;
-                const list = [];
+                let up = 0, down = 0, changed = 0, same = 0, newItems = 0; 
+                const list = []; const vendors = new Set(); 
 
                 targetRows.forEach(row => {
-                    const mItem = masterProducts[row._matchCode] || {};
-                    const oldP = parseNum(mItem['입고가']);
-                    const newP = parseNum(row.finalData?.['입고가'] !== undefined ? row.finalData['입고가'] : row['입고가']);
+                    const rowCode = row.코드 || row._matchCode;
+                    const mItem = masterProducts[rowCode] || {}; 
+                    const oldP = mItem ? parseNum(mItem['입고가']) : 0; 
                     
-                    let status = 'same';
-                    if (oldP === 0 || newP === 0) { status = 'same'; same++; }
-                    else if (newP > oldP) { status = 'up'; up++; }
-                    else if (newP < oldP) { status = 'down'; down++; }
-                    else { status = 'same'; same++; }
+                    const newP = editedPrices[rowCode] !== undefined 
+                        ? parseNum(editedPrices[rowCode])
+                        : parseNum(row.finalData?.['입고가'] !== undefined 
+                            ? row.finalData['입고가'] 
+                            : (row.sources?.['estimate']?.['입고가'] !== undefined && row.sources?.['estimate']?.['입고가'] !== '' ? row.sources['estimate']['입고가'] : oldP));
+                    
+                    const vendor = row.finalData?.['구매처'] || row.sources?.['estimate']?.['구매처'] || mItem?.['구매처'] || '미지정';
+                    vendors.add(vendor);
 
-                    list.push({
-                        ...row,
-                        기존단가: oldP, 새단가: newP, 차액: newP - oldP, 상태: status,
-                        마스터품명: mItem.품목명 || '', 마스터규격: mItem.규격 || ''
+                    const masterName = mItem?.품목명 || '';
+                    const masterSpec = mItem?.규격 || '';
+                    const excelName = row.finalData?.['품목명'] || row.sources?.['estimate']?.['품목명'] || row['품목명'] || masterName || '';
+                    const excelSpec = row.finalData?.['규격'] || row.sources?.['estimate']?.['규격'] || row['규격'] || masterSpec || '';
+
+                    let status = 'same'; let issues = [];
+
+                    if (!mItem.품목명 && !mItem.코드) { 
+                        status = 'new'; newItems++; issues.push({ text: '신규', color: 'text-emerald-500 font-bold bg-emerald-50 px-1.5 py-0.5 rounded' });
+                    } else {
+                        let priceChanged = false;
+                        if (newP > oldP && oldP > 0) { status = 'up'; up++; priceChanged = true; issues.push({ text: `+${(newP-oldP).toLocaleString()}`, color: 'text-rose-500 font-bold bg-rose-50 px-1.5 py-0.5 rounded' }); } 
+                        else if (newP < oldP && newP > 0) { status = 'down'; down++; priceChanged = true; issues.push({ text: `${(newP-oldP).toLocaleString()}`, color: 'text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded' }); }
+
+                        let textChanged = false;
+                        if (masterName && excelName && String(masterName).trim() !== String(excelName).trim()) {
+                            textChanged = true; issues.push({ text: `${masterName}`, color: 'text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded' });
+                        }
+                        if (masterSpec && excelSpec && String(masterSpec).trim() !== String(excelSpec).trim()) {
+                            textChanged = true; issues.push({ text: `${masterSpec}`, color: 'text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded' });
+                        }
+
+                        if (!priceChanged) {
+                            if (textChanged) { status = 'changed'; changed++; } else { status = 'same'; same++; }
+                        }
+                    }
+
+                    list.push({ 
+                        ...row, 
+                        코드: rowCode, 엑셀품명: excelName, 엑셀규격: excelSpec, 거래처: vendor, 
+                        기존단가: oldP, 새단가: newP, issues: issues, 상태: status 
                     });
                 });
 
-                const priceList = [...list].sort((a, b) => Math.abs(b.차액) - Math.abs(a.차액));
-                return { up, down, same, total: targetRows.length, list, priceList };
-            }, [targetRows, masterProducts]);
+                list.sort((a, b) => { if (a.거래처 !== b.거래처) return a.거래처.localeCompare(b.거래처); return String(a.코드).localeCompare(String(b.코드)); });
+                return { up, down, changed, same, newItems, total: targetRows.length, list, vendors: Array.from(vendors).sort() };
+            }, [targetRows, masterProducts, editedPrices]);
 
             const filteredPriceList = useMemo(() => {
-                if (priceFilter === 'all') return analysis.priceList;
-                return analysis.priceList.filter(item => item.상태 === priceFilter);
-            }, [analysis.priceList, priceFilter]);
+                return analysis.list.filter(i => {
+                    const statusMatch = priceFilter === 'all' || i.상태 === priceFilter;
+                    const vendorMatch = vendorFilter === 'all' || i.거래처 === vendorFilter;
+                    return statusMatch && vendorMatch;
+                });
+            }, [analysis.list, priceFilter, vendorFilter]);
+            
+            useEffect(() => {
+                const allCodes = new Set(analysis.list.map(i => i.코드));
+                setCheckedItems(allCodes);
+            }, [analysis.list]);
 
-            const [scrollTop, setScrollTop] = useState(0);
-            const handleScroll = useCallback((e) => setScrollTop(e.target.scrollTop), []);
+            const toggleCheck = useCallback((code) => {
+                setCheckedItems(prev => {
+                    const next = new Set(prev);
+                    if (next.has(code)) next.delete(code); else next.add(code);
+                    return next;
+                });
+            }, []);
 
-            const ROW_HEIGHT = 40;
-            const BUFFER_SIZE = 15;
-            const VIEWPORT_HEIGHT = window.innerHeight * 0.6;
+            const toggleAllPriceList = () => {
+                const isAllChecked = filteredPriceList.length > 0 && filteredPriceList.every(i => checkedItems.has(i.코드));
+                setCheckedItems(prev => {
+                    const next = new Set(prev);
+                    if (isAllChecked) filteredPriceList.forEach(i => next.delete(i.코드));
+                    else filteredPriceList.forEach(i => next.add(i.코드));
+                    return next;
+                });
+            };
+            
+            const toggleOverride = useCallback((code) => {
+                setSelectedOverrides(prev => {
+                    const next = new Set(prev);
+                    if (next.has(code)) next.delete(code); else next.add(code);
+                    return next;
+                });
+            }, []);
 
-            const currentList = viewMode === 'mapping' ? analysis.list : filteredPriceList;
+            const toggleAllOverrides = () => {
+                const isAllChecked = manualMappedRows.length > 0 && manualMappedRows.every(i => selectedOverrides.has(i._matchCode || i.코드));
+                setSelectedOverrides(prev => {
+                    const next = new Set(prev);
+                    if (isAllChecked) manualMappedRows.forEach(i => next.delete(i._matchCode || i.코드));
+                    else manualMappedRows.forEach(i => next.add(i._matchCode || i.코드));
+                    return next;
+                });
+            };
+
+            const checkedTargetCodes = useMemo(() => {
+                return filteredPriceList.filter(i => checkedItems.has(i.코드)).map(r => r.코드);
+            }, [filteredPriceList, checkedItems]);
+
+            // 🌟 F8 단축키 작동
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'F8') {
+                        e.preventDefault();
+                        e.stopPropagation(); 
+                        
+                        if (!isReadyToSave) return; 
+                        
+                        const isInvalid = checkedTargetCodes.length === 0 || 
+                                          (catalogOption === 'existing' && !selectedExistingCatalog) || 
+                                          (catalogOption === 'new' && !newCatalogName.trim());
+                                          
+                        if (!isInvalid) {
+                            onConfirm(checkedTargetCodes, { catalogOption, selectedExistingCatalog, newCatalogName, selectedOverrides }, editedPrices); 
+                            onClose();
+                        } else if (catalogOption === 'new' && !newCatalogName.trim()) {
+                            const input = document.getElementById('new-catalog-input');
+                            if(input) input.focus();
+                        }
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown, true);
+                return () => window.removeEventListener('keydown', handleKeyDown, true);
+            }, [isReadyToSave, priceFilter, vendorFilter, catalogOption, selectedExistingCatalog, newCatalogName, selectedOverrides, editedPrices, onConfirm, onClose, checkedTargetCodes]);
+
+            const handlePriceChange = useCallback((code, value) => {
+                setEditedPrices(prev => ({ ...prev, [code]: value }));
+            }, []);
+
+            // 🌟 가상 스크롤 계산
+            const ROW_HEIGHT = 44; 
+            const BUFFER_SIZE = 15; 
+            const VIEWPORT_HEIGHT = window.innerHeight * 0.7;
+
+            const currentList = viewMode === 'mapping' ? manualMappedRows : filteredPriceList;
             const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_SIZE);
             const endIndex = Math.min(currentList.length, Math.floor((scrollTop + VIEWPORT_HEIGHT) / ROW_HEIGHT) + BUFFER_SIZE);
 
@@ -1091,149 +1309,203 @@
             const topPadding = startIndex * ROW_HEIGHT;
             const bottomPadding = Math.max(0, (currentList.length - endIndex) * ROW_HEIGHT);
 
+            const filterButtons = [
+                {id:'all', label:'전체', val:analysis.total, color:'slate', icon:'fa-list'},
+                {id:'up', label:'인상', val:analysis.up, color:'rose', icon:'fa-arrow-up'},
+                {id:'down', label:'인하', val:analysis.down, color:'blue', icon:'fa-arrow-down'},
+                {id:'new', label:'신규', val:analysis.newItems, color:'emerald', icon:'fa-star'},
+                {id:'changed', label:'항목변경', val:analysis.changed, color:'amber', icon:'fa-edit'},
+                {id:'same', label:'동결', val:analysis.same, color:'slate', icon:'fa-equals'}
+            ];
+
             return (
-                <div className="fixed inset-0 bg-slate-900/80 z-[100] flex justify-center items-center backdrop-blur-sm fade-in">
-                    <div className="bg-white w-[900px] h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-                        <div className="bg-[#0f172a] p-4 text-white flex justify-between shrink-0 border-b border-slate-700">
-                            <h2 className="font-black text-[16px]"><i className="fas fa-clipboard-check text-indigo-400 mr-2"></i>작업 완료 및 투트랙(매핑/단가) 검증</h2>
-                            <button onClick={onClose}><i className="fas fa-times text-slate-400 hover:text-white text-[18px]"></i></button>
+                <div className="fixed inset-0 flex justify-center items-center bg-slate-900/80 backdrop-blur-sm fade-in z-[100]">
+                    <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden w-[1100px] h-[90vh]">
+                        <div className="bg-[#0f172a] p-4 text-white flex justify-between items-center border-b border-slate-700 shrink-0">
+                            <h2 className="font-black text-[16px] flex items-center"><SafeIcon name="check-circle-2" className="text-indigo-400 mr-2"/>엑셀 데이터 통합 반영 (단가 & 카탈로그)</h2>
+                            <button onClick={onClose}><SafeIcon name="x" className="text-slate-400 hover:text-white" size={20}/></button>
                         </div>
                         
                         <div className="flex bg-slate-100 border-b border-slate-200 shrink-0 p-2 gap-2">
-                            <button onClick={() => {setViewMode('mapping'); setScrollTop(0);}} className={`flex-1 py-2.5 rounded-lg font-black text-[13px] transition-all flex justify-center items-center ${viewMode === 'mapping' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200'}`}>
-                                <i className="fas fa-link mr-2"></i>1. 매핑 검증 (텍스트 비교)
+                            <button onClick={() => {setViewMode('price'); setScrollTop(0); document.getElementById('review-modal-scroll')?.scrollTo(0,0);}} className={`flex-1 py-2.5 rounded-lg font-black text-[13px] transition-all flex justify-center items-center ${viewMode === 'price' ? 'bg-white text-emerald-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200'}`}>
+                                <i className="fas fa-search-dollar mr-2"></i>1. 단가 변동 브리핑 (메인)
                             </button>
-                            <button onClick={() => {setViewMode('price'); setScrollTop(0);}} className={`flex-1 py-2.5 rounded-lg font-black text-[13px] transition-all flex justify-center items-center ${viewMode === 'price' ? 'bg-white text-emerald-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200'}`}>
-                                <i className="fas fa-search-dollar mr-2"></i>2. 단가 변동 브리핑
+                            <button onClick={() => {setViewMode('mapping'); setScrollTop(0); document.getElementById('review-modal-scroll')?.scrollTo(0,0);}} className={`flex-1 py-2.5 rounded-lg font-black text-[13px] transition-all flex justify-center items-center ${viewMode === 'mapping' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200'}`}>
+                                <i className="fas fa-edit mr-2"></i>2. 마스터 텍스트 덮어쓰기 (수동매핑건)
                             </button>
                         </div>
 
-                        <div className="flex flex-col flex-1 overflow-hidden bg-slate-50">
-                            {viewMode === 'mapping' ? (
-                                <div className="flex-1 flex flex-col bg-white overflow-hidden fade-in">
-                                    <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center shrink-0">
-                                        <span className="text-[12px] font-bold text-indigo-800"><i className="fas fa-info-circle mr-1.5"></i>파싱된 텍스트와 연결된 마스터 상품이 올바른지 확인하세요. 잘못된 연결은 우측에서 '취소'를 누르세요.</span>
-                                        <span className="text-[11px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-black">총 {analysis.total}건 대기중</span>
+                        {viewMode === 'price' ? (
+                            <div className="flex-1 flex flex-col bg-white overflow-hidden fade-in relative">
+                                <div className="p-4 bg-slate-100 border-b border-slate-300 flex items-center justify-between shrink-0 shadow-inner z-20">
+                                    <div className="flex gap-2">
+                                        {filterButtons.map(b => (
+                                            <button 
+                                                key={b.id} 
+                                                onClick={()=>{setPriceFilter(b.id); setScrollTop(0); document.getElementById('review-modal-scroll')?.scrollTo(0,0);}} 
+                                                className={`flex flex-col items-center justify-center py-2 px-3 min-w-[85px] border rounded-xl transition-all shadow-sm ${priceFilter===b.id ? `bg-${b.color}-500 text-white border-${b.color}-600 ring-2 ring-${b.color}-200` : `bg-white text-slate-600 border-slate-200 hover:border-${b.color}-300 hover:shadow-md`}`}
+                                            >
+                                                <div className={`text-[11px] font-bold mb-0.5 ${priceFilter===b.id ? 'text-white/90' : `text-${b.color}-500`}`}>
+                                                    <i className={`fas ${b.icon} mr-1.5 opacity-80`}></i>{b.label}
+                                                </div>
+                                                <div className={`text-xl font-black tracking-tight ${priceFilter===b.id ? 'text-white' : 'text-slate-800'}`}>
+                                                    {b.val}
+                                                </div>
+                                            </button>
+                                        ))}
                                     </div>
-                                    <div className="flex-1 overflow-auto custom-scrollbar relative" onScroll={handleScroll}>
-                                        <table className="w-full text-left text-[12px] whitespace-nowrap relative z-0">
-                                            <thead className="bg-white sticky top-0 border-b border-slate-200 shadow-sm z-10">
-                                                <tr className="text-slate-500">
-                                                    <th className="px-4 py-2 w-16 text-center">분류</th>
-                                                    <th className="px-4 py-2 w-1/2 text-emerald-700 bg-emerald-50/50">파싱된 텍스트 (원본)</th>
-                                                    <th className="px-2 py-2 text-center w-8"></th>
-                                                    <th className="px-4 py-2 w-1/2 text-indigo-700 bg-indigo-50/50">연결된 마스터 상품 (DB)</th>
-                                                    <th className="px-4 py-2 w-16 text-center">동작</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="5"></td></tr>}
-                                                {virtualRows.map(item => (
-                                                    <tr key={`map-${item._id}`} className="hover:bg-slate-50 transition-colors h-[40px]">
-                                                        <td className="px-4 py-1 text-center">
-                                                            {item._matchStatus.includes('신규등록') ? <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[10px] font-black">신규등록</span> :
-                                                             item._matchStatus.includes('수동') ? <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-black">수동 연결</span> : 
-                                                             <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-black">AI 자동</span>}
-                                                        </td>
-                                                        <td className="px-4 py-1 bg-emerald-50/10">
-                                                            <div className="flex flex-col">
-                                                                <span className="font-black text-emerald-800 truncate">{item['품목명']}</span>
-                                                                <span className="text-[11px] text-emerald-600/70 truncate mt-0.5">{item['규격']} {item['단위'] ? `| ${item['단위']}` : ''}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-2 py-1 text-center text-slate-300"><i className="fas fa-arrow-right"></i></td>
-                                                        <td className="px-4 py-1 bg-indigo-50/10">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[10px] font-mono text-slate-400 mb-0.5">{item._matchCode}</span>
-                                                                <span className="font-bold text-slate-800 truncate">{item.마스터품명 || item['품목명']} <span className="font-normal text-slate-500 text-[11px]">({item.마스터규격 || item['규격']})</span></span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-1 text-center">
-                                                            <button onClick={() => actions.handleCancelMapping(item._id)} className="px-2.5 py-1.5 bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded text-[11px] font-bold transition-colors shadow-sm" title="연결을 해제하고 표로 되돌립니다.">취소</button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="5"></td></tr>}
-                                            </tbody>
-                                        </table>
+                                    <div className="flex items-center gap-3">
+                                        <select value={vendorFilter} onChange={e => {setVendorFilter(e.target.value); setScrollTop(0); document.getElementById('review-modal-scroll')?.scrollTo(0,0);}} className="bg-white border border-slate-300 text-blue-700 text-[13px] py-2 px-3 rounded-xl outline-none focus:border-blue-400 h-11 font-bold shadow-sm w-[140px]">
+                                            <option value="all">전체 거래처</option>
+                                            {analysis.vendors.map(v => <option key={v} value={v}>{v}</option>)}
+                                        </select>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="flex-1 flex flex-col fade-in bg-white">
-                                    <div className="grid grid-cols-4 gap-3 p-4 shrink-0 border-b border-slate-200">
-                                        <div onClick={() => {setPriceFilter('all'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'all' ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>
-                                            <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'all' ? 'text-slate-300' : 'text-slate-500'}`}><i className="fas fa-list mr-1"></i>전체</div>
-                                            <div className={`font-black text-xl ${priceFilter === 'all' ? 'text-white' : 'text-slate-700'}`}>{analysis.total}<span className="text-[11px] ml-1 font-bold">건</span></div>
-                                        </div>
-                                        <div onClick={() => {setPriceFilter('up'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'up' ? 'bg-rose-500 border-rose-500 text-white' : 'bg-white border-rose-200 hover:bg-rose-50'}`}>
-                                            <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'up' ? 'text-rose-100' : 'text-rose-500'}`}><i className="fas fa-arrow-up mr-1"></i>인상</div>
-                                            <div className={`font-black text-xl ${priceFilter === 'up' ? 'text-white' : 'text-rose-700'}`}>{analysis.up}<span className="text-[11px] ml-1 font-bold">건</span></div>
-                                        </div>
-                                        <div onClick={() => {setPriceFilter('down'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'down' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-blue-200 hover:bg-blue-50'}`}>
-                                            <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'down' ? 'text-blue-100' : 'text-blue-500'}`}><i className="fas fa-arrow-down mr-1"></i>인하</div>
-                                            <div className={`font-black text-xl ${priceFilter === 'down' ? 'text-white' : 'text-blue-700'}`}>{analysis.down}<span className="text-[11px] ml-1 font-bold">건</span></div>
-                                        </div>
-                                        <div onClick={() => {setPriceFilter('same'); setScrollTop(0);}} className={`cursor-pointer border p-3 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all hover:-translate-y-0.5 ${priceFilter === 'same' ? 'bg-slate-500 border-slate-500 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
-                                            <div className={`text-[11px] font-bold mb-1 ${priceFilter === 'same' ? 'text-slate-200' : 'text-slate-500'}`}><i className="fas fa-equals mr-1"></i>동결/기타 (0원 포함)</div>
-                                            <div className={`font-black text-xl ${priceFilter === 'same' ? 'text-white' : 'text-slate-700'}`}>{analysis.same}<span className="text-[11px] ml-1 font-bold">건</span></div>
-                                        </div>
-                                    </div>
-                                    <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 text-[11px] font-bold text-slate-500 flex items-center justify-between shrink-0">
-                                        <span><i className="fas fa-exclamation-triangle text-amber-500 mr-1.5 text-[12px]"></i> 단가가 비정상적으로 튀는 항목은 다른 상품에 잘못 매핑했을 확률이 높습니다!</span>
-                                        <span className="text-indigo-600">노출 항목: {filteredPriceList.length}건</span>
-                                    </div>
-                                    <div className="flex-1 overflow-auto custom-scrollbar relative" onScroll={handleScroll}>
-                                        <table className="w-full text-left text-[12px] whitespace-nowrap relative z-0">
-                                            <thead className="bg-white sticky top-0 border-b border-slate-200 shadow-sm z-10">
-                                                <tr className="text-slate-500">
-                                                    <th className="px-4 py-2 w-12 text-center">상태</th>
-                                                    <th className="px-4 py-2">상품코드</th>
-                                                    <th className="px-4 py-2 w-full">마스터 품목명 (규격)</th>
-                                                    <th className="px-4 py-2 text-right">기존 입고가</th>
-                                                    <th className="px-4 py-2 text-right text-indigo-600">새 입고가</th>
-                                                    <th className="px-4 py-2 text-right">차액</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {filteredPriceList.length === 0 ? (
-                                                    <tr><td colSpan="6" className="p-8 text-center text-slate-400 font-bold">해당 조건의 항목이 없습니다.</td></tr>
-                                                ) : (
-                                                    <>
-                                                        {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="6"></td></tr>}
-                                                        {virtualRows.map(item => (
-                                                            <tr key={`price-${item._id}`} className="hover:bg-slate-50 transition-colors h-[40px]">
+                                <div id="review-modal-scroll" className="flex-1 overflow-auto custom-scrollbar relative" onScroll={handleScroll}>
+                                    <table className="w-full text-left text-[12px] relative z-0">
+                                        <thead className="bg-white sticky top-0 border-b shadow-sm z-10">
+                                            <tr>
+                                                <th className="px-3 py-3.5 w-10 text-center">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                                        checked={filteredPriceList.length > 0 && filteredPriceList.every(i => checkedItems.has(i.코드))}
+                                                        onChange={toggleAllPriceList}
+                                                    />
+                                                </th>
+                                                <th className="px-2 py-3.5 w-24 text-slate-500 font-bold">거래처</th>
+                                                <th className="px-4 py-3.5 text-slate-500 font-bold">엑셀 품명</th>
+                                                <th className="px-4 py-3.5 w-40 text-slate-500 font-bold">엑셀 규격</th>
+                                                <th className="px-4 py-3.5 w-28 text-right text-slate-500 font-bold">기존 입고가</th>
+                                                <th className="px-4 py-3.5 w-32 text-right text-indigo-600 font-black bg-indigo-50/50"><i className="fas fa-edit mr-1"></i>새 입고가</th>
+                                                <th className="px-4 py-3.5 w-[260px] text-slate-500 font-bold">검증 이슈 (마스터 비교)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 bg-white">
+                                            {filteredPriceList.length === 0 ? (
+                                                <tr><td colSpan="7" className="py-16 text-center text-slate-400 font-bold"><i className="fas fa-search text-3xl mb-3 block text-slate-200"></i>조건에 맞는 데이터가 없습니다.</td></tr>
+                                            ) : (
+                                                <>
+                                                    {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="7" className="p-0 border-0"></td></tr>}
+                                                    {virtualRows.map((i,idx) => (
+                                                        <ReviewModalRow 
+                                                            key={`price-${i.코드}-${idx}`}
+                                                            item={i}
+                                                            isChecked={checkedItems.has(i.코드)}
+                                                            onToggleCheck={toggleCheck}
+                                                            onPriceChange={handlePriceChange}
+                                                        />
+                                                    ))}
+                                                    {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="7" className="p-0 border-0"></td></tr>}
+                                                </>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex flex-col bg-white overflow-hidden fade-in relative">
+                                <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center shrink-0">
+                                    <span className="text-[12px] font-bold text-indigo-800"><i className="fas fa-info-circle mr-1.5"></i>유사 및 불일치 항목을 수동으로 연결한 내역입니다. 파싱된 텍스트로 마스터의 품명/규격을 덮어쓸 항목을 선택하세요.</span>
+                                    <span className="text-[11px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-black">수동연결 총 {manualMappedRows.length}건</span>
+                                </div>
+                                <div id="review-modal-scroll" className="flex-1 overflow-auto custom-scrollbar relative" onScroll={handleScroll}>
+                                    <table className="w-full text-left text-[12px] whitespace-nowrap relative z-0">
+                                        <thead className="bg-[#f5f4f0] text-[#5c554d] font-bold sticky top-0 z-10 border-b border-[#e8e4db]">
+                                            <tr>
+                                                <th className="px-4 py-2.5 w-12 text-center">
+                                                    <input type="checkbox" className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" checked={manualMappedRows.length > 0 && manualMappedRows.every(i => selectedOverrides.has(i._matchCode || i.코드))} onChange={toggleAllOverrides} />
+                                                </th>
+                                                <th className="px-4 py-2.5 w-24">상품코드</th>
+                                                <th className="px-4 py-2.5 w-1/2">마스터 상품 정보 (As-Is)</th>
+                                                <th className="px-2 py-2.5 text-center w-8 text-slate-300"><i className="fas fa-arrow-right"></i></th>
+                                                <th className="px-4 py-2.5 w-1/2 text-indigo-700 bg-indigo-50/50">덮어쓸 파싱 텍스트 (To-Be)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {manualMappedRows.length === 0 ? (
+                                                <tr><td colSpan="5" className="p-10 text-center text-slate-400 font-bold">수동으로 연결한 항목이 없습니다.</td></tr>
+                                            ) : (
+                                                <>
+                                                    {topPadding > 0 && <tr style={{ height: `${topPadding}px` }}><td colSpan="5"></td></tr>}
+                                                    {virtualRows.map(item => {
+                                                        const code = item._matchCode || item.코드;
+                                                        const mItem = masterProducts[code] || {};
+                                                        const isChecked = selectedOverrides.has(code);
+                                                        return (
+                                                            <tr key={`map-${item._id}`} className={`hover:bg-slate-50 transition-colors h-[40px] ${isChecked ? 'bg-indigo-50/20' : ''}`}>
                                                                 <td className="px-4 py-1 text-center">
-                                                                    {item.상태 === 'up' && <span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded text-[10px] font-black">인상</span>}
-                                                                    {item.상태 === 'down' && <span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded text-[10px] font-black">인하</span>}
-                                                                    {item.상태 === 'same' && <span className="text-slate-400 text-[10px] font-black">-</span>}
+                                                                    <input type="checkbox" className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" checked={isChecked} onChange={() => toggleOverride(code)} />
                                                                 </td>
-                                                                <td className="px-4 py-1 font-mono text-slate-500 text-[11px]">{item._matchCode}</td>
-                                                                <td className="px-4 py-1 font-bold text-slate-800 truncate max-w-[200px]">{item.마스터품명 || item['품목명']} <span className="text-slate-400 font-normal ml-1 text-[11px]">({item.마스터규격 || item['규격']})</span></td>
-                                                                <td className="px-4 py-1 text-right text-slate-500">{item.기존단가 > 0 ? item.기존단가.toLocaleString() : '-'}</td>
-                                                                <td className="px-4 py-1 text-right font-black text-indigo-600">{item.새단가 > 0 ? item.새단가.toLocaleString() : '-'}</td>
-                                                                <td className="px-4 py-1 text-right font-bold">
-                                                                    {item.차액 > 0 && <span className="text-rose-500">+{item.차액.toLocaleString()}</span>}
-                                                                    {item.차액 < 0 && <span className="text-blue-500">{item.차액.toLocaleString()}</span>}
-                                                                    {item.차액 === 0 && <span className="text-slate-300">-</span>}
+                                                                <td className="px-4 py-1 font-mono text-slate-500 text-[11px]">{code}</td>
+                                                                <td className="px-4 py-1 text-slate-500">
+                                                                    <span className="font-bold truncate">{mItem.품목명 || '[이름없음]'}</span>
+                                                                    <span className="text-[11px] ml-1">({mItem.규격 || '규격없음'})</span>
+                                                                </td>
+                                                                <td className="px-2 py-1 text-center text-slate-300"><i className="fas fa-arrow-right"></i></td>
+                                                                <td className="px-4 py-1 bg-indigo-50/10">
+                                                                    <span className={`font-black truncate ${isChecked ? 'text-indigo-700' : 'text-slate-700'}`}>{item['품목명']}</span>
+                                                                    <span className={`text-[11px] ml-1 ${isChecked ? 'text-indigo-500' : 'text-slate-500'}`}>({item['규격']} {item['단위'] ? `| ${item['단위']}` : ''})</span>
                                                                 </td>
                                                             </tr>
-                                                        ))}
-                                                        {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="6"></td></tr>}
-                                                    </>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                                        );
+                                                    })}
+                                                    {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="5"></td></tr>}
+                                                </>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
+                        
+                        <div className="bg-slate-50 border-t border-slate-300 px-5 py-3 shrink-0 flex items-center justify-between z-20">
+                            <div className="flex items-center gap-3">
+                                <span className="text-[12px] font-bold text-slate-500"><i className="fas fa-folder-plus mr-1"></i>카탈로그:</span>
+                                
+                                <div className="flex items-center gap-4 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                                    <label className="flex items-center cursor-pointer group">
+                                        <input type="radio" name="catOpt" className="w-3.5 h-3.5 text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer" checked={catalogOption==='existing'} onChange={()=>setCatalogOption('existing')} />
+                                        <span className={`ml-1.5 text-[12px] font-bold transition-colors ${catalogOption==='existing' ? 'text-blue-700' : 'text-slate-600 group-hover:text-slate-800'}`}>기존 병합</span>
+                                    </label>
+                                    <label className="flex items-center cursor-pointer group">
+                                        <input type="radio" name="catOpt" className="w-3.5 h-3.5 text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer" checked={catalogOption==='new'} onChange={()=>setCatalogOption('new')} />
+                                        <span className={`ml-1.5 text-[12px] font-bold transition-colors ${catalogOption==='new' ? 'text-emerald-700' : 'text-slate-600 group-hover:text-slate-800'}`}>신규 생성</span>
+                                    </label>
+                                    <label className="flex items-center cursor-pointer group">
+                                        <input type="radio" name="catOpt" className="w-3.5 h-3.5 text-slate-600 border-slate-300 focus:ring-slate-500 cursor-pointer" checked={catalogOption==='none'} onChange={()=>setCatalogOption('none')} />
+                                        <span className={`ml-1.5 text-[12px] font-bold transition-colors ${catalogOption==='none' ? 'text-slate-800' : 'text-slate-500 group-hover:text-slate-700'}`}>저장 안 함</span>
+                                    </label>
+                                </div>
 
-                        <div className="bg-white p-4 border-t border-slate-200 flex justify-between items-center shrink-0">
-                            <div className="text-[11px] text-slate-500 font-bold"><i className="fas fa-lightbulb text-amber-500 mr-1"></i>두 가지 탭을 모두 확인하여 매핑 오류와 단가를 점검한 후 최종 반영하세요.</div>
-                            <div className="flex gap-2">
-                                <button onClick={onClose} className="px-5 py-2.5 bg-slate-100 border border-slate-200 text-slate-600 font-bold rounded-lg hover:bg-slate-200 transition-colors">닫기 (수정하러 가기)</button>
-                                <button onClick={() => { onConfirm(); onClose(); }} className="px-6 py-2.5 bg-indigo-600 text-white font-black rounded-lg hover:bg-indigo-700 shadow-sm transition-colors flex items-center">
-                                    <i className="fas fa-save mr-1.5 text-[14px]"></i> 최종 반영 및 AI 사전 등록
+                                <div className="w-[200px]">
+                                    {catalogOption === 'existing' && (
+                                        <select value={selectedExistingCatalog} onChange={(e)=>setSelectedExistingCatalog(e.target.value)} className="w-full text-[12px] p-1.5 font-bold text-blue-700 border border-blue-300 rounded bg-white outline-none focus:border-blue-500 fade-in shadow-sm h-8">
+                                            <option value="">-- 선택 --</option>
+                                            {availableCategories && availableCategories.map(c => <option key={c.name} value={c.name}>{c.name} ({c.count}건)</option>)}
+                                        </select>
+                                    )}
+                                    {catalogOption === 'new' && (
+                                        <input id="new-catalog-input" type="text" value={newCatalogName} onChange={(e)=>setNewCatalogName(e.target.value)} placeholder="새 이름 입력" className="w-full text-[12px] p-1.5 font-bold text-emerald-700 border border-emerald-300 rounded bg-white outline-none focus:border-emerald-500 fade-in shadow-sm h-8" />
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                                <button onClick={onClose} className="h-11 px-5 text-[13px] font-bold text-slate-600 bg-white rounded-xl border border-slate-300 hover:bg-slate-50 transition-colors shadow-sm">닫기</button>
+                                <button 
+                                    onClick={()=>{
+                                        onConfirm(checkedTargetCodes, { catalogOption, selectedExistingCatalog, newCatalogName, selectedOverrides }, editedPrices); 
+                                        onClose();
+                                    }} 
+                                    disabled={
+                                        checkedTargetCodes.length === 0 || 
+                                        (catalogOption === 'existing' && !selectedExistingCatalog) || 
+                                        (catalogOption === 'new' && !newCatalogName.trim())
+                                    }
+                                    className="h-11 px-6 text-[14px] font-black text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md flex items-center transition-colors disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
+                                >
+                                    <SafeIcon name="save" className="mr-2" size={16}/> {checkedTargetCodes.length}건 반영 {isReadyToSave ? '[F8]' : ''}
                                 </button>
                             </div>
                         </div>
@@ -1255,8 +1527,25 @@
                 showErpModal,
                 toastMsg, isProcessing, processMsg,
                 globalSearch, setGlobalSearch, targetId, setTargetId,
-                selectedMissingCodes, setSelectedMissingCodes
+                selectedMissingCodes, setSelectedMissingCodes, processedCodes
             } = appState;
+
+            // 🌟 메인 화면에서 F8을 눌렀을 때 '반영하기 검토' 창을 여는 전역 단축키 추가
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'F8') {
+                        if (!showReviewModal) { // 모달이 닫혀 있을 때만 작동
+                            e.preventDefault();
+                            const btn = document.getElementById('btn-open-review');
+                            if (btn && !btn.disabled) {
+                                setShowReviewModal(true);
+                            }
+                        }
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [showReviewModal, setShowReviewModal]);
 
             const handleNavigate = useCallback((e, path, isReady = true) => {
                 if (e && e.preventDefault) e.preventDefault();
@@ -1305,7 +1594,7 @@
             const missingRows = useMemo(() => {
                 if (!currentTag) return [];
                 const matchedCodes = new Set(matchedRows.map(r => String(r._matchCode)));
-                const processedStr = new Set(Array.from(appState.processedCodes).map(String));
+                const processedStr = new Set(Array.from(processedCodes).map(String));
                 const missing = [];
                 for (const code in masterProducts) {
                     const mItem = masterProducts[code];
@@ -1315,7 +1604,7 @@
                     }
                 }
                 return missing;
-            }, [masterProducts, matchedRows, currentTag, appState.processedCodes]);
+            }, [masterProducts, matchedRows, currentTag, processedCodes]);
 
             const masterSearchResults = useMemo(() => {
                 if ((activeTab !== 'similar' && activeTab !== 'unmatched') || !globalSearch.trim()) return [];
@@ -1323,7 +1612,6 @@
             }, [globalSearch, masterProducts, activeTab]);
 
             const displayUnmatchedRows = activeTab === 'similar' ? combinedSimilarRows : unmatchedRows;
-            const hasPendingMappings = combinedSimilarRows.length > 0 || unmatchedRows.length > 0;
 
             const handleUpdateMatchedPrice = useCallback((rowId, newVal) => {
                 appState.setParserBuffer(prev => prev.map(r => {
@@ -1369,64 +1657,44 @@
                             onNavigate={handleNavigate}
                         />
 
-                        <div className="shrink-0 flex flex-col bg-white border-b border-slate-200 z-40">
-                            <div className="p-5 pb-0 pt-6">
-                                <div className="bg-[#0f172a] rounded-xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
-                                    <div className="px-5 py-3 flex justify-between items-center border-b border-slate-800/80 bg-[#0b1120] gap-4">
-                                        <div className="flex items-center group shrink-0">
-                                            <span className="text-xl font-black text-emerald-400 mr-3">NEXUS</span>
-                                            <div className="flex flex-col border-l-2 border-slate-700 pl-3">
-                                                <div className="flex items-center mb-0.5"><span className="text-[14px] font-black text-slate-200 leading-none">Smart Parser</span></div>
-                                                <span className="text-[9px] font-extrabold text-slate-400 tracking-widest uppercase mt-0.5">TEXT ANALYSIS & DELTA SYNC</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex flex-1 max-w-md xl:max-w-xl mx-4">
-                                            {isProcessing ? (
-                                                <div className="w-full bg-amber-400 text-amber-900 px-4 py-1.5 rounded-md font-mono text-[12px] font-bold flex items-center shadow-inner truncate"><i className="fas fa-spinner fa-spin mr-2"></i><span className="truncate">{processMsg}</span></div>
-                                            ) : parserBuffer.length > 0 ? (
-                                                currentTag ? (
-                                                    <div className="w-full bg-indigo-500 text-white px-4 py-1.5 rounded-md text-[12px] font-bold flex items-center shadow-inner truncate"><i className="fas fa-folder mr-2 opacity-80"></i>작업 카탈로그: <span className="ml-1 text-indigo-100 font-black truncate">{currentTag}</span></div>
-                                                ) : (
-                                                    <div className="w-full bg-slate-600 text-slate-100 px-4 py-1.5 rounded-md text-[12px] font-bold flex items-center shadow-inner truncate"><i className="fas fa-bolt mr-2 opacity-80"></i>단순 파싱 모드 <span className="ml-1 text-slate-300 font-normal truncate">(카탈로그 미지정)</span></div>
-                                                )
-                                            ) : (
-                                                <div className="w-full bg-slate-700 text-slate-300 px-4 py-1.5 rounded-md text-[12px] font-bold flex items-center shadow-inner truncate">텍스트 파서를 실행하여 작업을 시작하세요.</div>
-                                            )}
-                                        </div>
-                                        
-                                        <nav className="flex gap-1.5 text-[14px] shrink-0 items-center">
-                                            <button onClick={() => setShowInputModal(true)} className="h-8 px-3 rounded flex items-center justify-center shadow-sm transition-all duration-300 border text-indigo-300 bg-[#0f172a] border-slate-700 hover:bg-[#1e293b] hover:text-white hover:border-indigo-500 font-bold text-[11px]">
-                                                <i className="fas fa-magic mr-1.5 text-[12px]"></i> 새 텍스트 파싱
-                                            </button>
-                                        </nav>
-                                    </div>
-                                </div>
+                        {/* 🌟 수정된 단일 툴바 영역 (중복된 블랙 헤더 제거) */}
+                        <div className="px-6 py-3 flex items-center justify-between gap-4 bg-white border-b border-slate-200 z-40 w-full shrink-0 shadow-sm">
+                            <div className="flex gap-1.5 shrink-0 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200">
+                                <button onClick={()=>{setActiveTab('matched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='matched' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟢 일치 ({matchedRows.length})</button>
+                                <button onClick={()=>{setActiveTab('similar'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='similar' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟡 유사 ({combinedSimilarRows.length})</button>
+                                <button onClick={()=>{setActiveTab('unmatched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='unmatched' ? 'bg-white text-rose-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🔴 불일치 ({unmatchedRows.length})</button>
+                                <div className="w-px bg-slate-300 mx-0.5 my-1"></div>
+                                <button onClick={()=>{setActiveTab('missing'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all flex items-center gap-1.5 ${activeTab==='missing' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>⚪ 누락 {currentTag && missingRows.length > 0 && <span className="bg-rose-100 text-rose-600 px-1.5 rounded text-[10px]">{missingRows.length}</span>}</button>
                             </div>
-                            
-                            <div className="px-6 pt-4 pb-3 flex items-center justify-between gap-4 overflow-x-auto custom-scrollbar w-full">
-                                <div className="flex gap-1.5 shrink-0 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200">
-                                    <button onClick={()=>{setActiveTab('matched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='matched' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟢 일치 ({matchedRows.length})</button>
-                                    <button onClick={()=>{setActiveTab('similar'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='similar' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟡 유사 ({combinedSimilarRows.length})</button>
-                                    <button onClick={()=>{setActiveTab('unmatched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='unmatched' ? 'bg-white text-rose-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🔴 불일치 ({unmatchedRows.length})</button>
-                                    <div className="w-px bg-slate-300 mx-0.5 my-1"></div>
-                                    <button onClick={()=>{setActiveTab('missing'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all flex items-center gap-1.5 ${activeTab==='missing' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>⚪ 누락 {currentTag && missingRows.length > 0 && <span className="bg-rose-100 text-rose-600 px-1.5 rounded text-[10px]">{missingRows.length}</span>}</button>
-                                </div>
 
-                                <div className="flex-1 min-w-[10px]"></div>
+                            <div className="flex-1 flex justify-center min-w-[10px] px-4">
+                                {isProcessing ? (
+                                    <div className="text-amber-600 font-bold text-[12px] flex items-center"><i className="fas fa-spinner fa-spin mr-2"></i><span className="truncate">{processMsg}</span></div>
+                                ) : parserBuffer.length > 0 ? (
+                                    currentTag ? (
+                                        <div className="text-indigo-600 font-bold text-[13px] flex items-center"><i className="fas fa-folder mr-1.5 opacity-80"></i>작업 카탈로그: <span className="ml-1 text-indigo-700 font-black truncate">{currentTag}</span></div>
+                                    ) : (
+                                        <div className="text-slate-600 font-bold text-[13px] flex items-center"><i className="fas fa-bolt mr-1.5 opacity-80"></i>단순 파싱 모드 <span className="ml-1 font-normal truncate">(카탈로그 미지정)</span></div>
+                                    )
+                                ) : null}
+                            </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                    {activeTab === 'matched' && (
-                                        <button onClick={() => setShowReviewModal(true)} disabled={matchedRows.filter(r=>r._apply).length === 0} className={`h-9 px-5 rounded-lg text-[12px] font-black shadow-sm transition-colors flex items-center ${matchedRows.filter(r=>r._apply).length > 0 ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`} title="매핑 작업을 완료하고 투트랙 프리뷰를 검토합니다.">
-                                            <i className="fas fa-check-circle mr-1.5 text-[13px]"></i> 반영하기 검토
-                                        </button>
-                                    )}
-                                    {activeTab === 'missing' && (
-                                        <button onClick={actions.handleRemoveMissingTags} className={`h-9 px-4 rounded-lg text-[12px] font-bold shadow-sm transition-colors flex items-center ${selectedMissingCodes.size > 0 ? 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100' : 'bg-white text-slate-400 border border-slate-200'}`}>
-                                            <i className="fas fa-eraser mr-1.5 text-[13px]"></i> 카탈로그 제외
-                                        </button>
-                                    )}
-                                </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => setShowInputModal(true)} className="h-9 px-4 rounded-lg text-[12px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 shadow-sm transition-colors flex items-center">
+                                    <i className="fas fa-magic mr-1.5 text-[13px]"></i> 새 텍스트 파싱
+                                </button>
+                                <div className="w-px h-6 bg-slate-300 mx-1"></div>
+                                
+                                {/* 🌟 언제나 확인 및 진입 가능한 반영하기(프리뷰) 버튼 + F8 단축키 추가 */}
+                                <button id="btn-open-review" onClick={() => setShowReviewModal(true)} disabled={matchedRows.filter(r=>r._apply).length === 0} className={`h-9 px-5 rounded-lg text-[12px] font-black shadow-sm transition-colors flex items-center ${matchedRows.filter(r=>r._apply).length > 0 ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`} title="매핑 작업을 완료하고 투트랙 프리뷰를 검토합니다. [단축키: F8]">
+                                    <i className="fas fa-check-circle mr-1.5 text-[13px]"></i> 반영하기 검토 [F8]
+                                </button>
+                                
+                                {activeTab === 'missing' && (
+                                    <button onClick={actions.handleRemoveMissingTags} className={`h-9 px-4 rounded-lg text-[12px] font-bold shadow-sm transition-colors flex items-center ${selectedMissingCodes.size > 0 ? 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                                        <i className="fas fa-eraser mr-1.5 text-[13px]"></i> 카탈로그 제외
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -1485,7 +1753,7 @@
                                             <i className="fas fa-exclamation-triangle text-amber-500 text-lg"></i>
                                             <div className="flex flex-col">
                                                 <span>주의! 아직 처리하지 않은 [유사] 또는 [불일치] 항목이 <span className="text-rose-600 font-black px-1">{combinedSimilarRows.length + unmatchedRows.length}건</span> 남아있습니다.</span>
-                                                <span className="text-[11px] font-normal opacity-80 mt-0.5">이 항목들이 단순히 오타로 인해 매칭 안된 것일 수 있으므로, 수동 연결을 먼저 끝마치신 후에 여기서 누락(단종) 처리를 진행해야 안전합니다.</span>
+                                                <span className="text-[11px] font-normal opacity-80 mt-0.5">이 항목들이 단순히 오타로 인해 매칭 안된 일 수 있으므로, 수동 연결을 먼저 끝마치신 후에 여기서 누락(단종) 처리를 진행해야 안전합니다.</span>
                                             </div>
                                         </div>
                                     )}
@@ -1612,10 +1880,12 @@
                                                             {virtualRows.map(row => {
                                                                 const isTarget = targetId === row._id;
                                                                 
+                                                                // 🌟 검색 키워드 자동 주입 시 불필요한 기호 제거
                                                                 const handleRowClick = () => {
                                                                     setTargetId(row._id);
                                                                     const cleanSearchName = row['품목명'].replace(/[()[\]{},./|]/g, ' ').replace(/\s+/g, ' ').trim();
                                                                     
+                                                                    // 만약 AI가 50% 이상 유사한 항목을 찾아뒀다면, 그 항목의 이름으로 검색창을 채워줍니다!
                                                                     if (row._matchStatus.includes('유사발견') && row.suggested) {
                                                                         const suggestedItem = masterProducts[row.suggested];
                                                                         if (suggestedItem) {
@@ -1641,7 +1911,8 @@
                                                                                 <span className={`text-[12px] font-extrabold truncate ${isTarget ? 'text-indigo-900' : 'text-slate-800'}`}>
                                                                                     {row['품목명']}
                                                                                 </span>
-                                                                                <span className="text-[11px] text-slate-500 mt-0.5 truncate">{row['규격']} {row['단위'] ? `| ${row['단위']}` : ''}</span>
+                                                                                <span className="text-[11px] text-slate-500 mt-0.5 truncate">{row['규격']} {row['단위'] ? `| ${row['단위']}` : ''} {row['간단설명'] ? `| ${row['간단설명']}` : ''}</span>
+                                                                                {/* 🌟 추천 항목 노출 */}
                                                                                 {row._matchStatus.includes('유사발견') && row.suggested && masterProducts[row.suggested] && (
                                                                                     <span className="text-[10px] font-bold text-amber-600 mt-1 bg-amber-50 w-max px-1.5 py-0.5 rounded">
                                                                                         💡 AI 추천: {masterProducts[row.suggested].품목명}
