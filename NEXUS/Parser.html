@@ -224,74 +224,63 @@
             return results;
         };
 
-        const runSmartMatch = (extName, extSpec, extPriceRaw, mProducts, pDict) => {
-            const dictKey = MatchEngine.cleanForDict(extName) + "|" + MatchEngine.cleanForDict(extSpec);
-            if (pDict[dictKey]) return { code: pDict[dictKey], status: '🔵 사전학습일치' };
+        const runSmartMatch = (extName, extSpec, mProducts, pDict) => {
+            const normExtName = normalizeText(extName);
+            const normExtSpec = normalizeText(extSpec);
+            const extFullText = normalizeText((extName || '') + " " + (extSpec || ''));
+            const dictKey = `${normExtName}|${normExtSpec}`;
 
-            const tokens = MatchEngine.tokenize(extName + " " + extSpec).filter(t => !/^(ea|box|박스|개|봉|팩|단|캔)$/i.test(t));
-            if (tokens.length === 0) return { code: '', status: '🔴 불일치' };
+            if (pDict[dictKey]) return { code: pDict[dictKey], status: '🔵 사전학습일치' };
 
             let bestMatch = null;
             let bestScore = 0;
-            let perfectMatches = [];
             
-            const extPrice = parseNum(extPriceRaw);
+            const extTokens = tokenize((extName || '') + " " + (extSpec || ''));
+            const extSpecNum = extractSpec((extName || '') + " " + (extSpec || ''));
+
+            let perfectMatches = [];
 
             for (const mCode in mProducts) {
                 const m = mProducts[mCode];
-                const mBrand = String(m.브랜드 || '').toLowerCase();
-                const mName = String(m.품목명 || '').toLowerCase();
-                const mSpec = String(m.규격 || '').toLowerCase();
+                const mBrand = String(m.브랜드 || '').trim();
+                const mName = String(m.품목명 || '').trim();
+                const mSpec = String(m.규격 || '').trim();
 
-                const mDictKey = MatchEngine.cleanForDict(mName) + "|" + MatchEngine.cleanForDict(mSpec);
-                if (dictKey === mDictKey) {
+                const mFullWithBrand = normalizeText(mBrand + mName + mSpec);
+                const mFullNoBrand = normalizeText(mName + mSpec);
+                const mSpecNum = extractSpec(mBrand + " " + mName + " " + mSpec);
+
+                let isSpecMatch = true;
+                if (extSpecNum && mSpecNum && extSpecNum !== mSpecNum) {
+                    isSpecMatch = false; 
+                }
+
+                if ((extFullText === mFullWithBrand || extFullText === mFullNoBrand) && isSpecMatch) {
                     perfectMatches.push(m);
                     continue;
                 }
 
-                let score = 0;
-                const fullTarget = (mBrand + " " + mName + " " + mSpec).replace(/[()[\]{},./|]/g, ' ');
+                const mTokens = tokenize(mBrand + " " + mName + " " + mSpec);
+                const intersection = extTokens.filter(t => mTokens.includes(t));
+                
+                let score = intersection.length / Math.max(extTokens.length, mTokens.length);
 
-                tokens.forEach(token => {
-                    if (token.length <= 1 && !/\d/.test(token)) return; 
-                    if (mName.includes(token)) score += token.length * 10;
-                    else if (mSpec.includes(token)) score += token.length * 10;
-                    else if (mBrand.includes(token)) score += token.length * 8;
-                    else if (fullTarget.includes(token)) score += token.length * 5;
-                });
-
-                // 🌟 단가(가격) 기반 강력한 가산점 로직 추가!
-                const mPrice = parseNum(m.입고가);
-                if (score > 0 && extPrice > 0 && mPrice > 0) {
-                    const diffRatio = Math.abs(extPrice - mPrice) / Math.max(extPrice, mPrice);
-                    if (diffRatio === 0) {
-                        score += 40; // 단가가 완벽히 일치하면 강력한 보너스 부여
-                    } else if (diffRatio <= 0.05) {
-                        score += 20; // 단가 오차 5% 이내
-                    } else if (diffRatio <= 0.1) {
-                        score += 10; // 단가 오차 10% 이내
-                    } else if (diffRatio <= 0.2) {
-                        score += 5;  // 단가 오차 20% 이내
-                    }
+                if (!isSpecMatch) {
+                    score = score * 0.1; 
                 }
 
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = m;
+                if (score >= 0.7) {
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = m;
+                    }
                 }
             }
 
             if (perfectMatches.length === 1) return { code: perfectMatches[0].코드 || perfectMatches[0].품목코드, status: '🟢 완전일치' };
             if (perfectMatches.length > 1) return { code: '', status: '🟡 중복품목(선택필요)' }; 
-            
-            // 단가 보너스를 고려하여 자동매칭 커트라인을 40점으로 상향 (안정성 확보)
-            if (bestMatch && bestScore >= 40) {
-                return { code: bestMatch.코드 || bestMatch.품목코드, status: '🟢 자동매칭' };
-            }
 
-            if (bestMatch && bestScore >= 15) {
-                return { code: '', status: '🟡 유사발견', suggested: bestMatch.코드 || bestMatch.품목코드 };
-            }
+            if (bestMatch && bestScore >= 0.7) return { code: '', status: '🟡 유사발견', suggested: bestMatch.코드 || bestMatch.품목코드 };
             
             return { code: '', status: '🔴 불일치' };
         };
@@ -545,11 +534,10 @@
                         parsedData.forEach(rowData => {
                             const extName = rowData['품목명'] || '';
                             const extSpec = rowData['규격'] || '';
-                            const extPriceRaw = rowData['입고가'] || 0;
                             
                             let matchResult;
                             if (forceManual) matchResult = { code: '', status: '🔴 불일치' };
-                            else matchResult = runSmartMatch(extName, extSpec, extPriceRaw, masterProducts, parserDict);
+                            else matchResult = runSmartMatch(extName, extSpec, masterProducts, parserDict);
                             
                             rowData._matchCode = matchResult.code; 
                             rowData._matchStatus = matchResult.status;
