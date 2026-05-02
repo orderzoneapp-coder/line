@@ -366,6 +366,8 @@
         const ReviewModal = ({ onClose, onConfirm, displayRows, masterProducts, visibleUploadCols, masterLinksEst }) => {
             const [filter, setFilter] = useState('all'); 
             const [vendorFilter, setVendorFilter] = useState('all');
+            const [editedPrices, setEditedPrices] = useState({});
+            const [checkedItems, setCheckedItems] = useState(new Set());
 
             const analysis = useMemo(() => {
                 let up = 0, down = 0, changed = 0, same = 0, newItems = 0; 
@@ -376,17 +378,19 @@
                     const mItem = masterProducts[rowCode] || masterProducts[row.품목코드] || {}; 
                     const oldP = mItem ? parseNum(mItem['입고가']) : 0; 
                     
-                    const newP = parseNum(row.finalData?.['입고가'] !== undefined 
-                        ? row.finalData['입고가'] 
-                        : (row.sources?.['estimate']?.['입고가'] !== undefined && row.sources?.['estimate']?.['입고가'] !== '' ? row.sources['estimate']['입고가'] : oldP));
+                    const newP = editedPrices[rowCode] !== undefined 
+                        ? parseNum(editedPrices[rowCode]) 
+                        : parseNum(row.finalData?.['입고가'] !== undefined 
+                            ? row.finalData['입고가'] 
+                            : (row.sources?.['estimate']?.['입고가'] !== undefined && row.sources?.['estimate']?.['입고가'] !== '' ? row.sources['estimate']['입고가'] : oldP));
                     
                     const vendor = row.finalData?.['구매처'] || row.sources?.['estimate']?.['구매처'] || mItem?.['구매처'] || '미지정';
                     vendors.add(vendor);
 
-                    const excelName = row.finalData?.['품목명'] || row.sources?.['estimate']?.['품목명'] || '';
-                    const excelSpec = row.finalData?.['규격'] || row.sources?.['estimate']?.['규격'] || '';
                     const masterName = mItem?.품목명 || '';
                     const masterSpec = mItem?.규격 || '';
+                    const excelName = row.finalData?.['품목명'] || row.sources?.['estimate']?.['품목명'] || masterName || '[미등록]';
+                    const excelSpec = row.finalData?.['규격'] || row.sources?.['estimate']?.['규격'] || masterSpec || '';
 
                     let status = 'same'; let issues = [];
 
@@ -410,18 +414,53 @@
                         }
                     }
 
-                    list.push({ 코드: rowCode, 품명: mItem?.품목명 || row.finalData?.['품목명'] || '', 거래처: vendor, 기존단가: oldP, 새단가: newP, issues: issues, 상태: status });
+                    list.push({ 코드: rowCode, 품명: excelName, 규격: excelSpec, 거래처: vendor, 기존단가: oldP, 새단가: newP, issues: issues, 상태: status });
                 });
 
                 list.sort((a, b) => { if (a.거래처 !== b.거래처) return a.거래처.localeCompare(b.거래처); return String(a.코드).localeCompare(String(b.코드)); });
                 return { up, down, changed, same, newItems, total: displayRows.length, list, vendors: Array.from(vendors).sort() };
-            }, [displayRows, masterProducts, visibleUploadCols, masterLinksEst]);
+            }, [displayRows, masterProducts, visibleUploadCols, masterLinksEst, editedPrices]);
 
             const filteredList = analysis.list.filter(i => {
                 const statusMatch = filter === 'all' || i.상태 === filter;
                 const vendorMatch = vendorFilter === 'all' || i.거래처 === vendorFilter;
                 return statusMatch && vendorMatch;
             });
+
+            // 데이터 변경 시 전체 선택 초기화
+            useEffect(() => { setCheckedItems(new Set(analysis.list.map(i => i.코드))); }, [analysis.list]);
+
+            const toggleCheck = (code) => {
+                setCheckedItems(prev => { const next = new Set(prev); next.has(code) ? next.delete(code) : next.add(code); return next; });
+            };
+
+            const toggleAll = () => {
+                const isAllChecked = filteredList.length > 0 && filteredList.every(i => checkedItems.has(i.코드));
+                setCheckedItems(prev => {
+                    const next = new Set(prev);
+                    if (isAllChecked) filteredList.forEach(i => next.delete(i.코드));
+                    else filteredList.forEach(i => next.add(i.코드));
+                    return next;
+                });
+            };
+
+            const handlePriceInputKeyDown = useCallback((e) => {
+                if (['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) {
+                    e.preventDefault();
+                    const inputs = Array.from(document.querySelectorAll('.review-price-input:not([disabled])'));
+                    const currentIndex = inputs.indexOf(e.target);
+                    if (currentIndex === -1) return;
+                    let nextIndex = currentIndex;
+                    if (e.key === 'ArrowUp') nextIndex = Math.max(0, currentIndex - 1);
+                    if (e.key === 'ArrowDown' || e.key === 'Enter') nextIndex = Math.min(inputs.length - 1, currentIndex + 1);
+                    if (nextIndex !== currentIndex) {
+                        inputs[nextIndex].focus();
+                        setTimeout(() => inputs[nextIndex].select(), 0);
+                    }
+                }
+            }, []);
+
+            const checkedTargetCodes = filteredList.filter(i => checkedItems.has(i.코드)).map(r => r.코드);
 
             return (
                 <div className="fixed inset-0 flex justify-center items-center bg-slate-900/80 backdrop-blur-sm fade-in z-[100]">
@@ -448,26 +487,69 @@
                             </div>
                             <div className="flex-1 overflow-hidden flex flex-col bg-white border border-slate-200 rounded-xl">
                                 <div className="flex-1 overflow-auto custom-scrollbar">
-                                    <table className="w-full text-left text-xs"><thead className="bg-slate-50 sticky top-0 border-b"><tr><th className="px-4 py-2 w-14 text-center">상태</th><th className="px-4 py-2 w-24">코드</th><th className="px-4 py-2 w-28">거래처</th><th className="px-4 py-2">품목명 (마스터 기준)</th><th className="px-4 py-2 text-right">기존 입고가</th><th className="px-4 py-2 text-right text-indigo-600">새 입고가</th><th className="px-4 py-2 text-right">이슈 (차액 및 변동)</th></tr></thead>
-                                    <tbody className="divide-y divide-slate-100">{filteredList.map((i,idx)=><tr key={idx} className="hover:bg-slate-50">
-                                        <td className="px-4 py-2 text-center">{i.상태==='up'&&<span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded text-[10px] font-black">인상</span>}{i.상태==='down'&&<span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded text-[10px] font-black">인하</span>}{i.상태==='new'&&<span className="bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded text-[10px] font-black">신규</span>}{i.상태==='changed'&&<span className="bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[10px] font-black">변동</span>}{i.상태==='same'&&<span className="text-slate-300">-</span>}</td>
-                                        <td className="px-4 py-2 font-mono text-slate-500">{i.코드}</td><td className="px-4 py-2 text-[11px] text-slate-600 truncate max-w-[100px] font-medium">{i.거래처}</td><td className="px-4 py-2 font-bold truncate max-w-[180px] text-slate-800">{i.품명}</td><td className="px-4 py-2 text-right text-slate-500">{i.기존단가>0?i.기존단가.toLocaleString():'-'}</td><td className="px-4 py-2 text-right font-black text-indigo-600">{i.새단가>0?i.새단가.toLocaleString():'-'}</td>
-                                        <td className="px-4 py-2 text-right font-bold text-[11px]">
-                                            <div className="flex flex-col items-end gap-0.5">
-                                                {i.issues.length === 0 ? <span className="text-slate-300">-</span> : i.issues.map((iss, jdx) => <span key={jdx} className={iss.color}>{iss.text}</span>)}
-                                            </div>
-                                        </td>
-                                    </tr>)}</tbody></table>
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-50 sticky top-0 border-b z-10">
+                                            <tr>
+                                                <th className="px-3 py-2 w-10 text-center"><input type="checkbox" checked={filteredList.length > 0 && filteredList.every(i => checkedItems.has(i.코드))} onChange={toggleAll} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"/></th>
+                                                <th className="px-4 py-2 w-14 text-center">상태</th>
+                                                <th className="px-4 py-2 w-24">코드</th>
+                                                <th className="px-4 py-2 w-28">거래처</th>
+                                                <th className="px-4 py-2">품목명 (마스터 기준)</th>
+                                                <th className="px-4 py-2 text-right">기존 입고가</th>
+                                                <th className="px-4 py-2 text-right text-indigo-600"><i className="fas fa-edit mr-1"></i>새 입고가</th>
+                                                <th className="px-4 py-2 text-right">이슈 (차액 및 변동)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {filteredList.map((i,idx)=>(
+                                                <tr key={`${i.코드}-${idx}`} className={`h-[44px] transition-colors ${checkedItems.has(i.코드) ? 'hover:bg-slate-50' : 'bg-slate-50/50 opacity-60'}`}>
+                                                    <td className="px-3 py-2 text-center">
+                                                        <input type="checkbox" checked={checkedItems.has(i.코드)} onChange={() => toggleCheck(i.코드)} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer" />
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center">
+                                                        {i.상태==='up'&&<span className="bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded text-[10px] font-black">인상</span>}
+                                                        {i.상태==='down'&&<span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded text-[10px] font-black">인하</span>}
+                                                        {i.상태==='new'&&<span className="bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded text-[10px] font-black">신규</span>}
+                                                        {i.상태==='changed'&&<span className="bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[10px] font-black">변동</span>}
+                                                        {i.상태==='same'&&<span className="text-slate-300">-</span>}
+                                                    </td>
+                                                    <td className="px-4 py-2 font-mono text-slate-500">{i.코드}</td>
+                                                    <td className="px-4 py-2 text-[11px] text-slate-600 truncate max-w-[100px] font-medium">{i.거래처}</td>
+                                                    <td className="px-4 py-2 font-bold truncate max-w-[180px] text-slate-800">
+                                                        {i.품명} {i.규격 && <span className="text-[10px] text-slate-400 font-medium ml-1">({i.규격})</span>}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right text-slate-400 line-through decoration-slate-300">{i.기존단가>0?i.기존단가.toLocaleString():'-'}</td>
+                                                    <td className="px-4 py-1.5 bg-indigo-50/30">
+                                                        <input 
+                                                            type="number" 
+                                                            className={`review-price-input w-full text-right px-2 py-1 rounded bg-transparent border-b outline-none font-black text-[13px] transition-colors focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300 shadow-sm ${i.기존단가 > 0 && i.새단가 !== i.기존단가 ? 'text-indigo-600 border-indigo-200' : 'text-slate-700 border-transparent hover:border-slate-300'}`}
+                                                            value={i.새단가 === 0 ? '' : i.새단가}
+                                                            onChange={(e) => setEditedPrices(prev => ({...prev, [i.코드]: e.target.value}))}
+                                                            onFocus={(e) => setTimeout(() => e.target.select(), 0)}
+                                                            onKeyDown={handlePriceInputKeyDown}
+                                                            placeholder={i.기존단가>0?i.기존단가:''}
+                                                            disabled={!checkedItems.has(i.코드)}
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right font-bold text-[11px]">
+                                                        <div className="flex flex-col items-end gap-0.5">
+                                                            {i.issues.length === 0 ? <span className="text-slate-300">-</span> : i.issues.map((iss, jdx) => <span key={jdx} className={iss.color}>{iss.text}</span>)}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
                         <div className="bg-slate-100 p-4 border-t flex justify-between items-center gap-2 shrink-0">
                             <div className="text-[12px] font-bold text-indigo-600 flex items-center bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 shadow-sm">
-                                <i className="fas fa-info-circle mr-1.5"></i> 현재 화면에 필터링된 상품({filteredList.length}건)만 마스터에 반영됩니다.
+                                <i className="fas fa-info-circle mr-1.5"></i> 현재 화면에 선택된 상품({checkedTargetCodes.length}건)만 마스터에 반영됩니다.
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={onClose} className="px-5 py-2.5 bg-white border border-slate-300 text-slate-600 font-bold rounded-lg hover:bg-slate-50">닫기 (수정하러 가기)</button>
-                                <button onClick={()=>{onConfirm(filteredList.map(r=>r.코드)); onClose();}} className="px-6 py-2.5 bg-indigo-600 text-white font-black rounded-lg hover:bg-indigo-700 shadow-sm flex items-center"><SafeIcon name="check-circle-2" className="mr-1.5" size={14}/> 마스터에 반영하기</button>
+                                <button onClick={()=>{onConfirm(checkedTargetCodes, editedPrices); onClose();}} disabled={checkedTargetCodes.length===0} className="px-6 py-2.5 bg-indigo-600 text-white font-black rounded-lg hover:bg-indigo-700 shadow-sm flex items-center disabled:bg-slate-300 disabled:cursor-not-allowed"><SafeIcon name="check-circle-2" className="mr-1.5" size={14}/> {checkedTargetCodes.length}건 반영하기</button>
                             </div>
                         </div>
                     </div>
@@ -979,7 +1061,7 @@
                 });
             }, [masterProducts, config.marginRules]);
 
-            const handleCommitEstimate = useCallback(async (targetCodes) => {
+            const handleCommitEstimate = useCallback(async (targetCodes, editedPrices = {}) => {
                 if (targetCodes.length === 0) return;
                 let newMaster = { ...masterProducts }, commitCount = 0, localLogs = []; const nowStr = new Date().toLocaleString('ko-KR');
 
@@ -987,6 +1069,12 @@
                     const item = managedItems[code]; if (!item || !item.코드) return;
                     const oldItem = masterProducts[code] || {};
                     newMaster[item.코드] = { ...(newMaster[item.코드] || { 코드: item.코드 }) };
+
+                    if (editedPrices && editedPrices[code] !== undefined) {
+                        item.finalData = item.finalData || {};
+                        item.finalData['입고가'] = parseNum(editedPrices[code]);
+                        item.finalData = calculatePricesEngine(item.finalData['입고가'], oldItem, item.finalData, config.marginRules, true);
+                    }
 
                     if (item.finalData) {
                         Object.keys(item.finalData).forEach(field => {
