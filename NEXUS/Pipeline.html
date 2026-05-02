@@ -505,10 +505,12 @@
                     const vendor = row.finalData?.['구매처'] || row.sources?.['estimate']?.['구매처'] || mItem?.['구매처'] || '미지정';
                     vendors.add(vendor);
 
-                    const excelName = row.finalData?.['품목명'] || row.sources?.['estimate']?.['품목명'] || '';
-                    const excelSpec = row.finalData?.['규격'] || row.sources?.['estimate']?.['규격'] || '';
                     const masterName = mItem?.품목명 || '';
                     const masterSpec = mItem?.규격 || '';
+                    
+                    // 🌟 수정: 엑셀 데이터에 없을 경우 마스터 데이터로 폴백
+                    const excelName = row.finalData?.['품목명'] || row.sources?.['estimate']?.['품목명'] || masterName || '';
+                    const excelSpec = row.finalData?.['규격'] || row.sources?.['estimate']?.['규격'] || masterSpec || '';
 
                     let status = 'same'; let issues = [];
 
@@ -610,6 +612,28 @@
             const handlePriceChange = (code, value) => {
                 setEditedPrices(prev => ({ ...prev, [code]: value }));
             };
+
+            // 🌟 수정: 모달 내 새 입고가 방향키 및 엔터 이동 로직
+            const handlePriceInputKeyDown = useCallback((e) => {
+                if (['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) {
+                    e.preventDefault(); // 숫자 증감 기본 동작 막기
+                    
+                    const inputs = Array.from(document.querySelectorAll('.review-price-input:not([disabled])'));
+                    const currentIndex = inputs.indexOf(e.target);
+                    
+                    if (currentIndex === -1) return;
+
+                    let nextIndex = currentIndex;
+                    if (e.key === 'ArrowUp') nextIndex = Math.max(0, currentIndex - 1);
+                    if (e.key === 'ArrowDown' || e.key === 'Enter') nextIndex = Math.min(inputs.length - 1, currentIndex + 1);
+
+                    if (nextIndex !== currentIndex) {
+                        inputs[nextIndex].focus();
+                        // focus 이벤트에서 select()가 트리거되지만 명확히 하기 위해 다시 호출
+                        setTimeout(() => inputs[nextIndex].select(), 0);
+                    }
+                }
+            }, []);
 
             // 🌟 최적화 2: 가상 스크롤 계산 로직
             const ROW_HEIGHT = 44; // tr 예상 높이
@@ -728,9 +752,11 @@
                                                     <td className="px-4 py-1 bg-indigo-50/30">
                                                         <input 
                                                             type="number" 
-                                                            className={`w-full text-right px-2 py-1.5 rounded bg-transparent border-b outline-none font-black text-[13px] transition-colors focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300 shadow-sm ${i.기존단가 > 0 && i.새단가 !== i.기존단가 ? 'text-indigo-600 border-indigo-200' : 'text-slate-700 border-transparent hover:border-slate-300'}`}
+                                                            className={`review-price-input w-full text-right px-2 py-1.5 rounded bg-transparent border-b outline-none font-black text-[13px] transition-colors focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300 shadow-sm ${i.기존단가 > 0 && i.새단가 !== i.기존단가 ? 'text-indigo-600 border-indigo-200' : 'text-slate-700 border-transparent hover:border-slate-300'}`}
                                                             value={i.새단가 === 0 ? '' : i.새단가}
                                                             onChange={(e) => handlePriceChange(i.코드, e.target.value)}
+                                                            onFocus={(e) => setTimeout(() => e.target.select(), 0)}
+                                                            onKeyDown={handlePriceInputKeyDown}
                                                             placeholder={i.기존단가>0?i.기존단가:''}
                                                             disabled={!checkedItems.has(i.코드)}
                                                         />
@@ -1026,7 +1052,7 @@
                                             const rowCode = row.코드 || row.품목코드;
                                             const mItem = masterProducts[rowCode] || masterProducts[row.품목코드] || {};
                                             const isSel = selectedRows.has(rowCode);
-                                            return <MemoizedTableRow key={rowCode} row={{...row, 코드: rowCode}} idx={idx} isSel={isSel} mItem={mItem} isEstimateUploaded={isEstimateUploaded} visMasterCols={visMaster} visUploadCols={visUpload} masterLinksEst={masterLinksEst} onToggleSelection={actions.toggleRowSelection} onMouseDown={handleMouseDown} onMouseEnter={handleMouseEnter} onUpdateCell={actions.handleUpdateCell} />;
+                                            return <MemoizedTableRow key={rowCode} row={{...row, 코드: rowCode}} idx={idx} isSel={isSel} mItem={mItem} isEstimateUploaded={isEstimateUploaded} visMasterCols={visUploadCols} visUploadCols={visUpload} masterLinksEst={masterLinksEst} onToggleSelection={actions.toggleRowSelection} onMouseDown={handleMouseDown} onMouseEnter={handleMouseEnter} onUpdateCell={actions.handleUpdateCell} />;
                                         })}
                                         
                                         {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="50" className="p-0 border-0"></td></tr>}
