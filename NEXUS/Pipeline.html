@@ -1311,15 +1311,20 @@
                 setTimeout(() => {
                     try {
                         const wb = window.XLSX.utils.book_new();
-                        let erpData = []; erpData.push(['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '행사', 'n', '1']);
+                        
+                        // 🌟 수정: 제공된 엑셀 캡처 이미지에 맞춰 '행사' 관련 열만 지우고 'n' 및 '1' 열은 유지
+                        let erpData = []; erpData.push(['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '1']);
+                        
                         let shopData = []; shopData.push(['상품코드\n코드', '상품명', '규격', '출고가', '도매A', '시중가', '도매B', '도매B', 'C 판매가', 'C 도매가', 'D 판매가', 'D 도매가', '브랜드', '기본설명', '판매여부', '재고수량', '테마1', '테마2', '테마3', '테마4', '테마5', '상품태그']);
                         
-                        const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='', instruction='') => { 
+                        const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='') => { 
                             if (!code) return null; 
                             const outIn = inPrice > 0 ? inPrice : ''; 
                             const outOut = outPrice > 0 ? outPrice : ''; 
                             const outFinal = finalPrice > 0 ? finalPrice : outIn; 
-                            return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', instruction||'', 'n', (inPrice > 0 || outPrice > 0) ? '1' : '' ]; 
+                            
+                            // 🌟 수정: 이미지와 동일하게 단가 사이사이에 'n'을 넣고 마지막에 '1' 조건부 삽입
+                            return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', (inPrice > 0 || outPrice > 0) ? '1' : '' ]; 
                         };
 
                         const getFirstValidNum = (objList, keys) => {
