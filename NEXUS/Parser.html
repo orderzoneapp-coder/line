@@ -691,13 +691,12 @@
 
                     setParserBuffer(nextBuffer);
                     setTargetId(null); setGlobalSearch(''); 
-                    setActiveTab('matched');
                     
-                    showToast(`✅ 수동 연결 대기 완료! (일치 탭으로 이동되었습니다)`);
+                    showToast(`✅ 수동 연결 대기 완료!`);
                 } catch(error) {
                     console.error(error); showToast("❌ 수동 매핑 처리 중 오류가 발생했습니다.");
                 }
-            }, [targetId, parserBuffer, masterProducts, marginRules, setParserBuffer, setTargetId, setGlobalSearch, setActiveTab, showToast]);
+            }, [targetId, parserBuffer, masterProducts, marginRules, setParserBuffer, setTargetId, setGlobalSearch, showToast]);
 
             const handleCancelMapping = useCallback((rowId) => {
                 setParserBuffer(prev => prev.map(r => {
@@ -740,7 +739,7 @@
 
                     const normExtName = normalizeText(row['품목명']);
                     const normExtSpec = normalizeText(row['규격']);
-                    const dictKey = `${normExtName}|${normExtSpec}`;
+                    const dictKey = MatchEngine.cleanForDict(row['품목명']) + "|" + MatchEngine.cleanForDict(row['규격']);
                     const newDict = { ...parserDict, [dictKey]: newCode };
                     await saveDict(newDict, { [dictKey]: newCode });
 
@@ -754,15 +753,15 @@
                     });
                     
                     setParserBuffer(nextBuffer);
-                    setTargetId(null); setGlobalSearch(''); setActiveTab('matched'); setShowErpModal(false);
+                    setTargetId(null); setGlobalSearch(''); setShowErpModal(false);
 
                     showToast(`✅ [${newCode}] 신규 마스터 등록 및 매핑이 완료되었습니다!`);
                 } catch(error) {
                     console.error(error); showToast("❌ 신규 등록 처리 중 오류가 발생했습니다.");
                 } finally {
-                    setIsProcessing(false); setProcessMsg('');
+                    setIsProcessing(false); setProcessMsg(''); 
                 }
-            }, [targetId, parserBuffer, masterProducts, currentTag, marginRules, parserDict, processedCodes, saveMaster, saveDict, setProcessedCodes, setParserBuffer, setTargetId, setGlobalSearch, setActiveTab, setShowErpModal, setIsProcessing, setProcessMsg, showToast]);
+            }, [targetId, parserBuffer, masterProducts, currentTag, marginRules, parserDict, processedCodes, saveMaster, saveDict, setProcessedCodes, setParserBuffer, setTargetId, setGlobalSearch, setShowErpModal, setIsProcessing, setProcessMsg, showToast]);
 
             const handleCancelErpInput = useCallback(() => {
                 if (window.confirm("ERP 코드를 입력하지 않으면 이 파싱 항목은 작업 목록에서 영구히 무시(삭제)됩니다. 취소하시겠습니까?")) {
@@ -1404,64 +1403,44 @@
                             onNavigate={handleNavigate}
                         />
 
-                        <div className="shrink-0 flex flex-col bg-white border-b border-slate-200 z-40">
-                            <div className="p-5 pb-0 pt-6">
-                                <div className="bg-[#0f172a] rounded-xl shadow-lg border border-slate-800 flex flex-col overflow-hidden">
-                                    <div className="px-5 py-3 flex justify-between items-center border-b border-slate-800/80 bg-[#0b1120] gap-4">
-                                        <div className="flex items-center group shrink-0">
-                                            <span className="text-xl font-black text-emerald-400 mr-3">NEXUS</span>
-                                            <div className="flex flex-col border-l-2 border-slate-700 pl-3">
-                                                <div className="flex items-center mb-0.5"><span className="text-[14px] font-black text-slate-200 leading-none">Smart Parser</span></div>
-                                                <span className="text-[9px] font-extrabold text-slate-400 tracking-widest uppercase mt-0.5">TEXT ANALYSIS & DELTA SYNC</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex flex-1 max-w-md xl:max-w-xl mx-4">
-                                            {isProcessing ? (
-                                                <div className="w-full bg-amber-400 text-amber-900 px-4 py-1.5 rounded-md font-mono text-[12px] font-bold flex items-center shadow-inner truncate"><i className="fas fa-spinner fa-spin mr-2"></i><span className="truncate">{processMsg}</span></div>
-                                            ) : parserBuffer.length > 0 ? (
-                                                currentTag ? (
-                                                    <div className="w-full bg-indigo-500 text-white px-4 py-1.5 rounded-md text-[12px] font-bold flex items-center shadow-inner truncate"><i className="fas fa-folder mr-2 opacity-80"></i>작업 카탈로그: <span className="ml-1 text-indigo-100 font-black truncate">{currentTag}</span></div>
-                                                ) : (
-                                                    <div className="w-full bg-slate-600 text-slate-100 px-4 py-1.5 rounded-md text-[12px] font-bold flex items-center shadow-inner truncate"><i className="fas fa-bolt mr-2 opacity-80"></i>단순 파싱 모드 <span className="ml-1 text-slate-300 font-normal truncate">(카탈로그 미지정)</span></div>
-                                                )
-                                            ) : (
-                                                <div className="w-full bg-slate-700 text-slate-300 px-4 py-1.5 rounded-md text-[12px] font-bold flex items-center shadow-inner truncate">텍스트 파서를 실행하여 작업을 시작하세요.</div>
-                                            )}
-                                        </div>
-                                        
-                                        <nav className="flex gap-1.5 text-[14px] shrink-0 items-center">
-                                            <button onClick={() => setShowInputModal(true)} className="h-8 px-3 rounded flex items-center justify-center shadow-sm transition-all duration-300 border text-indigo-300 bg-[#0f172a] border-slate-700 hover:bg-[#1e293b] hover:text-white hover:border-indigo-500 font-bold text-[11px]">
-                                                <i className="fas fa-magic mr-1.5 text-[12px]"></i> 새 텍스트 파싱
-                                            </button>
-                                        </nav>
-                                    </div>
-                                </div>
+                        {/* 🌟 수정된 단일 툴바 영역 (중복된 블랙 헤더 제거) */}
+                        <div className="px-6 py-3 flex items-center justify-between gap-4 bg-white border-b border-slate-200 z-40 w-full shrink-0 shadow-sm">
+                            <div className="flex gap-1.5 shrink-0 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200">
+                                <button onClick={()=>{setActiveTab('matched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='matched' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟢 일치 ({matchedRows.length})</button>
+                                <button onClick={()=>{setActiveTab('similar'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='similar' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟡 유사 ({combinedSimilarRows.length})</button>
+                                <button onClick={()=>{setActiveTab('unmatched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='unmatched' ? 'bg-white text-rose-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🔴 불일치 ({unmatchedRows.length})</button>
+                                <div className="w-px bg-slate-300 mx-0.5 my-1"></div>
+                                <button onClick={()=>{setActiveTab('missing'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all flex items-center gap-1.5 ${activeTab==='missing' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>⚪ 누락 {currentTag && missingRows.length > 0 && <span className="bg-rose-100 text-rose-600 px-1.5 rounded text-[10px]">{missingRows.length}</span>}</button>
                             </div>
-                            
-                            <div className="px-6 pt-4 pb-3 flex items-center justify-between gap-4 overflow-x-auto custom-scrollbar w-full">
-                                <div className="flex gap-1.5 shrink-0 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200">
-                                    <button onClick={()=>{setActiveTab('matched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='matched' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟢 일치 ({matchedRows.length})</button>
-                                    <button onClick={()=>{setActiveTab('similar'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='similar' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🟡 유사 ({combinedSimilarRows.length})</button>
-                                    <button onClick={()=>{setActiveTab('unmatched'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all ${activeTab==='unmatched' ? 'bg-white text-rose-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>🔴 불일치 ({unmatchedRows.length})</button>
-                                    <div className="w-px bg-slate-300 mx-0.5 my-1"></div>
-                                    <button onClick={()=>{setActiveTab('missing'); setScrollTop(0);}} className={`px-4 py-1.5 rounded-lg text-[12px] font-black transition-all flex items-center gap-1.5 ${activeTab==='missing' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>⚪ 누락 {currentTag && missingRows.length > 0 && <span className="bg-rose-100 text-rose-600 px-1.5 rounded text-[10px]">{missingRows.length}</span>}</button>
-                                </div>
 
-                                <div className="flex-1 min-w-[10px]"></div>
+                            <div className="flex-1 flex justify-center min-w-[10px] px-4">
+                                {isProcessing ? (
+                                    <div className="text-amber-600 font-bold text-[12px] flex items-center"><i className="fas fa-spinner fa-spin mr-2"></i><span className="truncate">{processMsg}</span></div>
+                                ) : parserBuffer.length > 0 ? (
+                                    currentTag ? (
+                                        <div className="text-indigo-600 font-bold text-[13px] flex items-center"><i className="fas fa-folder mr-1.5 opacity-80"></i>작업 카탈로그: <span className="ml-1 text-indigo-700 font-black truncate">{currentTag}</span></div>
+                                    ) : (
+                                        <div className="text-slate-600 font-bold text-[13px] flex items-center"><i className="fas fa-bolt mr-1.5 opacity-80"></i>단순 파싱 모드 <span className="ml-1 font-normal truncate">(카탈로그 미지정)</span></div>
+                                    )
+                                ) : null}
+                            </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                    {activeTab === 'matched' && (
-                                        <button onClick={() => setShowReviewModal(true)} disabled={matchedRows.filter(r=>r._apply).length === 0} className={`h-9 px-5 rounded-lg text-[12px] font-black shadow-sm transition-colors flex items-center ${matchedRows.filter(r=>r._apply).length > 0 ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`} title="매핑 작업을 완료하고 투트랙 프리뷰를 검토합니다.">
-                                            <i className="fas fa-check-circle mr-1.5 text-[13px]"></i> 반영하기 검토
-                                        </button>
-                                    )}
-                                    {activeTab === 'missing' && (
-                                        <button onClick={actions.handleRemoveMissingTags} className={`h-9 px-4 rounded-lg text-[12px] font-bold shadow-sm transition-colors flex items-center ${selectedMissingCodes.size > 0 ? 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100' : 'bg-white text-slate-400 border border-slate-200'}`}>
-                                            <i className="fas fa-eraser mr-1.5 text-[13px]"></i> 카탈로그 제외
-                                        </button>
-                                    )}
-                                </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => setShowInputModal(true)} className="h-9 px-4 rounded-lg text-[12px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 shadow-sm transition-colors flex items-center">
+                                    <i className="fas fa-magic mr-1.5 text-[13px]"></i> 새 텍스트 파싱
+                                </button>
+                                <div className="w-px h-6 bg-slate-300 mx-1"></div>
+                                
+                                {/* 🌟 언제나 확인 및 진입 가능한 반영하기(프리뷰) 버튼 */}
+                                <button onClick={() => setShowReviewModal(true)} disabled={matchedRows.filter(r=>r._apply).length === 0} className={`h-9 px-5 rounded-lg text-[12px] font-black shadow-sm transition-colors flex items-center ${matchedRows.filter(r=>r._apply).length > 0 ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`} title="매핑 작업을 완료하고 투트랙 프리뷰를 검토합니다.">
+                                    <i className="fas fa-check-circle mr-1.5 text-[13px]"></i> 반영하기 검토
+                                </button>
+                                
+                                {activeTab === 'missing' && (
+                                    <button onClick={actions.handleRemoveMissingTags} className={`h-9 px-4 rounded-lg text-[12px] font-bold shadow-sm transition-colors flex items-center ${selectedMissingCodes.size > 0 ? 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                                        <i className="fas fa-eraser mr-1.5 text-[13px]"></i> 카탈로그 제외
+                                    </button>
+                                )}
                             </div>
                         </div>
 
