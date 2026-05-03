@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.1]</title>
+    <title>NEXUS - Valuation Hub [v1.6.2]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -28,20 +28,12 @@
         @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
         .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
         
-        /* 🌟 핵심 UI/UX: Split View 및 행 단위 하이라이트/상태 추적 CSS */
         .data-row > td { background-color: #ffffff; transition: background-color 0.15s ease; }
-        .data-row > td.master-col { background-color: #f1f5f9; } /* 읽기전용 마스터 영역 (더 뚜렷한 쿨그레이) */
-        
+        .data-row > td.master-col { background-color: #f1f5f9; } 
         .data-row:hover > td { background-color: #f8fafc; }
-        .data-row:hover > td.master-col { background-color: #e2e8f0; } /* 마스터 영역 호버 시 색상 */
-        
-        /* 1. 단가/데이터가 수정된 행 (노란색 끈질긴 추적) */
+        .data-row:hover > td.master-col { background-color: #e2e8f0; } 
         .data-row.is-modified > td { background-color: #fefce8 !important; }
-        
-        /* 2. 입력칸 클릭 시(Focus) 줄 전체 파란색 하이라이트 십자선 효과 (가장 우선순위 높음) */
         .data-row:focus-within > td { background-color: #eff6ff !important; }
-        
-        /* 3. 드래그로 다중 선택된 행 */
         .data-row.is-selected > td { background-color: #e0e7ff !important; }
         
         input[type="number"]::-webkit-outer-spin-button,
@@ -55,9 +47,6 @@
     <script type="text/babel">
         const { useState, useMemo, useEffect, useRef, useCallback, Fragment } = React;
 
-        // ==========================================
-        // 🧩 1. 코어 전역 상수 및 로컬 데이터베이스 컨트롤러
-        // ==========================================
         const STORAGE_KEYS = {
             MASTER_DB: 'merchMaster_v870', CLOUD_URL: 'skuSyncCloudUrl_v6', SYNC_TRIGGER: 'merchMaster_sync_trigger',
             HISTORY_DB: 'merchHistory_v870', CLOSING_DB: 'merchClosing_v1', MANAGED_ITEMS: 'merchPipeline_Managed_v2',
@@ -152,8 +141,11 @@
             reader.readAsArrayBuffer(file);
         });
 
+        // 🌟 코어 엔진 재정의: "시중가 = 전산단가", "출고가 = 판매가(수동조작 우선)" 철학 반영
         const calculatePricesEngine = (baseInPrice, mItem = {}, currentFinalData = {}, marginRules = [], forceRecalc = false) => {
-            if (baseInPrice === undefined || baseInPrice === null || baseInPrice <= 0) return { ...currentFinalData, '입고가': 0, '시중가': 0, '출고가': 0, '1입고': 0, '1출고': 0 };
+            if (baseInPrice === undefined || baseInPrice === null || baseInPrice < 0) {
+                return currentFinalData;
+            }
 
             const outsrc = parseNum(currentFinalData?.['외주비'] ?? mItem?.['외주비']);
             const labor = parseNum(currentFinalData?.['노무비'] ?? mItem?.['노무비']);
@@ -173,19 +165,38 @@
                 }
             });
 
-            let calcOutPrice = totalCost;
+            // 1. 입고가 기준 시스템 마진 연산 (전산 단가)
+            let systemCalculatedPrice = totalCost;
             if (bestRule.type === 'divide') {
-                const safeRate = Math.min(bestRule.rate, 99.99); calcOutPrice = totalCost / (1 - (safeRate / 100));
-            } else calcOutPrice = totalCost * (1 + (bestRule.rate / 100));
-            calcOutPrice = Math.round(calcOutPrice / 100) * 100;
-            if (!isFinite(calcOutPrice) || isNaN(calcOutPrice)) calcOutPrice = 0;
+                const safeRate = Math.min(bestRule.rate, 99.99); systemCalculatedPrice = totalCost / (1 - (safeRate / 100));
+            } else {
+                systemCalculatedPrice = totalCost * (1 + (bestRule.rate / 100));
+            }
+            systemCalculatedPrice = Math.round(systemCalculatedPrice / 100) * 100;
+            if (!isFinite(systemCalculatedPrice) || isNaN(systemCalculatedPrice)) systemCalculatedPrice = 0;
 
-            let newFinalData = { ...currentFinalData, '입고가': baseInPrice, '시중가': calcOutPrice };
-            const providedOutPrice = parseNum(currentFinalData?.['출고가']), mIn = parseNum(mItem?.['입고가']), mOut = parseNum(mItem?.['출고가']);
+            let newFinalData = { ...currentFinalData, '입고가': baseInPrice };
+            
+            // 2. 시중가 = 전산 단가로 불변 마킹
+            newFinalData['시중가'] = systemCalculatedPrice;
+            
+            const providedOutPrice = parseNum(currentFinalData?.['출고가']); // 엑셀이나 수기로 적은 출고가
+            const mIn = parseNum(mItem?.['입고가']);
+            const mOut = parseNum(mItem?.['출고가']);
 
-            if (providedOutPrice > 0 && !forceRecalc) newFinalData['출고가'] = providedOutPrice;
-            else if (baseInPrice === mIn && mOut > 0 && !forceRecalc) newFinalData['출고가'] = mOut;
-            else newFinalData['출고가'] = calcOutPrice;
+            // 3. 출고가(판매가) 우선순위 결정 로직
+            if (providedOutPrice > 0 && !forceRecalc) {
+                // 관리자가 명시적으로 입력/업로드한 출고가가 있으면 그것을 최우선으로 존중 (개입 허용)
+                newFinalData['출고가'] = providedOutPrice;
+            } else if (baseInPrice === mIn && mOut > 0 && !forceRecalc) {
+                // 입고가 변동이 없고 예전 출고가(관리자 판단)가 남아있다면 유지
+                newFinalData['출고가'] = mOut;
+            } else if (baseInPrice === 0) {
+                newFinalData['출고가'] = providedOutPrice; 
+            } else {
+                // 관리자 개입이 없거나, 입고가만 올렸다면 전산단가로 기본 마킹
+                newFinalData['출고가'] = systemCalculatedPrice;
+            }
 
             const div1 = parseNum(currentFinalData?.['1종연산'] ?? mItem?.['1종연산']), extraCost = parseNum(currentFinalData?.['경비'] ?? mItem?.['경비']); 
             if (div1 > 0) {
@@ -206,9 +217,6 @@
             }); return headerMap;
         };
 
-        // ==========================================
-        // 🧩 2. 공용 UI 컴포넌트
-        // ==========================================
         class ErrorBoundary extends React.Component {
             constructor(props) {
                 super(props);
@@ -325,7 +333,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.1</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.2</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -413,18 +421,15 @@
             );
         };
 
-        // ==========================================
-        // 🧩 3. 시세 관리(Pipeline) 전용 기능 및 모달
-        // ==========================================
         const useMerchConfig = () => {
             const loadConfig = () => {
                 const cloudUrl = localStorage.getItem(STORAGE_KEYS.CLOUD_URL) || '';
                 
-                let visibleMasterCols = JSON.parse(localStorage.getItem('merchVisMaster_v870') || 'null');
-                if (!visibleMasterCols || !visibleMasterCols.estimate) visibleMasterCols = { estimate: ['카탈로그', '견적서', '입고가', '출고가', '입고B', '도매A'] };
+                let visibleMasterCols = JSON.parse(localStorage.getItem('merchVisMaster_v160') || 'null');
+                if (!visibleMasterCols || !visibleMasterCols.estimate) visibleMasterCols = { estimate: ['입고가'] };
 
-                let visibleUploadCols = JSON.parse(localStorage.getItem('merchVisUpload_v870') || 'null');
-                if (!visibleUploadCols || !visibleUploadCols.estimate) visibleUploadCols = { estimate: ['순번', '창고', '구매처', '견적서', '입고가', '출고가', '입고B', '도매A', '간단설명'] };
+                let visibleUploadCols = JSON.parse(localStorage.getItem('merchVisUpload_v160') || 'null');
+                if (!visibleUploadCols || !visibleUploadCols.estimate) visibleUploadCols = { estimate: ['입고가', '입고B', '도매A', '도매B'] };
 
                 let mappings = JSON.parse(localStorage.getItem('merchMappings_v870') || 'null');
                 if (!mappings || !mappings.master) mappings = { master: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격, 규격명, 사이즈, 단량', '출고가': '출고가, 출고, 판매가, 시중가', '입고가': '입고가, 입고, 매입가' }, estimate: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격명, 규격, 사이즈, 단량', '구매처': '거래처명, 구매처, 거래처', '견적서': '견적서, 카테고리, 템플릿, 견적분류', '입고가': '입고가, 입고, 매입가', '출고가': '출고가, 출고, 판매가', '입고B': 'B단가, 입고B', '도매A': 'A판매, A판매가, 도매A', '도매B': 'B판매, B판매가, 도매B', '간단설명': '지시사항, 간단설명, 비고' } };
@@ -546,7 +551,6 @@
                    prev.item.새단가 === next.item.새단가;
         });
 
-        // 🌟 통합 검증 및 확정 모달 (F8/F9 연동)
         const ReviewModal = ({ onClose, onConfirm, displayRows, masterProducts, availableCategories }) => {
             const [filter, setFilter] = useState('all'); 
             const [vendorFilter, setVendorFilter] = useState('all');
@@ -673,7 +677,6 @@
                 return filteredList.filter(i => checkedItems.has(i.코드)).map(r => r.코드);
             }, [filteredList, checkedItems]);
 
-            // 🌟 F8 / F9 단축키 연결 (리포트 이동 vs 엑셀 출력)
             useEffect(() => {
                 const handleKeyDown = (e) => {
                     if (e.key === 'F8' || e.key === 'F9') {
@@ -893,7 +896,9 @@
         const EditableCell = React.memo(({ rowCode, initialVal, field, linkedMasterField, mVal, onUpdateCell }) => {
             const isNum = NUMERIC_HEADERS.includes(linkedMasterField) || NUMERIC_HEADERS.includes(field);
             const [val, setVal] = useState(initialVal); const [isFocused, setIsFocused] = useState(false);
+            
             useEffect(() => { if(!isFocused) setVal(initialVal); }, [initialVal, isFocused]);
+            
             const isDiff = linkedMasterField && mVal !== undefined && val !== '' && String(mVal) !== String(val) && isNum;
             const onBlur = () => { setIsFocused(false); if(String(val)!==String(initialVal)) onUpdateCell(rowCode, field, linkedMasterField, val); };
             
@@ -931,7 +936,14 @@
 
             return (
                 <td className={`px-2 py-1.5 border-r border-slate-200 ${getCellWidthClass(linkedMasterField || field)}`}>
-                    <input type="text" data-field={field} value={val==="오류"?"":val} placeholder={mVal||''} onChange={e=>setVal(e.target.value)} onFocus={e=>{setIsFocused(true); setTimeout(()=>e.target.select(),0);}} onBlur={onBlur} onKeyDown={handleKeyDown} onClick={e=>e.target.select()} className={`w-full bg-transparent hover:bg-white/50 focus:bg-white focus:ring-2 focus:ring-blue-400 rounded px-1.5 py-1.5 text-[13px] outline-none ${isNum?'text-right':'truncate text-center'} ${isDiff?'text-indigo-700 font-bold':'text-slate-700 font-medium'} transition-all`} />
+                    <input 
+                        type="text" data-field={field} 
+                        value={val==="오류"?"":val} placeholder={mVal||''} 
+                        onChange={e=>setVal(e.target.value)} 
+                        onFocus={e=>{setIsFocused(true); setTimeout(()=>e.target.select(),0);}} 
+                        onBlur={onBlur} onKeyDown={handleKeyDown} onClick={e=>e.target.select()} 
+                        className={`w-full bg-transparent hover:bg-white/50 focus:bg-white focus:ring-2 focus:ring-blue-400 rounded px-1.5 py-1.5 text-[13px] outline-none ${isNum?'text-right':'truncate text-center'} ${isDiff?'text-indigo-700 font-bold':'text-slate-700 font-medium'} transition-all`} 
+                    />
                 </td>
             );
         });
@@ -948,7 +960,6 @@
             const dSpec = row.finalData?.['규격'] || row.sources?.['estimate']?.['규격'] || mItem.규격 || '';
             const rowCode = row.코드 || row.품목코드 || '';
 
-            // 🌟 3. 수정된 상품 행 노란색 강조 로직
             let isRowModified = false;
             if (isEstimateUploaded) {
                 visUploadCols.forEach(h => {
@@ -973,7 +984,6 @@
 
             return (
                 <tr className={`data-row border-b border-slate-100 ${isSel ? 'is-selected' : ''} ${isRowModified ? 'is-modified' : ''}`} onMouseDown={(e) => onMouseDown && onMouseDown(e, rowCode, isSel)} onMouseEnter={(e) => onMouseEnter && onMouseEnter(e, rowCode)}>
-                    {/* 🌟 1. Split View: Fixed 영역 바탕색 및 경계선 처리 */}
                     <td className={`sticky z-20 px-4 py-3.5 border-slate-200 min-w-[280px] w-[280px] max-w-[280px] master-col ${!visMasterCols.length ? 'border-r-2 border-r-slate-300 shadow-[3px_0_5px_rgba(0,0,0,0.05)]' : 'border-r'}`} style={{left:0}}>
                         <div className="flex flex-col w-full overflow-hidden">
                             <span className="text-[10.5px] font-mono text-indigo-500 mb-0.5 tracking-tight font-bold">{rowCode}</span>
@@ -984,7 +994,6 @@
                         </div>
                     </td>
 
-                    {/* 🌟 1. Split View: 마스터 DB 영역 (연한 쿨그레이 및 굵은 경계선) */}
                     {!isEstimateUploaded ? (
                         visMasterCols.map((h, idx) => {
                             const isNum = NUMERIC_HEADERS.includes(h);
@@ -1028,7 +1037,6 @@
                                 );
                             })}
                             
-                            {/* Editable 영역 */}
                             {visUploadCols.map(h => {
                                 const linkedMasterField = masterLinksEst[h];
                                 const mVal = (linkedMasterField && rowCode) ? mItem[linkedMasterField] : undefined;
@@ -1097,7 +1105,6 @@
                         <table className="text-left border-collapse text-[13px] whitespace-nowrap relative z-0 w-max bg-white">
                             <thead className="text-[12px] font-bold text-slate-50 bg-[#1e293b]">
                                 <tr>
-                                    {/* 🌟 1. Split View: Header 영역 경계선 처리 및 명확한 배경색 적용 */}
                                     <th className={`sticky top-0 z-40 bg-slate-100 text-slate-700 px-4 py-3.5 border-y border-slate-300 min-w-[280px] w-[280px] max-w-[280px] ${!isEstimateUploaded && visMaster.length === 0 ? 'border-r-2 border-r-slate-400 shadow-[4px_0_8px_rgba(0,0,0,0.15)]' : 'border-r'}`} style={{left:0}}>
                                         상품정보 (코드/품명/규격)
                                     </th>
@@ -1106,7 +1113,6 @@
                                         return <th key={`m-${h}`} className={`sticky top-0 z-30 bg-slate-100 text-slate-700 px-3 py-3.5 border-y border-slate-300 text-center ${getCellWidthClass(h)} ${isEstimateUploaded && isLast ? 'border-r-2 border-r-slate-400 shadow-[4px_0_8px_rgba(0,0,0,0.15)] relative' : 'border-r'}`}><i className="fas fa-lock text-slate-400 text-[10px] mr-1"></i> {h}</th>
                                     })}
                                     
-                                    {/* 🌟 작업 데이터가 로드되었을 때만 우측 편집 헤더 노출 */}
                                     {isEstimateUploaded && visUpload.map(h => <th key={`u-${h}`} className={`sticky top-0 z-30 bg-[#1e293b] px-3 py-3.5 border-y border-r border-slate-700 shadow-sm text-center text-indigo-300 ${getCellWidthClass(h)}`}><i className="fas fa-pen text-indigo-400 text-[10px] mr-1"></i> {h}</th>)}
                                 </tr>
                             </thead>
@@ -1215,7 +1221,6 @@
                             setShowReviewModal(true);
                         }
                     }
-                    // 🌟 메인 화면의 F9 리스너 완전 제거 (안전성 확보)
                 };
                 window.addEventListener('keydown', handleKeyDown);
 
@@ -1312,6 +1317,7 @@
                     currentItem = { ...currentItem, finalData: { ...currentItem.finalData, [field]: value } };
                     if (['입고가', '출고가', '외주비', '노무비'].includes(field) || ['입고가', '출고가'].includes(linkedMasterField)) {
                         const pInRaw = (field === '입고가' || linkedMasterField === '입고가') ? value : (currentItem.finalData['입고가'] ?? currentItem.sources['estimate']?.['입고가'] ?? masterProducts[code]?.['입고가'] ?? 0);
+                        // 수동 업데이트 시에도 동일한 0원 처리 보호 적용
                         currentItem.finalData = calculatePricesEngine(parseNum(pInRaw), masterProducts[code] || {}, currentItem.finalData, config.marginRules, true);
                     } 
                     const next = { ...prev, [code]: currentItem };
@@ -1426,7 +1432,6 @@
                     try {
                         const wb = window.XLSX.utils.book_new();
                         
-                        // 🌟 복구: ERP 업로드 양식에 맞추어 'n' 더미 열 구조 원상 복구
                         let erpData = []; 
                         erpData.push(['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '1']);
                         
@@ -1434,12 +1439,11 @@
                         
                         const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='') => { 
                             if (!code) return null; 
-                            const outIn = inPrice > 0 ? inPrice : ''; 
-                            const outOut = outPrice > 0 ? outPrice : ''; 
-                            const outFinal = finalPrice > 0 ? finalPrice : outIn; 
+                            const outIn = inPrice >= 0 ? inPrice : ''; 
+                            const outOut = outPrice >= 0 ? outPrice : ''; 
+                            const outFinal = finalPrice >= 0 ? finalPrice : outIn; 
                             
-                            // 🌟 복구: 데이터 사이사이에 ERP 요구사항인 'n' 값을 그대로 유지
-                            return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', (inPrice > 0 || outPrice > 0) ? '1' : '' ]; 
+                            return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', (inPrice >= 0 || outPrice >= 0) ? '1' : '' ]; 
                         };
 
                         const getFirstValidNum = (objList, keys) => {
@@ -1544,7 +1548,7 @@
                             if (linked && item.finalData[field] !== undefined && item.finalData[field] !== '' && item.finalData[field] !== '오류') {
                                 const newVal = NUMERIC_HEADERS.includes(linked) ? parseNum(item.finalData[field]) : item.finalData[field];
                                 const oldVal = NUMERIC_HEADERS.includes(linked) ? parseNum(oldItem[linked]) : oldItem[linked];
-                                if (['입고가', '출고가'].includes(linked) && oldVal > 0 && oldVal !== newVal) {
+                                if (['입고가', '출고가'].includes(linked) && oldVal >= 0 && oldVal !== newVal) {
                                     localLogs.push({ id: generateUUID(), timestamp: nowStr, code: code, name: oldItem.품목명 || item.sources?.estimate?.품목명 || '', field: linked, oldVal, newVal, diff: newVal - oldVal });
                                 } newMaster[item.코드][linked] = newVal;
                             }
@@ -1590,7 +1594,6 @@
 
                 setSelectedRows(new Set()); 
 
-                // 🌟 동작 분기 (리포트 이동 vs 엑셀 출력)
                 if (actionAfterSync === 'export') {
                     showToast(`✅ ${commitCount}건 반영 완료! 엑셀 출력을 시작합니다...`);
                     executeExport(targetCodes); 
@@ -1644,7 +1647,6 @@
                         if (result.dictionary) {
                             const localDict = JSON.parse(localStorage.getItem('parserDict_v870')) || {};
                             const mergedDict = { ...localDict, ...result.dictionary };
-                            // Note: To truly use parserDict, it needs to be maintained in Pipeline too, but we aren't using parserDict in Pipeline.
                             localStorage.setItem('parserDict_v870', JSON.stringify(mergedDict));
                         }
 
@@ -1701,18 +1703,22 @@
                                 const val = row[actualKey];
                                 const isNum = NUMERIC_HEADERS.includes(config.masterLinks['estimate']?.[h]) || NUMERIC_HEADERS.includes(h);
                                 mItem.sources['estimate'][h] = isNum ? parseNum(val) : val;
-                                if (mItem.finalData[h] === undefined) mItem.finalData[h] = isNum ? parseNum(val) : val;
+                                // 엑셀 수기값 우선 보존
+                                mItem.finalData[h] = isNum ? parseNum(val) : val;
                             }
                         });
                         
-                        delete mItem.finalData['출고가'];
-                        
-                        // 🌟 버그 픽스: 0원을 '빈 값'으로 오해하지 않도록 엄격한 undefined 체크로 변경
+                        // 🌟 엑셀 업로드 시 연산 엔진 재가동 (출고가 개입 여부 확인 포함)
                         const estIn = mItem.sources['estimate']['입고가'];
-                        const pInRaw = estIn !== undefined ? estIn : masterProducts[code]?.['입고가'];
-                        const pIn = parseNum(pInRaw);
+                        const pInRaw = (estIn !== undefined && estIn !== '') ? estIn : masterProducts[code]?.['입고가'];
+                        const pInNum = parseNum(pInRaw);
                         
-                        if (pIn >= 0) mItem.finalData = calculatePricesEngine(pIn, masterProducts[code]||{}, mItem.finalData, config.marginRules, false);
+                        // 엑셀 열에 출고가가 있는지 파악 (없으면 자동 연산 대상)
+                        const hasExcelOutPrice = mItem.sources['estimate']['출고가'] !== undefined && mItem.sources['estimate']['출고가'] !== '';
+                        
+                        // hasExcelOutPrice가 true면 엔진 내부에서 출고가를 절대 덮어쓰지 않음
+                        mItem.finalData = calculatePricesEngine(pInNum, masterProducts[code] || {}, mItem.finalData, config.marginRules, !hasExcelOutPrice);
+                        
                         count++;
                     });
                     setManagedItems(newManaged); 
@@ -1721,7 +1727,6 @@
                 } catch(error) { showToast("❌ 업로드 오류: " + error.message); } finally { e.target.value = ''; setIsProcessing(false); setProcessMsg(''); }
             };
             
-            // 🌟 NEW: 로드된 데이터 요약 텍스트
             const loadedSummaryText = useMemo(() => {
                 const isEstimateUploaded = Object.keys(managedItems).length > 0;
                 if (!isEstimateUploaded && selectedCatalogs.size === 0 && selectedCategories.size === 0) return '';
@@ -1828,7 +1833,6 @@
                         </div>
                     </div>
                     
-                    {/* 🌟 불러온 데이터 요약 텍스트 노출 */}
                     {loadedSummaryText && (
                         <div className="w-full flex justify-center py-2 bg-slate-50 border-b border-slate-200 shrink-0 z-40 shadow-sm">
                             <span className="text-[12px] font-bold text-slate-600">{loadedSummaryText}</span>
