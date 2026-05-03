@@ -428,11 +428,12 @@
             const loadConfig = () => {
                 const cloudUrl = localStorage.getItem(STORAGE_KEYS.CLOUD_URL) || '';
                 
-                let visibleMasterCols = JSON.parse(localStorage.getItem('merchVisMaster_v160') || 'null');
-                if (!visibleMasterCols || !visibleMasterCols.estimate) visibleMasterCols = { estimate: ['입고가'] };
+                // 🌟 픽스 완료: 환경설정 센터의 글로벌 변수(v870)와 100% 동일한 키값으로 연결
+                let visibleMasterCols = JSON.parse(localStorage.getItem('merchVisMaster_v870') || 'null');
+                if (!visibleMasterCols || !visibleMasterCols.estimate) visibleMasterCols = { estimate: ['카탈로그', '견적서', '입고가', '출고가', '입고B', '도매A'] };
 
-                let visibleUploadCols = JSON.parse(localStorage.getItem('merchVisUpload_v160') || 'null');
-                if (!visibleUploadCols || !visibleUploadCols.estimate) visibleUploadCols = { estimate: ['입고가', '입고B', '도매A', '도매B'] };
+                let visibleUploadCols = JSON.parse(localStorage.getItem('merchVisUpload_v870') || 'null');
+                if (!visibleUploadCols || !visibleUploadCols.estimate) visibleUploadCols = { estimate: ['순번', '창고', '구매처', '견적서', '입고가', '출고가', '입고B', '도매A', '간단설명'] };
 
                 let mappings = JSON.parse(localStorage.getItem('merchMappings_v870') || 'null');
                 if (!mappings || !mappings.master) mappings = { master: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격, 규격명, 사이즈, 단량', '출고가': '출고가, 출고, 판매가, 시중가', '입고가': '입고가, 입고, 매입가' }, estimate: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격명, 규격, 사이즈, 단량', '구매처': '거래처명, 구매처, 거래처', '견적서': '견적서, 카테고리, 템플릿, 견적분류', '입고가': '입고가, 입고, 매입가', '출고가': '출고가, 출고, 판매가', '입고B': 'B단가, 입고B', '도매A': 'A판매, A판매가, 도매A', '도매B': 'B판매, B판매가, 도매B', '간단설명': '지시사항, 간단설명, 비고' } };
