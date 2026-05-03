@@ -155,9 +155,10 @@
             };
 
             lines.forEach(line => {
-                // 2. 무의미한 찌꺼기 텍스트 필터링 (Noise Filtering)
+                // 2. 무의미한 찌꺼기 텍스트 필터링 (Noise Filtering) - 콤마 및 마켓보로 안내문 필터링 추가
                 if (
-                    /^전체\s*상품/i.test(line) || 
+                    /상품\s*\([\d,]+개\)/i.test(line) || 
+                    /^(?:전체|체)?\s*상품/i.test(line) ||
                     /^clock$/i.test(line) || 
                     /^starLine$/i.test(line) || 
                     /마감/.test(line) || 
@@ -167,8 +168,9 @@
                     /상품이미지/.test(line) || 
                     /이미지\s*준비중/i.test(line) ||
                     /마켓보로/.test(line) || 
-                    /통신판매업의 중개자/.test(line) || 
+                    /통신판매업/.test(line) || 
                     /당사자가 아닙니다/.test(line) || 
+                    /판매자가 등록한/.test(line) || 
                     /책임을 지지 않습니다/.test(line) || 
                     /데이터가 없습니다/.test(line) || 
                     /- 끝 -/.test(line)
@@ -490,7 +492,6 @@
 
             const [parserBuffer, setParserBuffer] = useState([]);
             const [currentTag, setCurrentTag] = useState(''); 
-            const [currentWarehouse, setCurrentWarehouse] = useState('');
             const [activeTab, setActiveTab] = useState('matched'); 
             const [showInputModal, setShowInputModal] = useState(true); 
             const [showReviewModal, setShowReviewModal] = useState(false);
@@ -510,7 +511,7 @@
 
             return {
                 masterProducts, saveMaster, parserDict, saveDict, marginRules, cloudUrl,
-                parserBuffer, setParserBuffer, currentTag, setCurrentTag, currentWarehouse, setCurrentWarehouse,
+                parserBuffer, setParserBuffer, currentTag, setCurrentTag,
                 activeTab, setActiveTab, showInputModal, setShowInputModal,
                 showReviewModal, setShowReviewModal,
                 showErpModal, setShowErpModal, showSettingsModal, setShowSettingsModal,
@@ -523,18 +524,17 @@
         const useParserActions = (appState) => {
             const { 
                 masterProducts, saveMaster, parserDict, saveDict, marginRules, cloudUrl,
-                parserBuffer, setParserBuffer, currentTag, setCurrentTag, currentWarehouse, setCurrentWarehouse,
+                parserBuffer, setParserBuffer, currentTag, setCurrentTag,
                 setActiveTab, setShowInputModal, showToast, setIsProcessing, setProcessMsg,
                 setGlobalSearch, targetId, setTargetId, selectedMissingCodes, setSelectedMissingCodes,
                 processedCodes, setProcessedCodes, setShowErpModal
             } = appState;
 
-            const executeParser = useCallback((rawText, tag, forceManual = false, targetWarehouse = '') => {
+            const executeParser = useCallback((rawText, tag, forceManual = false) => {
                 setShowInputModal(false); 
                 setIsProcessing(true); 
                 setProcessMsg("AI 분석 및 스마트 매칭 중...");
                 setCurrentTag(tag);
-                setCurrentWarehouse(targetWarehouse);
                 setProcessedCodes(new Set());
 
                 setTimeout(() => {
@@ -562,10 +562,9 @@
                             
                             if (pInNum > 0 && matchResult.code) {
                                 const mItem = masterProducts[matchResult.code] || {};
-                                rowData.finalData = calculatePricesEngine(pInNum, mItem, { 창고: targetWarehouse }, marginRules, true);
+                                rowData.finalData = calculatePricesEngine(pInNum, mItem, {}, marginRules, true);
                             } else {
                                 rowData.finalData['입고가'] = pInNum;
-                                if (targetWarehouse) rowData.finalData['창고'] = targetWarehouse;
                             }
                             if (matchResult.suggested) rowData.suggested = matchResult.suggested;
                             results.push(rowData);
@@ -636,9 +635,6 @@
                         if (currentTag) {
                             newMaster[code]['카탈로그'] = addTag(newMaster[code]['카탈로그'], currentTag);
                         }
-                        if (currentWarehouse) {
-                            newMaster[code]['창고'] = currentWarehouse;
-                        }
 
                         unsyncedMaster[code] = newMaster[code]; 
 
@@ -688,7 +684,7 @@
                     let recalculatedFinal = row.finalData || {};
 
                     if(pInNum > 0) {
-                        recalculatedFinal = calculatePricesEngine(pInNum, mItem, { ...recalculatedFinal, 창고: currentWarehouse || mItem.창고 }, marginRules, false);
+                        recalculatedFinal = calculatePricesEngine(pInNum, mItem, recalculatedFinal, marginRules, false);
                     }
                     
                     const nextBuffer = parserBuffer.map(r => {
@@ -734,10 +730,10 @@
 
                     newMaster[newCode] = {
                         코드: newCode, 품목코드: newCode, 품목명: row['품목명'], 규격: row['규격'] || '',
-                        단위: row['단위'] || '', 입고가: pInNum, 카탈로그: currentTag ? currentTag : '', 창고: currentWarehouse || ''
+                        단위: row['단위'] || '', 입고가: pInNum, 카탈로그: currentTag ? currentTag : ''
                     };
 
-                    const recalculatedFinal = calculatePricesEngine(pInNum, newMaster[newCode], { ...(row.finalData || {}), 창고: currentWarehouse }, marginRules, false);
+                    const recalculatedFinal = calculatePricesEngine(pInNum, newMaster[newCode], row.finalData || {}, marginRules, false);
                     Object.assign(newMaster[newCode], recalculatedFinal);
 
                     const unsyncedMaster = await getIDB(STORAGE_KEYS.UNSYNCED_MASTER) || {};
@@ -746,9 +742,10 @@
 
                     await saveMaster(newMaster);
 
+                    // 🐛 BUG FIX: MatchEngine.cleanForDict 호출 오류 수정 (정상 작동하도록 normalizeText 사용)
                     const normExtName = normalizeText(row['품목명']);
                     const normExtSpec = normalizeText(row['규격']);
-                    const dictKey = MatchEngine.cleanForDict(row['품목명']) + "|" + MatchEngine.cleanForDict(row['규격']);
+                    const dictKey = normExtName + "|" + normExtSpec; 
                     const newDict = { ...parserDict, [dictKey]: newCode };
                     await saveDict(newDict, { [dictKey]: newCode });
 
@@ -1004,12 +1001,11 @@
             const [selectedCatalog, setSelectedCatalog] = useState('');
             const [newCatalogInput, setNewCatalogInput] = useState("");
             const [forceManual, setForceManual] = useState(false);
-            const [warehouseInput, setWarehouseInput] = useState("");
             
             const handleExecute = () => { 
                 if (!rawText.trim()) return showToast("⚠️ 시세 텍스트를 붙여넣어주세요."); 
                 const finalTag = catalogMode === 'select' ? selectedCatalog : newCatalogInput.trim();
-                executeParser(rawText, finalTag, forceManual, warehouseInput.trim()); 
+                executeParser(rawText, finalTag, forceManual); 
             };
 
             return (
@@ -1054,11 +1050,6 @@
                                     </div>
                                 )}
                                 <p className="text-[11px] text-slate-500 mt-3"><i className="fas fa-info-circle mr-1"></i>카탈로그를 지정하지 않고 빈 상태로 실행하면 단가 갱신 및 AI 매핑용 '단순 파싱 모드'로 작동합니다.</p>
-
-                                <div className="mt-4 pt-4 border-t border-slate-200">
-                                    <label className="text-[13px] font-bold text-slate-800 mb-2 flex items-center gap-1.5"><i className="fas fa-warehouse text-slate-400"></i> 창고 (단가그룹) 지정 <span className="text-[11px] text-slate-400 font-normal">(선택)</span></label>
-                                    <input type="text" value={warehouseInput} onChange={(e) => setWarehouseInput(e.target.value)} placeholder="예: 01, 03 (입력 시 파싱된 상품의 창고가 일괄 변경/적용됩니다)" className="w-full border border-slate-300 rounded-lg px-4 py-2 text-[13px] font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200" />
-                                </div>
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[350px]">
                                 <label className="text-[13px] font-bold text-slate-800 mb-2 block">텍스트 복사/붙여넣기</label>
@@ -1396,12 +1387,12 @@
                     if (r._id === rowId) {
                         const mItem = masterProducts[r._matchCode] || {};
                         const pInRaw = newVal;
-                        const recalculatedFinal = calculatePricesEngine(parseNum(pInRaw), mItem, { ...(r.finalData || {}), 창고: appState.currentWarehouse || mItem.창고 }, appState.marginRules, true);
+                        const recalculatedFinal = calculatePricesEngine(parseNum(pInRaw), mItem, r.finalData || {}, appState.marginRules, true);
                         return { ...r, finalData: recalculatedFinal };
                     }
                     return r;
                 }));
-            }, [masterProducts, appState.marginRules, appState.currentWarehouse, appState.setParserBuffer]);
+            }, [masterProducts, appState.marginRules, appState.setParserBuffer]);
             
             const handleToggleApply = useCallback((id) => {
                 appState.setParserBuffer(p => p.map(r => r._id === id ? {...r, _apply: !r._apply} : r));
