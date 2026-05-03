@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6]</title>
+    <title>NEXUS - Valuation Hub [v1.6.1]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -153,7 +153,7 @@
         });
 
         const calculatePricesEngine = (baseInPrice, mItem = {}, currentFinalData = {}, marginRules = [], forceRecalc = false) => {
-            if (!baseInPrice || baseInPrice <= 0) return { ...currentFinalData, '입고가': 0, '시중가': 0, '출고가': 0, '1입고': 0, '1출고': 0 };
+            if (baseInPrice === undefined || baseInPrice === null || baseInPrice <= 0) return { ...currentFinalData, '입고가': 0, '시중가': 0, '출고가': 0, '1입고': 0, '1출고': 0 };
 
             const outsrc = parseNum(currentFinalData?.['외주비'] ?? mItem?.['외주비']);
             const labor = parseNum(currentFinalData?.['노무비'] ?? mItem?.['노무비']);
@@ -325,7 +325,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.1</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -420,7 +420,6 @@
             const loadConfig = () => {
                 const cloudUrl = localStorage.getItem(STORAGE_KEYS.CLOUD_URL) || '';
                 
-                // 🌟 수정: 환경설정 센터의 설정값을 정상적으로 동기화하도록 복구 (하드코딩 제거)
                 let visibleMasterCols = JSON.parse(localStorage.getItem('merchVisMaster_v870') || 'null');
                 if (!visibleMasterCols || !visibleMasterCols.estimate) visibleMasterCols = { estimate: ['카탈로그', '견적서', '입고가', '출고가', '입고B', '도매A'] };
 
@@ -1426,7 +1425,11 @@
                 setTimeout(() => {
                     try {
                         const wb = window.XLSX.utils.book_new();
-                        let erpData = []; erpData.push(['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '1']);
+                        
+                        // 🌟 복구: ERP 업로드 양식에 맞추어 'n' 더미 열 구조 원상 복구
+                        let erpData = []; 
+                        erpData.push(['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '1']);
+                        
                         let shopData = []; shopData.push(['상품코드\n코드', '상품명', '규격', '출고가', '도매A', '시중가', '도매B', '도매B', 'C 판매가', 'C 도매가', 'D 판매가', 'D 도매가', '브랜드', '기본설명', '판매여부', '재고수량', '테마1', '테마2', '테마3', '테마4', '테마5', '상품태그']);
                         
                         const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='') => { 
@@ -1434,6 +1437,8 @@
                             const outIn = inPrice > 0 ? inPrice : ''; 
                             const outOut = outPrice > 0 ? outPrice : ''; 
                             const outFinal = finalPrice > 0 ? finalPrice : outIn; 
+                            
+                            // 🌟 복구: 데이터 사이사이에 ERP 요구사항인 'n' 값을 그대로 유지
                             return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', (inPrice > 0 || outPrice > 0) ? '1' : '' ]; 
                         };
 
@@ -1701,8 +1706,13 @@
                         });
                         
                         delete mItem.finalData['출고가'];
-                        const pIn = parseNum(mItem.sources['estimate']['입고가'] || masterProducts[code]?.['입고가']);
-                        if (pIn > 0) mItem.finalData = calculatePricesEngine(pIn, masterProducts[code]||{}, mItem.finalData, config.marginRules, false);
+                        
+                        // 🌟 버그 픽스: 0원을 '빈 값'으로 오해하지 않도록 엄격한 undefined 체크로 변경
+                        const estIn = mItem.sources['estimate']['입고가'];
+                        const pInRaw = estIn !== undefined ? estIn : masterProducts[code]?.['입고가'];
+                        const pIn = parseNum(pInRaw);
+                        
+                        if (pIn >= 0) mItem.finalData = calculatePricesEngine(pIn, masterProducts[code]||{}, mItem.finalData, config.marginRules, false);
                         count++;
                     });
                     setManagedItems(newManaged); 
