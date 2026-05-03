@@ -420,12 +420,12 @@
             const loadConfig = () => {
                 const cloudUrl = localStorage.getItem(STORAGE_KEYS.CLOUD_URL) || '';
                 
-                // 🌟 V1.6 기획안 맞춤형 강제 기본값 적용 (새로운 키 사용)
-                let visibleMasterCols = JSON.parse(localStorage.getItem('merchVisMaster_v160') || 'null');
-                if (!visibleMasterCols || !visibleMasterCols.estimate) visibleMasterCols = { estimate: ['입고가'] };
+                // 🌟 수정: 환경설정 센터의 설정값을 정상적으로 동기화하도록 복구 (하드코딩 제거)
+                let visibleMasterCols = JSON.parse(localStorage.getItem('merchVisMaster_v870') || 'null');
+                if (!visibleMasterCols || !visibleMasterCols.estimate) visibleMasterCols = { estimate: ['카탈로그', '견적서', '입고가', '출고가', '입고B', '도매A'] };
 
-                let visibleUploadCols = JSON.parse(localStorage.getItem('merchVisUpload_v160') || 'null');
-                if (!visibleUploadCols || !visibleUploadCols.estimate) visibleUploadCols = { estimate: ['입고가', '입고B', '도매A', '도매B'] };
+                let visibleUploadCols = JSON.parse(localStorage.getItem('merchVisUpload_v870') || 'null');
+                if (!visibleUploadCols || !visibleUploadCols.estimate) visibleUploadCols = { estimate: ['순번', '창고', '구매처', '견적서', '입고가', '출고가', '입고B', '도매A', '간단설명'] };
 
                 let mappings = JSON.parse(localStorage.getItem('merchMappings_v870') || 'null');
                 if (!mappings || !mappings.master) mappings = { master: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격, 규격명, 사이즈, 단량', '출고가': '출고가, 출고, 판매가, 시중가', '입고가': '입고가, 입고, 매입가' }, estimate: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격명, 규격, 사이즈, 단량', '구매처': '거래처명, 구매처, 거래처', '견적서': '견적서, 카테고리, 템플릿, 견적분류', '입고가': '입고가, 입고, 매입가', '출고가': '출고가, 출고, 판매가', '입고B': 'B단가, 입고B', '도매A': 'A판매, A판매가, 도매A', '도매B': 'B판매, B판매가, 도매B', '간단설명': '지시사항, 간단설명, 비고' } };
@@ -447,10 +447,6 @@
                     localStorage.setItem('merchMarginRules_v878', JSON.stringify(marginRules));
                 }
                 
-                // 설정 저장 보장
-                localStorage.setItem('merchVisMaster_v160', JSON.stringify(visibleMasterCols));
-                localStorage.setItem('merchVisUpload_v160', JSON.stringify(visibleUploadCols));
-
                 return { cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules };
             };
             const [config, setConfig] = useState(loadConfig());
@@ -1097,7 +1093,7 @@
             const visUpload = (safeVisibleUploadCols.estimate || []).filter(h=>h!=='품목코드');
 
             return (
-                <div className="bg-white border border-slate-200 shadow-sm h-full flex flex-col overflow-hidden relative">
+                <div className="bg-white border border-slate-200 shadow-sm h-full flex flex-col overflow-hidden relative mt-0">
                     <div className="flex-1 overflow-auto custom-scrollbar relative" onScroll={handleScroll}>
                         <table className="text-left border-collapse text-[13px] whitespace-nowrap relative z-0 w-max bg-white">
                             <thead className="text-[12px] font-bold text-slate-50 bg-[#1e293b]">
@@ -1639,6 +1635,14 @@
                             await setIDB(STORAGE_KEYS.MASTER_DB, result.master);
                         }
                         if (result.history) await setIDB(STORAGE_KEYS.HISTORY_DB, result.history);
+                        
+                        if (result.dictionary) {
+                            const localDict = JSON.parse(localStorage.getItem('parserDict_v870')) || {};
+                            const mergedDict = { ...localDict, ...result.dictionary };
+                            // Note: To truly use parserDict, it needs to be maintained in Pipeline too, but we aren't using parserDict in Pipeline.
+                            localStorage.setItem('parserDict_v870', JSON.stringify(mergedDict));
+                        }
+
                         localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
                         showToast("✅ 클라우드 데이터 수신 완료");
                     } else throw new Error(result.message || '서버 응답 오류');
@@ -1706,6 +1710,29 @@
                     showToast(`✅ ${count}건 데이터 로드 완료`);
                 } catch(error) { showToast("❌ 업로드 오류: " + error.message); } finally { e.target.value = ''; setIsProcessing(false); setProcessMsg(''); }
             };
+            
+            // 🌟 NEW: 로드된 데이터 요약 텍스트
+            const loadedSummaryText = useMemo(() => {
+                const isEstimateUploaded = Object.keys(managedItems).length > 0;
+                if (!isEstimateUploaded && selectedCatalogs.size === 0 && selectedCategories.size === 0) return '';
+                
+                let parts = [];
+                selectedCatalogs.forEach(cat => {
+                    const info = availableCatalogs.find(c => c.name === cat);
+                    if (info) parts.push(`${info.name}(${info.count})`);
+                });
+                selectedCategories.forEach(cat => {
+                    const info = availableCategories.find(c => c.name === cat);
+                    if (info) parts.push(`${info.name}(${info.count})`);
+                });
+                
+                if (parts.length > 0) {
+                    return `* ${parts.join(', ')} 불러왔습니다.`;
+                } else if (isEstimateUploaded) {
+                    return `* 엑셀 업로드 데이터 (${Object.keys(managedItems).length}건) 불러왔습니다.`;
+                }
+                return '';
+            }, [managedItems, selectedCatalogs, selectedCategories, availableCatalogs, availableCategories]);
 
             const appState = { isEstimateUploaded: Object.keys(managedItems).length > 0, fullDisplayRows, visibleMasterCols: config.visibleMasterCols, visibleUploadCols: config.visibleUploadCols, masterProducts, masterLinksEst: config.masterLinks?.['estimate']||{}, selectedRows, globalSearch, selectedCatalogs, selectedCategories, isProcessing };
             const appActions = { 
@@ -1790,8 +1817,15 @@
                             </div>
                         </div>
                     </div>
+                    
+                    {/* 🌟 불러온 데이터 요약 텍스트 노출 */}
+                    {loadedSummaryText && (
+                        <div className="w-full flex justify-center py-2 bg-slate-50 border-b border-slate-200 shrink-0 z-40 shadow-sm">
+                            <span className="text-[12px] font-bold text-slate-600">{loadedSummaryText}</span>
+                        </div>
+                    )}
 
-                    <main className="flex-1 overflow-hidden bg-slate-50 p-6 flex flex-col">
+                    <main className="flex-1 overflow-hidden bg-slate-50 p-6 flex flex-col pt-4">
                         <ExcelDataGrid state={appState} actions={appActions} />
                     </main>
 
