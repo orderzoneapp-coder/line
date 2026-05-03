@@ -241,7 +241,12 @@
             const extFullText = normalizeText((extName || '') + " " + (extSpec || ''));
             const dictKey = `${normExtName}|${normExtSpec}`;
 
+            // 1. 완벽 일치 검색
             if (pDict[dictKey]) return { code: pDict[dictKey], status: '🔵 사전학습일치' };
+
+            // 2. 🌟 NEW: 사전 교차 검증 (이름과 규격의 분리 기준이 달라져서 들어올 때를 대비한 방어 로직)
+            const fallbackKey = Object.keys(pDict).find(key => key.replace('|', '') === extFullText);
+            if (fallbackKey) return { code: pDict[fallbackKey], status: '🔵 사전학습일치' };
 
             let bestMatch = null;
             let bestScore = 0;
@@ -1339,7 +1344,8 @@
                 const cleanKw = keyword.toLowerCase().replace(/[()[\]{},./|]/g, ' ');
                 const tokens = cleanKw.split(/\s+/).filter(t => t.length > 0);
                 if (tokens.length === 0) return [];
-                const results = Object.values(productsObj).map(m => {
+                // 🐛 BUG FIX: Object.values 대신 Object.entries를 사용하여 DB의 Key값을 '코드'로 확실하게 주입
+                const results = Object.entries(productsObj).map(([keyCode, m]) => {
                     const mName = String(m.품목명 || '').toLowerCase(); const mSpec = String(m.규격 || '').toLowerCase();
                     let score = 0, matchCount = 0;
                     tokens.forEach(token => {
@@ -1347,7 +1353,7 @@
                         else if (mSpec.includes(token)) { score += token.length * 5; matchCount++; } 
                     });
                     if ((mName + mSpec).replace(/\s+/g, '').includes(cleanKw.replace(/\s+/g, ''))) score += 1000;
-                    return { item: m, score, matchCount };
+                    return { item: { ...m, 코드: m.코드 || m.품목코드 || keyCode }, score, matchCount };
                 }).filter(r => r.score > 0);
                 results.sort((a, b) => b.score - a.score || b.matchCount - a.matchCount);
                 return results.map(r => r.item);
@@ -1368,7 +1374,8 @@
                     const mItem = masterProducts[code];
                     const tags = (mItem['카탈로그'] || '').split(',').map(s => s.trim());
                     if (tags.includes(currentTag) && !matchedCodes.has(String(code)) && !processedStr.has(String(code))) {
-                        missing.push(mItem);
+                        // 🐛 BUG FIX: 누락 탭에서도 DB의 Key값을 코드로 보장
+                        missing.push({ ...mItem, 코드: mItem.코드 || mItem.품목코드 || code });
                     }
                 }
                 return missing;
@@ -1617,7 +1624,7 @@
                                                             const hasTag = currentTag && (m['카탈로그'] || '').split(',').map(s=>s.trim()).includes(currentTag);
                                                             return (
                                                                 <tr key={m.코드} className="hover:bg-indigo-50/50 group transition-colors">
-                                                                    <td className="py-2 px-3"><div className="flex flex-col min-w-0 w-full overflow-hidden"><span className="text-[10px] font-mono text-slate-400">{m.코드}</span><div className="flex items-center gap-1.5 mt-0.5"><span className="text-[12px] font-extrabold text-slate-800 truncate">{m.품목명}</span>{m.규격 && <span className="text-[11px] text-slate-500 shrink-0">({m.규격})</span>}</div></div></td>
+                                                                    <td className="py-2 px-3"><div className="flex flex-col min-w-0 w-full overflow-hidden"><span className="text-[10px] font-mono text-slate-400">{m.코드 || m.품목코드}</span><div className="flex items-center gap-1.5 mt-0.5"><span className="text-[12px] font-extrabold text-slate-800 truncate">{m.품목명}</span>{m.규격 && <span className="text-[11px] text-slate-500 shrink-0">({m.규격})</span>}</div></div></td>
                                                                     <td className="py-2 px-3 text-right font-bold text-slate-600">{m.입고가 ? Number(m.입고가).toLocaleString() : '-'}</td>
                                                                     <td className="py-2 px-3 text-center flex gap-1 justify-center items-center h-full">
                                                                         <button onClick={() => actions.handleConfirmMapping(m.코드)} className="px-2 py-1.5 rounded-lg text-[11px] font-bold shadow-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex-1" title="우측 항목과 연결하여 카탈로그에 추가합니다."><i className="fas fa-link"></i> 연결</button>
