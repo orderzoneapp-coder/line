@@ -1488,8 +1488,10 @@
                             
                             const isZeroPrice = (pIn === 0 && pOut === 0);
                             const priceMarketShop = isZeroPrice ? 0 : (pMarketPrice > 0 ? pMarketPrice : pOut);
-                            const priceA = isZeroPrice ? 0 : getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매', '출고가']);
-                            const isForSale = isZeroPrice ? '0' : (pIn > 0 || pOut > 0 ? '1' : '0');
+                            
+                            // 🌟 핵심 수정: 도매가가 없을 때 출고가로 강제 복사하던 로직('출고가' 옵션) 완전히 제거
+                            const priceA = isZeroPrice ? 0 : getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매']);
+                            const isForSale = isZeroPrice ? '0' : (pIn >= 0 || pOut >= 0 ? '1' : '0');
                             const stockQty = isZeroPrice ? '999' : '999';
 
                             shopData.push([rowCode, dName, dSpec, pOut, priceA, priceMarketShop, 0, 0, 0, 0, 0, 0, dBrand, dInfo, isForSale, stockQty, '', '', '', '', '', dSearch]);
@@ -1512,7 +1514,9 @@
                                     
                                     const cIsZeroPrice = (cIn === 0 && cOut === 0);
                                     const cMarketPrice = cIsZeroPrice ? 0 : (subMaster.시중가 > 0 ? subMaster.시중가 : cOut);
-                                    const cPriceA = cIsZeroPrice ? 0 : (subMaster.도매A > 0 ? subMaster.도매A : cOut);
+                                    
+                                    // 🌟 핵심 수정: 소분 품목의 도매가 역시 출고가(cOut)를 복사하지 않고 없으면 무조건 0원 처리
+                                    const cPriceA = cIsZeroPrice ? 0 : (subMaster.도매A > 0 ? subMaster.도매A : 0);
                                     const cIsForSale = cIsZeroPrice ? '0' : (cIn > 0 || cOut > 0 ? '1' : '0');
                                     const cStockQty = cIsZeroPrice ? '999' : '999';
 
