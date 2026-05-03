@@ -177,24 +177,27 @@
 
             let newFinalData = { ...currentFinalData, '입고가': baseInPrice };
             
-            // 2. 시중가 = 전산 단가로 불변 마킹
-            newFinalData['시중가'] = systemCalculatedPrice;
-            
-            const providedOutPrice = parseNum(currentFinalData?.['출고가']); // 엑셀이나 수기로 적은 출고가
-            const mIn = parseNum(mItem?.['입고가']);
-            const mOut = parseNum(mItem?.['출고가']);
-
-            // 3. 출고가(판매가) 우선순위 결정 로직
-            if (providedOutPrice > 0 && !forceRecalc) {
-                // 관리자가 명시적으로 입력/업로드한 출고가가 있으면 그것을 최우선으로 존중 (개입 허용)
-                newFinalData['출고가'] = providedOutPrice;
-            } else if (baseInPrice === mIn && mOut > 0 && !forceRecalc) {
-                // 입고가 변동이 없고 예전 출고가(관리자 판단)가 남아있다면 유지
-                newFinalData['출고가'] = mOut;
-            } else if (baseInPrice === 0) {
-                newFinalData['출고가'] = providedOutPrice; 
+            // 2. 시중가 처리 (수동/엑셀 값이 있으면 우선 존중, 0원도 확실히 보존)
+            const providedMarketPrice = currentFinalData['시중가'];
+            if (providedMarketPrice !== undefined && providedMarketPrice !== '' && !forceRecalc) {
+                newFinalData['시중가'] = parseNum(providedMarketPrice);
             } else {
-                // 관리자 개입이 없거나, 입고가만 올렸다면 전산단가로 기본 마킹
+                newFinalData['시중가'] = systemCalculatedPrice;
+            }
+            
+            // 3. 출고가(판매가) 우선순위 결정 로직
+            const providedOutPrice = currentFinalData['출고가']; 
+            const mIn = parseNum(mItem?.['입고가']);
+            const mOut = mItem?.['출고가'] !== undefined ? parseNum(mItem['출고가']) : undefined;
+
+            if (providedOutPrice !== undefined && providedOutPrice !== '' && !forceRecalc) {
+                // 🌟 핵심 수정: 엑셀이나 수기로 명시적으로 적은 출고가가 있다면 (그것이 0원이라도!) 무조건 최우선 적용
+                newFinalData['출고가'] = parseNum(providedOutPrice);
+            } else if (baseInPrice === mIn && mOut !== undefined && !forceRecalc) {
+                // 입고가 변동이 없고 예전 출고가가 있다면 유지
+                newFinalData['출고가'] = mOut;
+            } else {
+                // 아무런 개입이 없고 입고가가 새로 들어왔다면 전산단가로 기본 마킹
                 newFinalData['출고가'] = systemCalculatedPrice;
             }
 
@@ -1315,10 +1318,13 @@
                 setManagedItems(prev => {
                     let currentItem = prev[code] || { 코드: code, sources: { estimate: {} }, finalData: {} };
                     currentItem = { ...currentItem, finalData: { ...currentItem.finalData, [field]: value } };
+                    
                     if (['입고가', '출고가', '외주비', '노무비'].includes(field) || ['입고가', '출고가'].includes(linkedMasterField)) {
                         const pInRaw = (field === '입고가' || linkedMasterField === '입고가') ? value : (currentItem.finalData['입고가'] ?? currentItem.sources['estimate']?.['입고가'] ?? masterProducts[code]?.['입고가'] ?? 0);
-                        // 수동 업데이트 시에도 동일한 0원 처리 보호 적용
-                        currentItem.finalData = calculatePricesEngine(parseNum(pInRaw), masterProducts[code] || {}, currentItem.finalData, config.marginRules, true);
+                        
+                        // 🌟 핵심 수정: 작업자가 표에서 '출고가'를 직접 0으로 고친 경우, 강제로 재계산하여 값을 엎어치지 않도록 보호 (forceRecalc = false)
+                        const isOutPriceEdit = field === '출고가' || linkedMasterField === '출고가';
+                        currentItem.finalData = calculatePricesEngine(parseNum(pInRaw), masterProducts[code] || {}, currentItem.finalData, config.marginRules, !isOutPriceEdit);
                     } 
                     const next = { ...prev, [code]: currentItem };
                     setIDB(STORAGE_KEYS.MANAGED_ITEMS, next);
