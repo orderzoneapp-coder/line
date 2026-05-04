@@ -147,9 +147,16 @@
                 return currentFinalData;
             }
 
-            const outsrc = parseNum(currentFinalData?.['외주비'] ?? mItem?.['외주비']);
-            const labor = parseNum(currentFinalData?.['노무비'] ?? mItem?.['노무비']);
-            const totalCost = baseInPrice + outsrc + labor;
+            let outsrc = 0;
+            let labor = 0;
+            let totalCost = 0;
+
+            // 🌟 버그 수정: 입고가가 0원일 경우, 외주비/노무비를 무시 (원물이 없으면 비용도 산정 안 함)
+            if (baseInPrice > 0) {
+                outsrc = parseNum(currentFinalData?.['외주비'] ?? mItem?.['외주비']);
+                labor = parseNum(currentFinalData?.['노무비'] ?? mItem?.['노무비']);
+                totalCost = baseInPrice + outsrc + labor;
+            }
 
             const whCode = String(currentFinalData?.['창고'] ?? mItem?.['창고'] ?? '').trim();
             const unitStr = String(currentFinalData?.['단위'] ?? mItem?.['단위'] ?? '').trim().toLowerCase();
@@ -166,14 +173,16 @@
             });
 
             // 1. 입고가 기준 시스템 마진 연산 (전산 단가)
-            let systemCalculatedPrice = totalCost;
-            if (bestRule.type === 'divide') {
-                const safeRate = Math.min(bestRule.rate, 99.99); systemCalculatedPrice = totalCost / (1 - (safeRate / 100));
-            } else {
-                systemCalculatedPrice = totalCost * (1 + (bestRule.rate / 100));
+            let systemCalculatedPrice = 0;
+            if (totalCost > 0) {
+                if (bestRule.type === 'divide') {
+                    const safeRate = Math.min(bestRule.rate, 99.99); systemCalculatedPrice = totalCost / (1 - (safeRate / 100));
+                } else {
+                    systemCalculatedPrice = totalCost * (1 + (bestRule.rate / 100));
+                }
+                systemCalculatedPrice = Math.round(systemCalculatedPrice / 100) * 100;
+                if (!isFinite(systemCalculatedPrice) || isNaN(systemCalculatedPrice)) systemCalculatedPrice = 0;
             }
-            systemCalculatedPrice = Math.round(systemCalculatedPrice / 100) * 100;
-            if (!isFinite(systemCalculatedPrice) || isNaN(systemCalculatedPrice)) systemCalculatedPrice = 0;
 
             let newFinalData = { ...currentFinalData, '입고가': baseInPrice };
             
@@ -191,21 +200,28 @@
             const mOut = mItem?.['출고가'] !== undefined ? parseNum(mItem['출고가']) : undefined;
 
             if (providedOutPrice !== undefined && providedOutPrice !== '' && !forceRecalc) {
-                // 🌟 핵심 수정: 엑셀이나 수기로 명시적으로 적은 출고가가 있다면 (그것이 0원이라도!) 무조건 최우선 적용
+                // 🌟 엑셀이나 수기로 명시적으로 적은 출고가가 있다면 (그것이 0원이라도!) 무조건 최우선 적용
                 newFinalData['출고가'] = parseNum(providedOutPrice);
             } else if (baseInPrice === mIn && mOut !== undefined && !forceRecalc) {
                 // 입고가 변동이 없고 예전 출고가가 있다면 유지
                 newFinalData['출고가'] = mOut;
             } else {
-                // 아무런 개입이 없고 입고가가 새로 들어왔다면 전산단가로 기본 마킹
+                // 아무런 개입이 없고 입고가가 새로 들어왔다면 전산단가로 기본 마킹 (입고가가 0원이면 이것도 0이 됨)
                 newFinalData['출고가'] = systemCalculatedPrice;
             }
 
-            const div1 = parseNum(currentFinalData?.['1종연산'] ?? mItem?.['1종연산']), extraCost = parseNum(currentFinalData?.['경비'] ?? mItem?.['경비']); 
+            const div1 = parseNum(currentFinalData?.['1종연산'] ?? mItem?.['1종연산']);
+            const extraCost = parseNum(currentFinalData?.['경비'] ?? mItem?.['경비']); 
             if (div1 > 0) {
-                newFinalData['1입고'] = Math.round(((baseInPrice + outsrc) / div1) / 100) * 100;
-                let calc1Out = Math.round((newFinalData['출고가'] / div1) + extraCost);
-                newFinalData['1출고'] = (!isFinite(calc1Out) || isNaN(calc1Out)) ? 0 : Math.round(calc1Out / 100) * 100; 
+                // 🌟 버그 수정: 입고가가 0원일 경우, 소분(1종출고) 단가 계산 시 경비 등 모든 부대비용을 무시하고 무조건 0원 처리
+                if (baseInPrice > 0) {
+                    newFinalData['1입고'] = Math.round(((baseInPrice + outsrc) / div1) / 100) * 100;
+                    let calc1Out = Math.round((newFinalData['출고가'] / div1) + extraCost);
+                    newFinalData['1출고'] = (!isFinite(calc1Out) || isNaN(calc1Out)) ? 0 : Math.round(calc1Out / 100) * 100; 
+                } else {
+                    newFinalData['1입고'] = 0;
+                    newFinalData['1출고'] = 0;
+                }
             }
             return newFinalData;
         };
