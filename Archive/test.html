@@ -258,7 +258,7 @@
                     }
                 });
 
-                // 4. FIFO 차감 및 검증
+                // 4. FIFO 차감 및 검증 실행
                 let finalRows = [];
                 Object.keys(pool).forEach(code => {
                     const data = pool[code];
@@ -551,11 +551,9 @@
             const hasStockIssue = item.hasMismatch || item.전산잔량 < 0;
             const hasPriceIssue = item.단가 <= 0;
 
-            // 🌟 완벽하게 분리/제어된 키보드 점프 로직 (방향키 상하 & Tab키)
             const handleKeyDown = (e, type, id) => {
-                // 1. 위/아래 방향키 조작 (숫자 변경 방지 및 상하 이동)
                 if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                    e.preventDefault(); // 숫자 증가/감소 원천 차단
+                    e.preventDefault(); 
                     
                     const allInputsOfSameType = Array.from(document.querySelectorAll(`input[data-col-type="${type}"]`));
                     const currentIndex = allInputsOfSameType.indexOf(e.target);
@@ -571,19 +569,13 @@
                     return;
                 }
 
-                // 2. Tab 키 조작 (오류 항목만 콕 집어서 다음으로 점프)
                 if (e.key === 'Tab') {
-                    // 동일한 타입(단가/수량)이면서 "이슈가 있는(true)" 인풋만 추출
                     const issueInputs = Array.from(document.querySelectorAll(`input[data-issue-type="${type}"][data-issue="true"]`));
-                    
                     if (issueInputs.length > 0) {
                         e.preventDefault();
                         const currentIndex = issueInputs.indexOf(e.target);
                         
-                        // Shift+Tab 누를 경우 뒤로가기도 지원
                         let nextIndex = currentIndex + (e.shiftKey ? -1 : 1);
-                        
-                        // 배열 끝에 도달하면 처음으로, 처음에 도달하면 끝으로 회전
                         if (nextIndex >= issueInputs.length) nextIndex = 0;
                         if (nextIndex < 0) nextIndex = issueInputs.length - 1;
                         
@@ -591,11 +583,9 @@
                         issueInputs[nextIndex].select();
                         issueInputs[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
-                    // 오류가 아예 해결되었거나 없으면 기본 Tab 이동(바로 옆칸 이동) 작동
                     return;
                 }
 
-                // 3. 스페이스바 조작 (수량 칸에서만 로스 조정 연결 활성화)
                 if (type === 'stock' && (e.key === ' ' || e.code === 'Space')) {
                     e.preventDefault();
                     onSpacebarLink(id);
@@ -812,7 +802,6 @@
                 });
             }, [engine]);
 
-            // 🌟 [통합] 마감 보관 및 엑셀 다운로드 (원클릭 처리)
             const handleDownloadAndSave = async () => {
                 if (engine.inventoryResult.length === 0) {
                     showToast("⚠️ 처리할 마감 데이터가 없습니다.");
@@ -820,10 +809,8 @@
                 }
 
                 try {
-                    // 1. 브라우저 DB에 영구 보관 (내일 전일재고용)
                     await setIDB(STORAGE_KEYS.LAST_CLOSING, engine.inventoryResult);
                     
-                    // 2. 엑셀 추출 및 다운로드
                     const dateStr = closingDate.replace(/-/g, '');
                     const exportData = engine.inventoryResult.map(item => ({
                         '일자': dateStr,
@@ -877,7 +864,9 @@
 
                 for (let i = 0; i < arr.length; i++) {
                     if (arr[i].code !== currentCode) {
-                        if (groupStartIdx !== -1) arr[groupStartIdx].rowSpan = spanCount;
+                        if (groupStartIdx !== -1) {
+                            arr[groupStartIdx].rowSpan = spanCount;
+                        }
                         currentCode = arr[i].code;
                         spanCount = 1;
                         groupStartIdx = i;
@@ -887,7 +876,9 @@
                         arr[i].isFirst = false;
                     }
                 }
-                if (groupStartIdx !== -1) arr[groupStartIdx].rowSpan = spanCount;
+                if (groupStartIdx !== -1) {
+                    arr[groupStartIdx].rowSpan = spanCount;
+                }
                 return arr;
             }, [filteredResult]);
 
@@ -1006,7 +997,6 @@
                                         </div>
                                     )}
 
-                                    {/* 🌟 통합된 엑셀 + 저장 버튼 (원클릭 마감) */}
                                     <button onClick={handleDownloadAndSave} className="w-8 h-8 flex justify-center items-center bg-emerald-50 border border-emerald-200 rounded-md text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300 transition-colors" title="시스템 영구 보관 및 엑셀 다운로드 (원클릭 마감)">
                                         <i className="fas fa-file-excel text-[14px]"></i>
                                     </button>
