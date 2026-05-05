@@ -21,8 +21,10 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* 🌟 숫자 입력창 스피너 제거 */
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
+        
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .pulse-border { animation: pulseBorder 1.5s infinite; }
@@ -178,7 +180,7 @@
                     return { name: fallbackName, spec: fallbackSpec };
                 };
 
-                // 1. 기초 재고 셋팅 (전일 데이터가 로드된 경우에만)
+                // 1. 기초 재고 셋팅
                 cloudStock.forEach(item => {
                     const code = String(item.code || item.품목코드 || item.코드 || '');
                     if (!code) return;
@@ -205,7 +207,7 @@
                     });
                 });
 
-                // 2. 매입(당일/과거) 데이터 삽입 (자산화용)
+                // 2. 매입 데이터 삽입
                 purchaseData.forEach(item => {
                     const code = String(item['코드'] || '');
                     if (!code) return;
@@ -222,7 +224,7 @@
                     });
                 });
 
-                // 3. 재고변동표 (출고 집계 및 기초/입고 검증용)
+                // 3. 재고변동표 (출고 집계용)
                 salesData.forEach(item => {
                     const code = String(item['품목코드'] || item['코드'] || '');
                     if (!code) return;
@@ -246,7 +248,6 @@
                         pool[code].totalOut += outQty;
                     }
 
-                    // 전일재고나 구매데이터 없이 변동표만 올라왔을 경우 대비
                     if (pool[code].buckets.length === 0 && (salesBaseQty > 0 || salesInQty > 0)) {
                         pool[code].buckets.push({
                             id: generateId(), code, 
@@ -257,7 +258,7 @@
                     }
                 });
 
-                // 4. FIFO 차감 및 🌟 불일치 검증 엔진
+                // 4. FIFO 차감 및 검증
                 let finalRows = [];
                 Object.keys(pool).forEach(code => {
                     const data = pool[code];
@@ -278,7 +279,6 @@
                     let hasMismatch = false;
                     let mismatchMsgs = [];
                     
-                    // 🌟 전일/구매 데이터가 로드된 경우에만 '재고변동표'와 비교하여 불일치(전표수정 등) 감지
                     if (data.hasSalesData) {
                         if (cloudStock.length > 0 && totalCloudBase !== data.salesBaseQty) {
                             hasMismatch = true;
@@ -326,7 +326,6 @@
                     });
                 });
 
-                // 🌟 품목코드 최우선 정렬 적용 완료
                 finalRows.sort((a, b) => {
                     const codeCmp = a.code.localeCompare(b.code);
                     if (codeCmp !== 0) return codeCmp;
@@ -552,20 +551,54 @@
             const hasStockIssue = item.hasMismatch || item.전산잔량 < 0;
             const hasPriceIssue = item.단가 <= 0;
 
-            const handleTabJump = (e, type) => {
+            // 🌟 완벽하게 분리/제어된 키보드 점프 로직 (방향키 상하 & Tab키)
+            const handleKeyDown = (e, type, id) => {
+                // 1. 위/아래 방향키 조작 (숫자 변경 방지 및 상하 이동)
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault(); // 숫자 증가/감소 원천 차단
+                    
+                    const allInputsOfSameType = Array.from(document.querySelectorAll(`input[data-col-type="${type}"]`));
+                    const currentIndex = allInputsOfSameType.indexOf(e.target);
+                    
+                    if (currentIndex !== -1) {
+                        let nextIndex = e.key === 'ArrowUp' ? currentIndex - 1 : currentIndex + 1;
+                        if (nextIndex >= 0 && nextIndex < allInputsOfSameType.length) {
+                            allInputsOfSameType[nextIndex].focus();
+                            allInputsOfSameType[nextIndex].select();
+                            allInputsOfSameType[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                    }
+                    return;
+                }
+
+                // 2. Tab 키 조작 (오류 항목만 콕 집어서 다음으로 점프)
                 if (e.key === 'Tab') {
+                    // 동일한 타입(단가/수량)이면서 "이슈가 있는(true)" 인풋만 추출
                     const issueInputs = Array.from(document.querySelectorAll(`input[data-issue-type="${type}"][data-issue="true"]`));
+                    
                     if (issueInputs.length > 0) {
                         e.preventDefault();
                         const currentIndex = issueInputs.indexOf(e.target);
-                        if (currentIndex !== -1 && currentIndex + 1 < issueInputs.length) {
-                            issueInputs[currentIndex + 1].focus();
-                            issueInputs[currentIndex + 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        } else {
-                            issueInputs[0].focus();
-                            issueInputs[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
+                        
+                        // Shift+Tab 누를 경우 뒤로가기도 지원
+                        let nextIndex = currentIndex + (e.shiftKey ? -1 : 1);
+                        
+                        // 배열 끝에 도달하면 처음으로, 처음에 도달하면 끝으로 회전
+                        if (nextIndex >= issueInputs.length) nextIndex = 0;
+                        if (nextIndex < 0) nextIndex = issueInputs.length - 1;
+                        
+                        issueInputs[nextIndex].focus();
+                        issueInputs[nextIndex].select();
+                        issueInputs[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
+                    // 오류가 아예 해결되었거나 없으면 기본 Tab 이동(바로 옆칸 이동) 작동
+                    return;
+                }
+
+                // 3. 스페이스바 조작 (수량 칸에서만 로스 조정 연결 활성화)
+                if (type === 'stock' && (e.key === ' ' || e.code === 'Space')) {
+                    e.preventDefault();
+                    onSpacebarLink(id);
                 }
             };
 
@@ -586,13 +619,14 @@
                     <td className="px-3 py-2 text-right">
                         <input 
                             type="number"
+                            data-col-type="price" 
                             data-issue-type="price"
                             data-issue={hasPriceIssue ? "true" : "false"}
                             className={`w-full text-right bg-transparent border border-transparent hover:border-slate-200 focus:outline-none focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 font-semibold text-[13px] tabular-nums transition-all px-1.5 py-1 rounded ${hasPriceIssue ? 'text-amber-600 bg-amber-50/50 placeholder-amber-300' : 'text-slate-600'}`}
                             value={item.단가 === 0 ? '' : item.단가}
                             onChange={(e) => onUpdatePrice(item.id, e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            onKeyDown={(e) => handleTabJump(e, 'price')}
+                            onKeyDown={(e) => handleKeyDown(e, 'price', item.id)}
                             placeholder="단가입력"
                         />
                     </td>
@@ -641,6 +675,7 @@
                         
                         <input 
                             type="number" 
+                            data-col-type="stock"
                             data-issue-type="stock"
                             data-issue={hasStockIssue ? "true" : "false"}
                             className={`w-full text-right border focus:outline-none rounded-md text-[14px] font-bold px-2 py-1.5 tabular-nums transition-all shadow-sm ${isLinked ? 'border-blue-500 bg-white ring-2 ring-blue-100' : (item.로스 !== 0 ? 'border-amber-300 bg-white focus:border-amber-500' : 'border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-50')}`}
@@ -649,13 +684,7 @@
                             onFocus={(e) => e.target.select()}
                             onClick={(e) => e.target.select()}
                             onTouchEnd={(e) => setTimeout(() => e.target.select(), 50)} 
-                            onKeyDown={(e) => {
-                                handleTabJump(e, 'stock');
-                                if (e.key === ' ' || e.code === 'Space') {
-                                    e.preventDefault();
-                                    onSpacebarLink(item.id);
-                                }
-                            }}
+                            onKeyDown={(e) => handleKeyDown(e, 'stock', item.id)}
                             placeholder={item.전산잔량}
                         />
                     </td>
@@ -886,7 +915,10 @@
                     
                     const input = row.querySelector(`input[data-issue-type="${focusType}"]`);
                     if (input) {
-                        setTimeout(() => input.focus(), 300);
+                        setTimeout(() => {
+                            input.focus();
+                            input.select();
+                        }, 300);
                     }
                 }
             };
