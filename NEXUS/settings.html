@@ -1180,7 +1180,12 @@
                         // 본품 단가 및 텍스트 추출 (최우선: 코어엔진을 거친 finalData)
                         const pIn = getFirstValidNum([final, source, mItem], ['입고가', '입고']);
                         const pOut = getFirstValidNum([final, source, mItem], ['출고가', '출고']);
-                        const pMarketPrice = getFirstValidNum([final, mItem], ['시중가']);
+                        
+                        // 🌟 시중가는 재고 연산된 출고가(pOut) 대신 마스터정보의 출고가/시중가를 강제 적용
+                        const mOut = getFirstValidNum([mItem], ['출고가', '출고']);
+                        const mMarket = getFirstValidNum([mItem], ['시중가']);
+                        const pMarketPrice = mMarket > 0 ? mMarket : mOut;
+                        
                         const pBPrice = getFirstValidNum([final, source, mItem], ['입고B', 'B단가']);
                         const pASale = getFirstValidNum([final, source, mItem], ['도매A', 'A판매', 'A판매가']);
                         const pBSale = getFirstValidNum([final, source, mItem], ['도매B', 'B판매', 'B 도매가']);
@@ -1197,7 +1202,7 @@
                         
                         // 본품 쇼핑몰 기입
                         const isZeroPrice = (pIn === 0 && pOut === 0);
-                        const priceMarketShop = isZeroPrice ? 0 : (pMarketPrice > 0 ? pMarketPrice : pOut);
+                        const priceMarketShop = isZeroPrice ? 0 : pMarketPrice;
                         const priceA = isZeroPrice ? 0 : getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매']);
                         const isForSale = isZeroPrice ? '0' : (pIn >= 0 || pOut >= 0 ? '1' : '0');
                         const stockQty = '999'; // 무조건 999 고정
@@ -1225,8 +1230,12 @@
                                 const cSearch = subMaster.검색어등록 || subMaster.상품태그 || dSearch;
                                 
                                 const cIsZeroPrice = (cIn === 0 && cOut === 0);
-                                const calcMarket = final[`${type}시중가`];
-                                const cMarketPrice = cIsZeroPrice ? 0 : (calcMarket > 0 ? calcMarket : (subMaster.시중가 > 0 ? subMaster.시중가 : cOut));
+                                
+                                // 🌟 소분 상품 시중가도 마스터정보의 출고가/시중가를 강제 적용
+                                const cMasterOut = getFirstValidNum([subMaster], ['출고가', '출고']);
+                                const cMasterMarket = getFirstValidNum([subMaster], ['시중가']);
+                                const cMarketPrice = cIsZeroPrice ? 0 : (cMasterMarket > 0 ? cMasterMarket : cMasterOut);
+                                
                                 const cPriceA = cIsZeroPrice ? 0 : (subMaster.도매A > 0 ? subMaster.도매A : 0);
                                 const cIsForSale = cIsZeroPrice ? '0' : (cIn > 0 || cOut > 0 ? '1' : '0');
 
