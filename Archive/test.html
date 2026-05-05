@@ -157,7 +157,7 @@
         // 🧩 2. 핵심 로직: 투트랙(Two-Track) FIFO / LIFO 역산 엔진
         // ==========================================
         const useFIFOEngine = (masterProducts = {}) => {
-            const [cloudStock, setCloudStock] = useState([]);      // 🌟 전일 데이터 (Track 1 분기용)
+            const [cloudStock, setCloudStock] = useState([]);      
             const [purchaseData, setPurchaseData] = useState([]);  
             const [salesData, setSalesData] = useState([]);        
             
@@ -182,7 +182,6 @@
                 return 0;
             };
 
-            // 🌟 투트랙 알고리즘 실행기
             const runEngine = useCallback(() => {
                 if (cloudStock.length === 0 && salesData.length === 0 && purchaseData.length === 0) return;
 
@@ -191,12 +190,9 @@
                 setTimeout(() => {
                     const refYear = new Date().getFullYear();
                     const targetDateStr = new Date().toISOString().split('T')[0];
-                    const isTrack1 = cloudStock.length > 0; // 🌟 전일 데이터를 불렀는지가 투트랙 분기점
+                    const isTrack1 = cloudStock.length > 0; 
 
                     if (isTrack1) {
-                        // ====================================================================
-                        // [TRACK 1] 정방향 FIFO 모드 (기초재고 + 구매 - 판매 = 잔량)
-                        // ====================================================================
                         const pool = {};
                         const getMasterInfo = (code, fallbackName, fallbackSpec) => {
                             const masterItem = masterProducts[code];
@@ -204,7 +200,6 @@
                             return { name: fallbackName, spec: fallbackSpec };
                         };
 
-                        // 1. 기초재고 (전일 데이터 연동)
                         cloudStock.forEach(item => {
                             const code = String(item.code || item.품목코드 || item.코드 || '');
                             if (!code) return;
@@ -219,7 +214,6 @@
                             });
                         });
 
-                        // 2. 당일 구매분 (입고)
                         purchaseData.forEach(item => {
                             const code = String(item['코드'] || item['품목코드'] || '');
                             if (!code) return;
@@ -231,7 +225,6 @@
                             });
                         });
 
-                        // 3. 재고변동표 (출고/판매 집계)
                         salesData.forEach(item => {
                             const code = String(item['품목코드'] || item['코드'] || '');
                             if (!code) return;
@@ -240,11 +233,9 @@
                             if (outQty > 0) pool[code].totalOut += outQty;
                         });
 
-                        // 4. FIFO 차감 로직 (선입선출)
                         let finalRows = [];
                         Object.keys(pool).forEach(code => {
                             const data = pool[code];
-                            // 과거(기초)가 위로 오도록 정렬
                             data.buckets.sort((a, b) => {
                                 if (a.isPrev && !b.isPrev) return -1;
                                 if (!a.isPrev && b.isPrev) return 1;
@@ -262,7 +253,7 @@
                                     }
                                 }
                                 if (idx === data.buckets.length - 1 && remainingOut > 0) {
-                                    bucket.출고 += remainingOut; // 부족해도 마지막에서 강제 출고 (마이너스 발생)
+                                    bucket.출고 += remainingOut;
                                 }
 
                                 bucket.전산잔량 = bucket.기초 + bucket.입고 - bucket.출고;
@@ -273,7 +264,6 @@
                             });
                         });
 
-                        // 결과 정렬 (품목코드 -> 일자)
                         finalRows.sort((a, b) => {
                             const codeCmp = a.code.localeCompare(b.code);
                             if (codeCmp !== 0) return codeCmp;
@@ -286,9 +276,6 @@
                         setInventoryResult(finalRows);
 
                     } else {
-                        // ====================================================================
-                        // [TRACK 2] 단가 역산 모드 (전일 데이터 없이 구매/재고만 있을 때 발동)
-                        // ====================================================================
                         const pData = {}; 
                         
                         const sortedIn = [...purchaseData]
@@ -451,15 +438,13 @@
 
             }, [cloudStock, purchaseData, salesData, masterProducts]);
 
-            // 🌟 저장된 데이터를 화면에 바로 띄우는 함수 추가
             const loadSavedResult = useCallback((savedData) => {
-                setCloudStock(savedData); // "전일" 데이터로 인식시켜 정방향 FIFO 모드 발동
-                setInventoryResult([]);   // 화면 일시 초기화 후 runEngine에서 렌더링
+                setCloudStock(savedData); 
+                setInventoryResult([]);   
                 setPurchaseData([]);
                 setSalesData([]);
             }, []);
 
-            // 🌟 엑셀 데이터가 변경되면 즉시 자동 실행 
             useEffect(() => {
                 runEngine();
             }, [cloudStock, purchaseData, salesData, runEngine]);
@@ -679,9 +664,7 @@
             const hasStockIssue = item.hasMismatch || item.totalSystemBal < 0;
             const hasPriceIssue = item.단가 <= 0;
 
-            // 🌟 완벽하게 분리/제어된 키보드 점프 로직 (방향키 상하 & Tab키)
             const handleKeyDown = (e, type, id) => {
-                // 1. 위/아래 방향키 조작 (숫자 변경 방지 및 상하 이동)
                 if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                     e.preventDefault(); 
                     
@@ -699,7 +682,6 @@
                     return;
                 }
 
-                // 2. Tab 키 조작 (오류 항목만 콕 집어서 다음으로 점프)
                 if (e.key === 'Tab') {
                     const issueInputs = Array.from(document.querySelectorAll(`input[data-issue-type="${type}"][data-issue="true"]`));
                     
@@ -718,7 +700,6 @@
                     return;
                 }
 
-                // 3. 스페이스바 조작 (수량 칸에서만 로스 조정 연결 활성화)
                 if (type === 'stock' && (e.key === ' ' || e.code === 'Space')) {
                     e.preventDefault();
                     onSpacebarLink(id);
@@ -727,7 +708,6 @@
 
             return (
                 <tr id={`row-${item.id}`} className={`transition-colors duration-200 ${rowClass}`}>
-                    {/* 1. 상품 정보 */}
                     {isFirst && (
                         <td rowSpan={rowSpan} className={`px-4 py-3 align-top border-b border-slate-100 min-w-[200px] ${item.hasMismatch ? 'bg-rose-50/40 border-l-[3px] border-l-rose-400' : 'bg-white'}`}>
                             <div className="flex flex-col gap-1">
@@ -740,7 +720,6 @@
                         </td>
                     )}
                     
-                    {/* 🌟 2. 입고 내역 (단가와 위치 변경) */}
                     <td className="px-3 py-2 border-r bg-white/40">
                         <div className="flex flex-col gap-1.5">
                             <div className="flex items-center gap-1.5 w-fit max-w-full">
@@ -761,7 +740,6 @@
                         </div>
                     </td>
 
-                    {/* 🌟 3. 단가 입력 (열 이동 완료) */}
                     <td className="px-3 py-2 text-right border-r">
                         <input 
                             type="number"
@@ -789,12 +767,10 @@
                         {item.대체출고 > 0 && <div className="text-[10px] text-rose-400 mt-0.5">(-{item.대체출고})</div>}
                     </td>
                     
-                    {/* 🌟 7. 총 잔량 (모든 행에 개별 표출 복구) */}
                     <td className="px-3 py-2 text-right font-black text-slate-700 bg-slate-100/80 border-r text-[14px] tabular-nums">
                         {item.전산잔량}
                     </td>
                     
-                    {/* 🌟 8. 실사 수량 입력 (모든 행에 개별 입력 복구) */}
                     <td className="px-3 py-2 relative w-[100px] border-r">
                         {isLinked && <div className="absolute -top-2 right-2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-md animate-bounce">조정기준</div>}
                         {isLinkTargetMode && !isLinked && <div className="absolute top-1/2 left-0 -translate-y-1/2 text-blue-500 animate-pulse"><i className="fas fa-hand-point-right text-[12px]"></i></div>}
@@ -815,7 +791,6 @@
                         />
                     </td>
                     
-                    {/* 🌟 9. 로스/조정 (모든 행에 개별 표출 복구) */}
                     <td className="px-3 py-2 text-right border-r">
                         {item.로스 !== 0 ? (
                             <span className={`font-black text-[14px] tabular-nums ${item.로스 > 0 ? 'text-blue-500' : 'text-rose-500'}`}>
@@ -824,7 +799,6 @@
                         ) : <span className="text-slate-300 font-bold">-</span>}
                     </td>
                     
-                    {/* 10. 메모 */}
                     <td className="px-3 py-2 text-[12px] text-slate-400 truncate max-w-[120px] font-medium">{item.메모}</td>
                 </tr>
             );
@@ -839,10 +813,7 @@
             
             const [uploadStatus, setUploadStatus] = useState({ purchase: false, sales: false });
             const [toast, setToast] = useState('');
-            const [isProcessing, setIsProcessing] = useState(false);
-            const [processMsg, setProcessMsg] = useState('');
             const [showSettingsModal, setShowSettingsModal] = useState(false);
-            
             const [searchQuery, setSearchQuery] = useState('');
             
             const [closingDate, setClosingDate] = useState(() => {
@@ -900,14 +871,13 @@
             const handlePush = async () => { showToast("Push 기능 준비중"); };
             const handlePull = async () => { showToast("Pull 기능 준비중"); };
 
-            // 🌟 전일(저장된 데이터) 불러오기 로직 수정
             const handleCloudPull = async () => {
                 try {
                     const savedData = await getIDB(STORAGE_KEYS.LAST_CLOSING);
                     if (savedData && savedData.length > 0) {
                         engine.loadSavedResult(savedData);
-                        setUploadStatus({ purchase: false, sales: false }); // 업로드 상태 리셋
-                        document.querySelectorAll('input[type="file"]').forEach(el => el.value = ''); // 파일 input 리셋
+                        setUploadStatus({ purchase: false, sales: false }); 
+                        document.querySelectorAll('input[type="file"]').forEach(el => el.value = ''); 
                         showToast("✅ 시스템에 보관되어 있던 [마지막 마감 데이터]를 기초재고로 불러왔습니다.");
                     } else {
                         showToast("⚠️ 보관된 상세 마감 데이터가 없습니다.");
@@ -943,7 +913,7 @@
                 });
             }, [engine]);
 
-            // 🌟 [통합] 마감 보관 및 엑셀 다운로드 (원클릭 처리)
+            // 🌟 [통합] NEXUS 엑셀 다운로드 (보고서 출력 알고리즘 적용)
             const handleDownloadAndSave = async () => {
                 if (engine.inventoryResult.length === 0) {
                     showToast("⚠️ 처리할 마감 데이터가 없습니다.");
@@ -954,8 +924,12 @@
                     // 1. 브라우저 DB에 영구 보관 (내일 전일재고용)
                     await setIDB(STORAGE_KEYS.LAST_CLOSING, engine.inventoryResult);
                     
-                    // 2. 엑셀 추출 및 다운로드 (모든 분할된 행을 다 내보냄)
                     const dateStr = closingDate.replace(/-/g, '');
+                    const wb = XLSX.utils.book_new();
+
+                    // ==========================================
+                    // 시트 1: [단계별재고실사] - 기존 시스템 마감 상세 내역
+                    // ==========================================
                     const exportData = [];
                     engine.inventoryResult.forEach(item => {
                         exportData.push({
@@ -971,15 +945,129 @@
                             '적요': ''
                         });
                     });
+                    const ws1 = XLSX.utils.json_to_sheet(exportData);
+                    XLSX.utils.book_append_sheet(wb, ws1, "단계별재고실사");
 
-                    const ws = XLSX.utils.json_to_sheet(exportData);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, "단계별재고실사");
-                    XLSX.writeFile(wb, `단가역산_기말재고_${dateStr}.xlsx`);
+                    // ==========================================
+                    // 시트 2 & 3: [쇼핑몰업로드] & [ERP업데이트] - 통합 보고서 알고리즘
+                    // ==========================================
+                    // 중복 품목 제거 (LIFO/FIFO로 쪼개진 행 중, 대표 1개 행만 추출하여 병합 전송)
+                    const uniqueRowsMap = new Map();
+                    engine.inventoryResult.forEach(item => {
+                        if (!uniqueRowsMap.has(item.code)) {
+                            uniqueRowsMap.set(item.code, {
+                                코드: item.code,
+                                finalData: { 입고가: item.단가, 출고가: item.단가 } // 방금 역산/조정한 마감단가 우선 적용
+                            });
+                        }
+                    });
+                    const rowsToExport = Array.from(uniqueRowsMap.values());
+
+                    // 헤더 템플릿
+                    let erpData = []; 
+                    erpData.push(['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '1']);
                     
-                    showToast(`✅ [${dateStr}] 마감 데이터 자산화 및 엑셀 다운로드가 완료되었습니다.`);
+                    let shopData = []; 
+                    shopData.push(['상품코드\n코드', '상품명', '규격', '출고가', '도매A', '시중가', '도매B', '도매B', 'C 판매가', 'C 도매가', 'D 판매가', 'D 도매가', '브랜드', '기본설명', '판매여부', '재고수량', '테마1', '테마2', '테마3', '테마4', '테마5', '상품태그']);
+                    
+                    // 유틸리티 함수
+                    const parseNum = (v) => (!v ? 0 : Number(String(v).replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0);
+                    
+                    const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='') => { 
+                        if (!code) return null; 
+                        const outIn = inPrice >= 0 ? inPrice : ''; 
+                        const outOut = outPrice >= 0 ? outPrice : ''; 
+                        const outFinal = finalPrice >= 0 ? finalPrice : outIn; 
+                        return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', (inPrice >= 0 || outPrice >= 0) ? '1' : '' ]; 
+                    };
+
+                    const getFirstValidNum = (objList, keys) => {
+                        for (let obj of objList) { if (!obj) continue; for (let k of keys) { if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return parseNum(obj[k]); } } return 0;
+                    };
+                    const getFirstValidStr = (objList, keys) => {
+                        for (let obj of objList) { if (!obj) continue; for (let k of keys) { if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k]; } } return '';
+                    };
+                    const isValidSubItemCode = (code) => {
+                        if (!code) return false; const s = String(code).trim(); return s !== '' && s !== '0' && s !== '00' && s !== '-' && s.toLowerCase() !== 'undefined' && s.toLowerCase() !== 'null';
+                    };
+
+                    // 데이터 전개 (Row Expansion)
+                    rowsToExport.forEach(row => {
+                        const rowCode = row.코드 || row.품목코드;
+                        const mItem = masterProducts[rowCode] || {};
+                        const final = row.finalData || {};
+                        const source = row.sources?.['estimate'] || {};
+
+                        // 본품 추출
+                        const pIn = getFirstValidNum([final, source, mItem], ['입고가', '입고']);
+                        const pOut = getFirstValidNum([final, source, mItem], ['출고가', '출고']);
+                        const pMarketPrice = getFirstValidNum([final, mItem], ['시중가']);
+                        const pBPrice = getFirstValidNum([final, source, mItem], ['입고B', 'B단가']);
+                        const pASale = getFirstValidNum([final, source, mItem], ['도매A', 'A판매', 'A판매가']);
+                        const pBSale = getFirstValidNum([final, source, mItem], ['도매B', 'B판매', 'B 도매가']);
+
+                        const dName = getFirstValidStr([source, mItem], ['품목명', '상품명']) || rowCode;
+                        const dSpec = getFirstValidStr([source, mItem], ['규격']);
+                        const dBrand = getFirstValidStr([source, mItem], ['브랜드']);
+                        const dInfo = getFirstValidStr([source, mItem], ['상품정보', '기본설명', '간단설명']);
+                        const dSearch = getFirstValidStr([source, mItem], ['검색어등록', '상품태그']);
+                        
+                        // 본품 ERP 기입
+                        const pRowErp = createRowArr(rowCode, pIn, pOut, pBPrice, pASale, pBSale, pIn); 
+                        if (pRowErp) erpData.push(pRowErp); 
+                        
+                        // 본품 쇼핑몰 기입
+                        const isZeroPrice = (pIn === 0 && pOut === 0);
+                        const priceMarketShop = isZeroPrice ? 0 : (pMarketPrice > 0 ? pMarketPrice : pOut);
+                        const priceA = isZeroPrice ? 0 : getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매']);
+                        const isForSale = isZeroPrice ? '0' : (pIn >= 0 || pOut >= 0 ? '1' : '0');
+                        const stockQty = '999'; // 무조건 999 고정
+
+                        shopData.push([rowCode, dName, dSpec, pOut, priceA, priceMarketShop, 0, 0, 0, 0, 0, 0, dBrand, dInfo, isForSale, stockQty, '', '', '', '', '', dSearch]);
+
+                        // 하위 소분 품목 기입
+                        [1, 2].forEach(type => { 
+                            const cCodeRaw = getFirstValidStr([final, source, mItem], [`${type}종코드`]); 
+                            
+                            if (isValidSubItemCode(cCodeRaw)) { 
+                                const cCode = String(cCodeRaw).trim();
+                                const cIn = getFirstValidNum([final, source, mItem], [`${type}입고`, `${type}구매`]);
+                                const cOut = getFirstValidNum([final, source, mItem], [`${type}출고`]); 
+                                
+                                const cRowErp = createRowArr(cCode, cIn, cOut, '', '', '', cIn); 
+                                if (cRowErp) erpData.push(cRowErp); 
+
+                                const subMaster = masterProducts[cCode] || {};
+                                const cName = subMaster.품목명 || subMaster.상품명 || getFirstValidStr([final, source, mItem], [`${type}그룹명`]) || `${dName} (소분)`;
+                                const cSpec = subMaster.규격 || getFirstValidStr([mItem, source], [`${type}종규격`]) || '';
+                                const cBrand = subMaster.브랜드 || dBrand;
+                                const cInfo = subMaster.간단설명 || subMaster.기본설명 || dInfo;
+                                const cSearch = subMaster.검색어등록 || subMaster.상품태그 || dSearch;
+                                
+                                const cIsZeroPrice = (cIn === 0 && cOut === 0);
+                                const calcMarket = final[`${type}시중가`];
+                                const cMarketPrice = cIsZeroPrice ? 0 : (calcMarket > 0 ? calcMarket : (subMaster.시중가 > 0 ? subMaster.시중가 : cOut));
+                                const cPriceA = cIsZeroPrice ? 0 : (subMaster.도매A > 0 ? subMaster.도매A : 0);
+                                const cIsForSale = cIsZeroPrice ? '0' : (cIn > 0 || cOut > 0 ? '1' : '0');
+
+                                shopData.push([cCode, cName, cSpec, cOut, cPriceA, cMarketPrice, 0, 0, 0, 0, 0, 0, cBrand, cInfo, cIsForSale, stockQty, '', '', '', '', '', cSearch]);
+                            } 
+                        });
+                    });
+                    
+                    // 시트 병합
+                    const ws2 = window.XLSX.utils.aoa_to_sheet(shopData);
+                    const ws3 = window.XLSX.utils.aoa_to_sheet(erpData);
+                    window.XLSX.utils.book_append_sheet(wb, ws2, "쇼핑몰업로드"); 
+                    window.XLSX.utils.book_append_sheet(wb, ws3, "ERP업데이트"); 
+
+                    // 3. 파일 다운로드 실행
+                    window.XLSX.writeFile(wb, `NEXUS_통합재고마감_${dateStr}.xlsx`);
+                    
+                    showToast(`✅ [${dateStr}] 마감 데이터 보관 및 통합 보고서 엑셀 다운로드가 완료되었습니다.`);
                 } catch (error) {
-                    alert("마감 처리 중 오류가 발생했습니다.");
+                    console.error(error);
+                    alert("마감 처리 및 엑셀 생성 중 오류가 발생했습니다.");
                 }
             };
 
@@ -990,11 +1078,6 @@
                 document.querySelectorAll('input[type="file"]').forEach(el => el.value = '');
                 showToast("🔄 데이터가 초기화되었습니다.");
             };
-
-            // useEffect 자동 실행 로직 제거 (Hook 내부에서 자동 실행되므로 중복 방지)
-            // useEffect(() => {
-            //     engine.runEngine();
-            // }, [uploadStatus, engine.cloudStock, engine.runEngine]);
 
             const filteredResult = useMemo(() => {
                 if (!searchQuery.trim()) return engine.inventoryResult;
@@ -1100,7 +1183,6 @@
                                     
                                     <div className="w-px h-5 bg-slate-200 mx-1"></div>
 
-                                    {/* 🌟 모드 뱃지 표시 */}
                                     {engine.cloudStock.length > 0 ? (
                                         <span className="px-2 py-1 bg-blue-100 border border-blue-200 text-blue-700 rounded-md text-[11px] font-black mr-1 shadow-sm whitespace-nowrap"><i className="fas fa-arrow-right mr-1"></i>정방향 FIFO</span>
                                     ) : (
@@ -1154,7 +1236,7 @@
                                         </div>
                                     )}
 
-                                    <button onClick={handleDownloadAndSave} className="w-8 h-8 flex justify-center items-center bg-emerald-50 border border-emerald-200 rounded-md text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300 transition-colors" title="시스템 영구 보관 및 엑셀 다운로드 (원클릭 마감)">
+                                    <button onClick={handleDownloadAndSave} className="w-8 h-8 flex justify-center items-center bg-emerald-50 border border-emerald-200 rounded-md text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300 transition-colors shadow-sm" title="시스템 영구 보관 및 통합 엑셀 다운로드 (원클릭 마감)">
                                         <i className="fas fa-file-excel text-[14px]"></i>
                                     </button>
 
