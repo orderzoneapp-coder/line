@@ -34,7 +34,8 @@
         .data-row:hover > td.master-col { background-color: #e2e8f0; } 
         .data-row.is-modified > td { background-color: #fefce8 !important; }
         .data-row:focus-within > td { background-color: #eff6ff !important; }
-        .data-row.is-selected > td { background-color: #e0e7ff !important; }
+        /* 🌟 선택된 행 색상을 마스터 배경(f1f5f9)과 유사한 수준으로 더 진하게 변경 (기존 #e0e7ff -> #e2e8f0 수준 또는 Tailwind bg-slate-200) */
+        .data-row.is-selected > td { background-color: #e2e8f0 !important; }
         
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
