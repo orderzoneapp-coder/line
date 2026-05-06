@@ -55,7 +55,8 @@
             MASTER_DB: 'merchMaster_v870', CLOUD_URL: 'skuSyncCloudUrl_v6', SYNC_TRIGGER: 'merchMaster_sync_trigger',
             HISTORY_DB: 'merchHistory_v870', UNSYNCED_MASTER: 'merchUnsyncedMaster_v1', UNSYNCED_HISTORY: 'merchUnsyncedHistory_v1',
             UNSYNCED_DICT: 'merchUnsyncedDict_v1',
-            LAST_CLOSING: 'nexus_last_detailed_closing_v1'
+            LAST_CLOSING: 'nexus_last_detailed_closing_v1',
+            LAST_CLOSING_INFO: 'nexus_last_closing_info_v1' 
         };
 
         const safeNum = (v) => (!v ? 0 : Number(String(v).replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0);
@@ -217,7 +218,7 @@
             const [cloudStock, setCloudStock] = useState([]);      
             const [purchaseData, setPurchaseData] = useState([]);  
             const [salesData, setSalesData] = useState([]);        
-            const [actualStockData, setActualStockData] = useState([]); // 🌟 추가: 명시적인 실사(재고) 데이터
+            const [actualStockData, setActualStockData] = useState([]); 
             
             const [inventoryResult, setInventoryResult] = useState([]); 
             const [linkSourceId, setLinkSourceId] = useState(null);     
@@ -248,7 +249,6 @@
                 setInventoryResult([]); setLinkSourceId(null); setIsProcessing(false);
             }, []);
 
-            // 🌟 100% 통합된 스마트 역산/정방향 엔진
             const runEngine = useCallback(() => {
                 if (cloudStock.length === 0 && purchaseData.length === 0 && salesData.length === 0 && actualStockData.length === 0) return;
                 setIsProcessing(true);
@@ -280,7 +280,6 @@
                         }
                     };
 
-                    // 1. 전일 기초재고 (Pull)
                     cloudStock.forEach(item => {
                         const code = String(item.code || item.품목코드 || item.코드 || '');
                         if (!code) return;
@@ -289,7 +288,6 @@
                         pool[code].기초 += safeNum(item.실사 !== null && item.실사 !== undefined && item.실사 !== '' ? item.실사 : (item.전산잔량 || item.기초 || item.재고));
                     });
 
-                    // 2. 구매 (입고)
                     purchaseData.forEach(item => {
                         const code = String(item['코드'] || item['품목코드'] || '');
                         if (!code) return;
@@ -298,7 +296,6 @@
                         pool[code].입고 += safeNum(item['수량']);
                     });
 
-                    // 3. 판매 (출고)
                     salesData.forEach(item => {
                         const code = String(item['품목코드'] || item['코드'] || '');
                         if (!code) return;
@@ -308,7 +305,6 @@
                         pool[code].출고 += safeNum(item['출고'] || item['판매'] || item['판매수량'] || item['수량']);
                     });
 
-                    // 4. 재고 실사 (역산 트리거)
                     actualStockData.forEach(item => {
                         const code = String(item['품목코드'] || item['코드'] || '');
                         if (!code) return;
@@ -326,43 +322,33 @@
                         pool[code].uploadActualQty += actualQty;
                     });
 
-                    // 5. 정방향 및 역산 분기 로직 적용
                     const isActualStockUploaded = actualStockData.length > 0;
                     
                     let finalRows = Object.values(pool).map(item => {
                         if (isActualStockUploaded) {
-                            // 🌟 [역산 모드]: 실사 데이터가 업로드된 경우
                             if (item.hasActualData) {
                                 item.실사 = item.uploadActualQty;
-                                // 전일 기초재고가 없을 때만 실사 데이터를 기반으로 기초를 역추산한다.
                                 if (cloudStock.length === 0) {
                                     const calculatedBase = item.실사 + item.출고 - item.입고;
                                     item.기초 = calculatedBase > 0 ? calculatedBase : 0; 
                                 }
                             } else {
-                                // 실사 파일이 올라왔으나 이 품목이 파일에 없는 경우 -> 재고 0으로 간주
                                 item.실사 = 0;
                             }
                             item.전산잔량 = item.기초 + item.입고 - item.출고;
                             item.로스 = item.실사 - item.전산잔량;
-                            
                         } else {
-                            // 🌟 [정방향 모드]: 실사 데이터 없이 판매/구매만 있는 경우
                             item.전산잔량 = item.기초 + item.입고 - item.출고;
                             item.실사 = item.전산잔량; 
-                            item.로스 = 0; // 임의로 기초를 잡지 않고 있는 그대로 마이너스 표시
+                            item.로스 = 0; 
                         }
                         
                         item.totalSystemBal = item.전산잔량;
-                        
-                        // 이슈 자동 판별 (수기확인완료 상태 고려)
                         if (item.전산잔량 < 0 && !item.isResolved.stock) item.이슈.push('🚨수량부족');
                         if (item.단가 <= 0 && !item.isResolved.price) item.이슈.push('⚠️단가미상');
-                        
                         return item;
                     });
 
-                    // 6. 데이터가 없는 유령 Row(전부 0인 항목) 제거
                     finalRows = finalRows.filter(item => item.기초 !== 0 || item.입고 !== 0 || item.출고 !== 0 || item.전산잔량 !== 0 || item.실사 !== 0 || item.로스 !== 0);
 
                     finalRows.sort((a, b) => {
@@ -382,7 +368,6 @@
 
             useEffect(() => { runEngine(); }, [cloudStock, purchaseData, salesData, actualStockData, runEngine]);
 
-            // 🌟 3단계: 사용자가 값을 직접 수정했을 때 자동 해결 처리
             const updateUnitPrice = useCallback((id, val) => {
                 setInventoryResult(prev => prev.map(item => {
                     if (item.id === id) {
@@ -522,62 +507,68 @@
 
             return (
                 <div className="flex flex-col shrink-0 z-40 relative w-full shadow-sm bg-[#0B1021]">
-                    <header className="h-[72px] bg-[#0B1021] text-white flex justify-between px-6 border-b border-slate-800/80 relative z-20">
-                        <div className="flex items-center h-full">
-                            <div className="flex items-center cursor-pointer group mr-10 h-full" onClick={(e) => {setSelectedGroup('common'); onNavigate(e, 'Dashboard.html');}}>
-                                <span className="font-black text-[24px] tracking-wider text-slate-100 mr-4 group-hover:text-indigo-400 transition-colors">NEXUS</span>
-                                <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
-                                    <div className="flex items-center">
-                                        <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v2.0</span>
+                    {/* 🌟 1400px 중앙 정렬 래퍼 추가 */}
+                    <header className="h-[72px] bg-[#0B1021] text-white border-b border-slate-800/80 relative z-20">
+                        <div className="max-w-[1400px] w-full h-full mx-auto px-4 flex justify-between items-center">
+                            <div className="flex items-center h-full">
+                                <div className="flex items-center cursor-pointer group mr-10 h-full" onClick={(e) => {setSelectedGroup('common'); onNavigate(e, 'Dashboard.html');}}>
+                                    <span className="font-black text-[24px] tracking-wider text-slate-100 mr-4 group-hover:text-indigo-400 transition-colors">NEXUS</span>
+                                    <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
+                                        <div className="flex items-center">
+                                            <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
+                                            <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v2.0</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                     </div>
-                                    <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
+                                </div>
+                                <div className="flex items-end h-full gap-8">
+                                    {groups.map(g => (
+                                        <button key={g.id} onClick={() => setSelectedGroup(prev => prev === g.id ? 'common' : g.id)} className={`pb-[16px] text-[14px] font-bold transition-colors flex items-center gap-1.5 ${selectedGroup === g.id ? 'text-slate-100 border-b-[3px] border-indigo-500 -mb-[2px]' : 'text-slate-500 hover:text-slate-300'}`}>
+                                            <SafeIcon name={g.icon} size={15} /> {g.label}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
-                            <div className="flex items-end h-full gap-8">
-                                {groups.map(g => (
-                                    <button key={g.id} onClick={() => setSelectedGroup(prev => prev === g.id ? 'common' : g.id)} className={`pb-[16px] text-[14px] font-bold transition-colors flex items-center gap-1.5 ${selectedGroup === g.id ? 'text-slate-100 border-b-[3px] border-indigo-500 -mb-[2px]' : 'text-slate-500 hover:text-slate-300'}`}>
-                                        <SafeIcon name={g.icon} size={15} /> {g.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
 
-                        <div className="flex items-center gap-4 h-full">
-                            <div className="flex items-center bg-[#151B2B] rounded-lg border border-slate-700/50 h-9 px-3 shadow-inner gap-3">
-                                <div className="flex items-center justify-center" title={isProcessing ? processMsg : "시스템 정상 대기중"}>
-                                    {isProcessing ? ( <i className="fas fa-circle-notch fa-spin text-amber-500 text-[12px]"></i> ) : (
-                                        <div className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></div>
-                                    )}
+                            <div className="flex items-center gap-4 h-full">
+                                <div className="flex items-center bg-[#151B2B] rounded-lg border border-slate-700/50 h-9 px-3 shadow-inner gap-3">
+                                    <div className="flex items-center justify-center" title={isProcessing ? processMsg : "시스템 정상 대기중"}>
+                                        {isProcessing ? ( <i className="fas fa-circle-notch fa-spin text-amber-500 text-[12px]"></i> ) : (
+                                            <div className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></div>
+                                        )}
+                                    </div>
+                                    <div className="w-px h-3.5 bg-slate-700"></div>
+                                    <div className="flex items-center gap-1.5 text-slate-300 cursor-help" title="마스터 DB 데이터 수">
+                                        <SafeIcon name="database" size={10} className="text-slate-500" />
+                                        <span className="text-[11px] font-mono font-bold tracking-tight">{itemCount ? itemCount.toLocaleString() : 0}</span>
+                                    </div>
                                 </div>
-                                <div className="w-px h-3.5 bg-slate-700"></div>
-                                <div className="flex items-center gap-1.5 text-slate-300 cursor-help" title="마스터 DB 데이터 수">
-                                    <SafeIcon name="database" size={10} className="text-slate-500" />
-                                    <span className="text-[11px] font-mono font-bold tracking-tight">{itemCount ? itemCount.toLocaleString() : 0}</span>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={onPull} className="w-10 h-10 rounded-xl bg-[#151B2B] hover:bg-[#1E293B] flex items-center justify-center border border-slate-700 transition-colors text-indigo-400 shadow-sm" title="데이터 불러오기(Pull)"><SafeIcon name="cloud-download" size={18} /></button>
+                                    <button onClick={onPush} className="w-10 h-10 rounded-xl bg-[#151B2B] hover:bg-[#1E293B] flex items-center justify-center border border-slate-700 transition-colors text-indigo-400 shadow-sm" title="데이터 백업하기(Push)"><SafeIcon name="cloud-upload" size={18} /></button>
+                                    <div className="w-px h-6 bg-slate-700 mx-1"></div>
+                                    <button onClick={onOpenSettings} className="w-10 h-10 rounded-xl bg-[#151B2B] hover:bg-[#1E293B] flex items-center justify-center border border-slate-700 transition-colors text-slate-400 hover:text-white shadow-sm" title="통합 환경설정"><SafeIcon name="settings" size={18} /></button>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={onPull} className="w-10 h-10 rounded-xl bg-[#151B2B] hover:bg-[#1E293B] flex items-center justify-center border border-slate-700 transition-colors text-indigo-400 shadow-sm" title="데이터 불러오기(Pull)"><SafeIcon name="cloud-download" size={18} /></button>
-                                <button onClick={onPush} className="w-10 h-10 rounded-xl bg-[#151B2B] hover:bg-[#1E293B] flex items-center justify-center border border-slate-700 transition-colors text-indigo-400 shadow-sm" title="데이터 백업하기(Push)"><SafeIcon name="cloud-upload" size={18} /></button>
-                                <div className="w-px h-6 bg-slate-700 mx-1"></div>
-                                <button onClick={onOpenSettings} className="w-10 h-10 rounded-xl bg-[#151B2B] hover:bg-[#1E293B] flex items-center justify-center border border-slate-700 transition-colors text-slate-400 hover:text-white shadow-sm" title="통합 환경설정"><SafeIcon name="settings" size={18} /></button>
                             </div>
                         </div>
                     </header>
                     {selectedGroup && (
-                        <div className="bg-[#0B1021] px-6 pt-3 flex items-end gap-1 overflow-x-auto custom-scrollbar border-b border-slate-200 fade-in">
-                            {tabs.filter(t => t.group === selectedGroup).map(tab => {
-                                const isActive = activeTab === tab.id;
-                                const isPlaceholder = !tab.isReady;
-                                return (
-                                    <a key={tab.id} href={tab.path} onClick={(e) => onNavigate(e, tab.path, tab.isReady)}
-                                        className={`flex items-center gap-2 px-6 py-3 text-[14px] font-bold rounded-t-xl transition-all whitespace-nowrap border-x border-t-[3px] ${isActive ? 'bg-white text-indigo-600 border-t-indigo-500 border-x-slate-200 relative z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]' : isPlaceholder ? 'bg-[#151B2B] text-slate-500 border-t-transparent border-x-transparent cursor-not-allowed opacity-50 pb-2.5' : 'bg-[#151B2B] text-slate-400 border-t-transparent border-x-transparent hover:text-slate-200 pb-2.5'}`}
-                                        style={{ marginBottom: isActive ? '-1px' : '0', paddingBottom: isActive ? '13px' : '10px' }}
-                                    >
-                                        <SafeIcon name={tab.icon} size={16} className={isActive ? 'text-indigo-600' : 'opacity-70'} /> {tab.label}
-                                    </a>
-                                );
-                            })}
+                        <div className="bg-[#0B1021] border-b border-slate-200 fade-in">
+                            {/* 🌟 1400px 중앙 정렬 래퍼 추가 */}
+                            <div className="max-w-[1400px] w-full mx-auto px-4 pt-3 flex items-end gap-1 overflow-x-auto custom-scrollbar">
+                                {tabs.filter(t => t.group === selectedGroup).map(tab => {
+                                    const isActive = activeTab === tab.id;
+                                    const isPlaceholder = !tab.isReady;
+                                    return (
+                                        <a key={tab.id} href={tab.path} onClick={(e) => onNavigate(e, tab.path, tab.isReady)}
+                                            className={`flex items-center gap-2 px-6 py-3 text-[14px] font-bold rounded-t-xl transition-all whitespace-nowrap border-x border-t-[3px] ${isActive ? 'bg-white text-indigo-600 border-t-indigo-500 border-x-slate-200 relative z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]' : isPlaceholder ? 'bg-[#151B2B] text-slate-500 border-t-transparent border-x-transparent cursor-not-allowed opacity-50 pb-2.5' : 'bg-[#151B2B] text-slate-400 border-t-transparent border-x-transparent hover:text-slate-200 pb-2.5'}`}
+                                            style={{ marginBottom: isActive ? '-1px' : '0', paddingBottom: isActive ? '13px' : '10px' }}
+                                        >
+                                            <SafeIcon name={tab.icon} size={16} className={isActive ? 'text-indigo-600' : 'opacity-70'} /> {tab.label}
+                                        </a>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -616,15 +607,10 @@
             );
         };
 
-        // ==========================================
-        // 🧩 3. UI 컴포넌트
-        // ==========================================
         const InventoryRow = React.memo(({ item, index, isLinked, isLinkTargetMode, onUpdateActual, onUpdatePrice, onUpdateInitial, onSpacebarLink, onJumpNext, isFirst, rowSpan, visibleMasterCols }) => {
-            // 🌟 이슈 판별 조건 강화 (수기확인 여부 반영)
             const hasPriceIssue = item.단가 <= 0 && !item.isResolved?.price;
             const hasStockIssue = (item.totalSystemBal < 0 || item.로스 !== 0) && !item.isResolved?.stock;
             
-            // 행 하이라이트 (수기 조정이 끝나면 경고색 해제)
             const rowClass = isLinked 
                 ? 'bg-blue-50/60 ring-1 ring-blue-400 z-20 relative shadow-sm' 
                 : (item.로스 !== 0 && !item.isResolved?.stock ? 'bg-amber-50/30' : 'hover:bg-slate-50/80 border-b border-slate-100');
@@ -648,7 +634,6 @@
                     e.preventDefault(); onSpacebarLink(id);
                 }
 
-                // 🌟 Tab 키 누를 때 자동 승인 및 다음 이슈 점프
                 if (e.key === 'Tab') {
                     const isIssue = e.target.getAttribute('data-has-issue') === 'true';
                     if (isIssue) {
@@ -782,9 +767,6 @@
             );
         });
 
-        // ==========================================
-        // ⚙️ 4. 메인 앱 렌더링
-        // ==========================================
         const App = () => {
             const [masterProducts, setMasterProducts] = useState({});
             const engine = useFIFOEngine(masterProducts);
@@ -794,6 +776,7 @@
             const [toast, setToast] = useState('');
             const [showSettingsModal, setShowSettingsModal] = useState(false);
             const [searchQuery, setSearchQuery] = useState('');
+            const [loadedBaseDate, setLoadedBaseDate] = useState(''); 
             
             const [closingDate, setClosingDate] = useState(() => {
                 const today = new Date();
@@ -843,11 +826,22 @@
             const handleCloudPull = async () => {
                 try {
                     const savedData = await getIDB(STORAGE_KEYS.LAST_CLOSING);
+                    const savedInfo = await getIDB(STORAGE_KEYS.LAST_CLOSING_INFO); 
+                    
                     if (savedData && savedData.length > 0) {
                         engine.loadSavedResult(savedData);
                         setUploadStatus({ purchase: false, sales: false, sales_only: false }); 
                         document.querySelectorAll('input[type="file"]').forEach(el => el.value = ''); 
-                        showToast("✅ 시스템에 보관되어 있던 [마지막 마감 데이터]를 기초재고로 불러왔습니다.");
+                        
+                        let dateStr = "이전";
+                        if (savedInfo && savedInfo.date) {
+                            dateStr = savedInfo.date;
+                            setLoadedBaseDate(savedInfo.date);
+                        } else {
+                            setLoadedBaseDate('미상');
+                        }
+                        
+                        showToast(`✅ 시스템에 보관되어 있던 [${dateStr} 마감 데이터]를 기초재고로 불러왔습니다.`);
                     } else { showToast("⚠️ 보관된 상세 마감 데이터가 없습니다."); }
                 } catch(e) { alert("전일 데이터를 불러오는 중 오류가 발생했습니다."); }
             };
@@ -858,10 +852,9 @@
                 try {
                     const data = await parseExcel(file, type === 'sales_only' ? 'sales' : type);
                     
-                    // 🌟 분기 처리 명확화: 판매 데이터와 재고(실사) 데이터를 독립적인 저장소에 보관
                     if (type === 'purchase') { engine.setPurchaseData(data); setUploadStatus(prev => ({ ...prev, purchase: true })); } 
                     else if (type === 'sales_only') { engine.setSalesData(prev => [...prev, ...data]); setUploadStatus(prev => ({ ...prev, sales_only: true })); } 
-                    else if (type === 'sales') { engine.setActualStockData(prev => [...prev, ...data]); setUploadStatus(prev => ({ ...prev, sales: true })); } // 재고 버튼 클릭 시
+                    else if (type === 'sales') { engine.setActualStockData(prev => [...prev, ...data]); setUploadStatus(prev => ({ ...prev, sales: true })); } 
                     
                     showToast(`✅ 데이터가 업로드되었습니다. (${data.length}건)`);
                 } catch (err) { alert("파일 분석 중 오류가 발생했습니다."); } 
@@ -877,9 +870,7 @@
                 });
             }, [engine]);
 
-            // 🌟 스마트 이슈 점프 & 자동 승인 코어 로직
             const handleIssueJump = useCallback((type, currentInput = null) => {
-                // 1. 현재 DOM에서 아직 해결되지 않은 해당 타입의 이슈 입력창을 모두 찾음
                 const issueInputs = Array.from(document.querySelectorAll(`input[data-issue-type="${type}"][data-has-issue="true"]`));
                 
                 if (issueInputs.length === 0) {
@@ -894,7 +885,6 @@
                         nextIndex = currentIndex + 1;
                         if (nextIndex >= issueInputs.length) nextIndex = 0;
                         
-                        // 현재 커서가 있던 항목을 "자동 승인" 처리하여 에러 카운트에서 제외
                         const currentId = currentInput.getAttribute('data-item-id');
                         engine.resolveIssue(currentId, type);
                         showToast("✅ 자동 승인 완료");
@@ -910,7 +900,7 @@
                     if (row) {
                         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         row.classList.remove('highlight-row', 'flash-price', 'flash-stock');
-                        void row.offsetWidth; // DOM Reflow 트리거
+                        void row.offsetWidth; 
                         row.classList.add(type === 'price' ? 'flash-price' : 'flash-stock');
                     }
                 }
@@ -920,6 +910,7 @@
                 if (engine.inventoryResult.length === 0) { showToast("⚠️ 처리할 마감 데이터가 없습니다."); return; }
                 try {
                     await setIDB(STORAGE_KEYS.LAST_CLOSING, engine.inventoryResult);
+                    await setIDB(STORAGE_KEYS.LAST_CLOSING_INFO, { date: closingDate }); 
                     const dateStr = closingDate.replace(/-/g, '');
                     const wb = window.XLSX.utils.book_new();
 
@@ -1029,10 +1020,10 @@
 
             const handleReset = () => {
                 engine.resetEngine(); setUploadStatus({ purchase: false, sales: false, sales_only: false }); setSearchQuery('');
+                setLoadedBaseDate(''); 
                 document.querySelectorAll('input[type="file"]').forEach(el => el.value = ''); showToast("🔄 데이터가 초기화되었습니다.");
             };
 
-            // 필터 로직에서 이슈 필터링 제거 (점프로 대체), 검색만 남김
             const filteredResult = useMemo(() => {
                 let result = engine.inventoryResult;
                 if (!searchQuery.trim()) return result;
@@ -1058,17 +1049,14 @@
                 return arr;
             }, [filteredResult]);
 
-            // 🌟 이슈 집계 및 수기확인완료 판별
             const issueStats = useMemo(() => {
                 const stockErrors = [];
                 const priceErrors = [];
 
                 engine.inventoryResult.forEach(item => {
-                    // 수기 확인(resolve)되지 않은 마이너스 재고 및 오차 카운트
                     if ((item.totalSystemBal < 0 || item.로스 !== 0) && !item.isResolved?.stock) {
                         stockErrors.push(item);
                     }
-                    // 수기 확인되지 않은 단가 누락 카운트
                     if (item.단가 <= 0 && !item.isResolved?.price) {
                         priceErrors.push(item);
                     }
@@ -1097,8 +1085,9 @@
                         </div>
                     )}
 
-                    <main className="flex-1 flex flex-col overflow-hidden bg-slate-100/50 p-2 md:p-4">
-                        <div className="max-w-[1500px] w-full mx-auto bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden">
+                    <main className="flex-1 flex flex-col overflow-hidden bg-slate-100/50 p-2 sm:p-4">
+                        {/* 🌟 1400px 중앙 정렬 래퍼 (데이터 테이블 영역) */}
+                        <div className="max-w-[1400px] w-full mx-auto bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden">
                             
                             <div className="bg-white px-4 py-2.5 border-b border-slate-200 flex justify-between items-center shrink-0 flex-nowrap gap-3 relative z-10">
                                 
@@ -1138,7 +1127,6 @@
                                 </div>
                                 
                                 <div className="flex items-center justify-center gap-2 flex-1 px-4 min-w-0 overflow-x-auto hide-scrollbar">
-                                    {/* 🌟 통합 스마트 점프 버튼 (재고 변동 및 단가 검증 2종류로 압축) */}
                                     <div onClick={() => handleIssueJump('stock')}
                                          title="클릭 시 수량 오류 항목으로 자동 스크롤하며 연속으로 탐색합니다."
                                          className={`flex items-center px-2.5 py-1.5 rounded-full border text-[11px] font-bold cursor-pointer transition-all whitespace-nowrap select-none ${issueStats.stockErrors.length > 0 ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 shadow-sm' : 'bg-slate-50 border-transparent text-slate-400'}`}>
@@ -1211,7 +1199,12 @@
                                             <th className="py-2.5 px-4 font-bold w-[22%]">상품 정보 (코드/품명/규격)</th>
                                             <th className="py-2.5 px-3 font-bold w-[18%]">입고 내역 / 상태</th>
                                             <th className="py-2.5 px-3 font-bold text-right w-[9%] text-emerald-600">단가</th>
-                                            <th className="py-2.5 px-3 font-bold text-right w-[7%]">기초</th>
+                                            <th className="py-2.5 px-3 font-bold text-right w-[7%]">
+                                                <div className="flex flex-col items-end leading-tight">
+                                                    <span>기초</span>
+                                                    {loadedBaseDate && <span className="text-[9.5px] text-indigo-400 font-bold tracking-tighter mt-0.5" title={`데이터 기준일: ${loadedBaseDate}`}>({loadedBaseDate === '미상' ? '날짜미상' : loadedBaseDate.substring(5)})</span>}
+                                                </div>
+                                            </th>
                                             <th className="py-2.5 px-3 font-bold text-right w-[8%] text-blue-600">입고</th>
                                             <th className="py-2.5 px-3 font-bold text-right w-[8%] text-rose-500">출고</th>
                                             <th className="py-2.5 px-3 font-black text-right w-[9%] text-slate-700 bg-slate-100/50">총 잔량(전산)</th>
