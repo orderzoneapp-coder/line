@@ -31,7 +31,7 @@
         const { useState, useMemo, useEffect, useCallback } = React;
 
         // ==========================================
-        // 🧩 코어 전역 상수 및 로컬 데이터베이스 컨트롤러 (인라인 병합)
+        // 🧩 코어 전역 상수 및 로컬 데이터베이스 컨트롤러
         // ==========================================
         const STORAGE_KEYS = {
             MASTER_DB: 'merchMaster_v870',
@@ -185,11 +185,10 @@
                 return p?.estimate ? p : { master: {}, estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명' } }; 
             });
             
+            // 🌟 마진 룰 v879 적용 (시세관리 앱과 완벽 연동됨)
             const [marginRules, setMarginRules] = useState(() => {
-                // 💡 [수정] 버전 키를 v879로 올려서 기존의 꼬인 데이터를 무시하고 7가지 기본값을 강제 적용합니다.
                 const s = localStorage.getItem('merchMarginRules_v879');
                 
-                // 🌟 이미지에 맞춘 7가지 강력한 기본값 하드코딩
                 const def = [ 
                     { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' }, 
                     { id: generateUUID(), whCode: '01', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' }, 
@@ -237,7 +236,7 @@
                 localStorage.setItem('merchVisUpload_v870', JSON.stringify(visibleUploadCols));
                 localStorage.setItem('merchMappings_v870', JSON.stringify(mappings)); 
                 localStorage.setItem('merchMasterLinks_v870', JSON.stringify(masterLinks)); 
-                localStorage.setItem('merchMarginRules_v879', JSON.stringify(marginRules)); // 💡 [수정] v879
+                localStorage.setItem('merchMarginRules_v879', JSON.stringify(marginRules)); 
                 localStorage.setItem('inventoryMappingsLight', JSON.stringify(opsMappings));
                 localStorage.setItem('inventoryGroupingV79', JSON.stringify(opsGrouping));
                 
@@ -256,7 +255,6 @@
             const [isProcessing, setIsProcessing] = useState(false);
             const [dangerLock, setDangerLock] = useState('');
             
-            // 💡 [추가] 팝업창인지 단독 실행인지 감지하는 상태
             const [isStandalone, setIsStandalone] = useState(true);
 
             const showToast = useCallback((msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); }, []);
@@ -264,13 +262,12 @@
             useEffect(() => {
                 getIDB(STORAGE_KEYS.MASTER_DB).then(data => { if (data) setMasterProducts(data); }).catch(console.error);
                 
-                // 💡 [추가] iframe 내부이거나 팝업으로 열렸는지 감지
                 try {
                     if (window.self !== window.top || window.opener) {
                         setIsStandalone(false);
                     }
                 } catch (e) {
-                    setIsStandalone(false); // 권한 오류 발생 시 보통 iframe 환경임
+                    setIsStandalone(false); 
                 }
             }, []);
 
@@ -330,7 +327,6 @@
             }, [masterProducts, showToast]);
 
             const handleExportSettings = () => {
-                // 💡 [수정] 내보내기 키 v879 적용
                 const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v879', 'inventoryMappingsLight', 'inventoryGroupingV79'];
                 const data = {};
                 keys.forEach(k => { data[k] = localStorage.getItem(k); });
@@ -351,7 +347,6 @@
                     try {
                         const imported = JSON.parse(evt.target.result);
                         
-                        // 💡 [유지] 데이터 로딩 중 일부 값이 없거나 형식이 달라도 전체가 중단되지 않도록 보호
                         const safeParse = (key, fallbackState) => {
                             if (!imported[key]) return fallbackState;
                             try {
@@ -362,14 +357,12 @@
                             }
                         };
 
-                        // 💡 [유지] 화면 상태만 업데이트하면 기존에 만들어둔 자동저장 기능이 알아서 완벽하게 덮어씁니다.
                         if (imported[STORAGE_KEYS.CLOUD_URL] !== undefined) config.setCloudUrl(imported[STORAGE_KEYS.CLOUD_URL]);
                         
                         config.setVisibleMasterCols(safeParse('merchVisMaster_v870', config.visibleMasterCols));
                         config.setVisibleUploadCols(safeParse('merchVisUpload_v870', config.visibleUploadCols));
                         config.setMappings(safeParse('merchMappings_v870', config.mappings));
                         config.setMasterLinks(safeParse('merchMasterLinks_v870', config.masterLinks));
-                        // 💡 [수정] 가져오기 키 v879 적용 (혹시 백업본이 v878이면 덮어쓰지 않고 최신 유지)
                         config.setMarginRules(safeParse('merchMarginRules_v879', config.marginRules) || safeParse('merchMarginRules_v878', config.marginRules));
                         config.setOpsMappings(safeParse('inventoryMappingsLight', config.opsMappings));
                         config.setOpsGrouping(safeParse('inventoryGroupingV79', config.opsGrouping));
@@ -386,7 +379,7 @@
 
             const handleDataClear = async () => {
                 if (dangerLock !== '데이터를 모두 삭제합니다') return showToast('⚠️ 안전 잠금 해제 문구를 정확히 띄어쓰기하여 입력하세요.');
-                if (!window.confirm("경고: 실무 데이터(마스터, 주문, 구매, 판매, 재고)가 정답 삭제됩니다.\n이 작업은 복구할 수 없습니다. 계속하시겠습니까?")) return;
+                if (!window.confirm("경고: 실무 데이터(마스터, 주문, 구매, 판매, 재고)가 영구 삭제됩니다.\n이 작업은 복구할 수 없습니다. 계속하시겠습니까?")) return;
                 
                 setIsProcessing(true);
                 try {
@@ -407,7 +400,6 @@
                 if (dangerLock !== '데이터를 모두 삭제합니다') return showToast('⚠️ 안전 잠금 해제 문구를 정확히 띄어쓰기하여 입력하세요.');
                 if (!window.confirm("경고: 커스텀된 매핑 규칙과 환경설정이 모두 초기화됩니다.\n진행하시겠습니까?")) return;
                 
-                // 💡 [수정] 공장 초기화 키 v879 적용
                 const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v879', 'inventoryMappingsLight', 'inventoryGroupingV79'];
                 keys.forEach(k => localStorage.removeItem(k));
                 setDangerLock('');
@@ -447,7 +439,6 @@
             return (
                 <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 relative select-none">
                     
-                    {/* 💡 [추가] 단독 실행(isStandalone)일 때만 보이는 글로벌 네비게이션 헤더 */}
                     {isStandalone && (
                         <header className="bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between shrink-0 z-20 shadow-md">
                             <div className="flex items-center gap-8">
