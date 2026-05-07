@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.7.0 - Priority Engine]</title>
+    <title>NEXUS - Valuation Hub [v1.7.2 - Export Route Fix]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -141,7 +141,7 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // 🌟 지능형 코어 엔진 재정의: 우선순위 룰 + 카탈로그 이름 매칭
+        // 🌟 지능형 코어 엔진 재정의: 단위뿐만 아니라 규격(Spec)까지 더블 체크하도록 개선
         const calculatePricesEngine = (baseInPrice, mItem = {}, currentFinalData = {}, marginRules = [], forceRecalc = false) => {
             if (baseInPrice === undefined || baseInPrice === null || baseInPrice < 0) {
                 return currentFinalData;
@@ -157,24 +157,26 @@
                 totalCost = baseInPrice + outsrc + labor;
             }
 
-            // 상품이 현재 속해있는 모든 카탈로그/견적서 이름 추출
             const catalogsStr = String(currentFinalData?.['카탈로그'] ?? mItem?.['카탈로그'] ?? '') + ',' + String(currentFinalData?.['견적서'] ?? mItem?.['견적서'] ?? '');
             const itemCatalogs = catalogsStr.split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean);
             
+            // 엔진 개선: 단위(Unit)와 규격(Spec) 모두 추출
             const unitStr = String(currentFinalData?.['단위'] ?? mItem?.['단위'] ?? '').trim().toLowerCase();
+            const specStr = String(currentFinalData?.['규격'] ?? mItem?.['규격'] ?? '').trim().toLowerCase();
             
-            // 🌟 1순위(위쪽)부터 순서대로 매칭 검사
             let bestRule = { rate: 10, type: 'divide' };
             
             for (const r of marginRules) {
                 const ruleCatalogs = r.catalogName === '*' ? ['*'] : (r.catalogName||'').split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean);
                 const matchCatalog = ruleCatalogs.includes('*') || ruleCatalogs.some(c => itemCatalogs.includes(c));
-                const matchUnit = r.unit === '*' || (r.unit||'').toLowerCase().split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => unitStr === s || unitStr.includes(s));
+                
+                const matchUnit = r.unit === '*' || (r.unit||'').toLowerCase().split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => 
+                    unitStr === s || unitStr.includes(s) || specStr === s || specStr.includes(s)
+                );
 
-                // 룰에 걸리면 즉시 break (아래쪽 하위 룰 무시)
                 if (matchCatalog && matchUnit) {
                     bestRule = r;
-                    break;
+                    break; 
                 }
             }
 
@@ -272,7 +274,7 @@
             }, [name, size, className]);
 
             if (!svg) {
-                const faMap = { 'cloud-download':'fa-cloud-download-alt', 'cloud-upload':'fa-cloud-upload-alt', 'settings':'fa-cogs', 'layout-dashboard':'fa-th-large', 'package-search':'fa-box-open', 'file-spreadsheet':'fa-table', 'zap':'fa-bolt', 'truck':'fa-truck', 'boxes':'fa-boxes', 'bar-chart-3':'fa-chart-bar', 'check-circle-2':'fa-check-circle', 'x':'fa-times', 'database':'fa-database', 'upload':'fa-upload', 'pie-chart':'fa-chart-pie', 'shopping-cart':'fa-shopping-cart', 'users':'fa-users', 'megaphone':'fa-bullhorn', 'book-open':'fa-address-book', 'shopping-bag':'fa-shopping-bag', 'credit-card':'fa-credit-card', 'line-chart':'fa-chart-line', 'printer':'fa-print', 'search':'fa-search', 'plus':'fa-plus', 'trash-alt':'fa-trash-alt', 'edit':'fa-edit', 'save':'fa-save', 'file-excel':'fa-file-excel', 'link':'fa-link', 'ban':'fa-ban', 'layer-group':'fa-layer-group', 'desktop':'fa-desktop', 'sign-in-alt':'fa-sign-in-alt', 'calculator':'fa-calculator', 'tags':'fa-tags', 'broom':'fa-broom', 'info-circle':'fa-info-circle', 'lock':'fa-lock', 'key':'fa-key', 'folder-open':'fa-folder-open', 'file-invoice':'fa-file-invoice', 'history':'fa-history', 'redo-alt': 'fa-redo-alt', 'file-export':'fa-file-export', 'sitemap':'fa-sitemap', 'bolt':'fa-bolt', 'sort-amount-down':'fa-sort-amount-down', 'undo':'fa-undo', 'exchange-alt':'fa-exchange-alt', 'list':'fa-list', 'check-double':'fa-check-double', 'balance-scale':'fa-balance-scale', 'search-plus':'fa-search-plus', 'truck-loading':'fa-truck-loading', 'exclamation-circle': 'fa-exclamation-circle', 'calendar-alt': 'fa-calendar-alt', 'cut':'fa-cut', 'rocket':'fa-rocket', 'archive':'fa-archive', 'filter':'fa-filter', 'alert-triangle':'fa-exclamation-triangle', 'download':'fa-download', 'skull':'fa-skull', 'sliders-horizontal':'fa-sliders-h', 'arrow-up':'fa-arrow-up', 'arrow-down':'fa-arrow-down' };
+                const faMap = { 'cloud-download':'fa-cloud-download-alt', 'cloud-upload':'fa-cloud-upload-alt', 'settings':'fa-cogs', 'layout-dashboard':'fa-th-large', 'package-search':'fa-box-open', 'file-spreadsheet':'fa-table', 'zap':'fa-bolt', 'truck':'fa-truck', 'boxes':'fa-boxes', 'bar-chart-3':'fa-chart-bar', 'check-circle-2':'fa-check-circle', 'x':'fa-times', 'database':'fa-database', 'upload':'fa-upload', 'pie-chart':'fa-chart-pie', 'shopping-cart':'fa-shopping-cart', 'users':'fa-users', 'megaphone':'fa-bullhorn', 'book-open':'fa-address-book', 'shopping-bag':'fa-shopping-bag', 'credit-card':'fa-credit-card', 'line-chart':'fa-chart-line', 'printer':'fa-print', 'search':'fa-search', 'plus':'fa-plus', 'trash-alt':'fa-trash-alt', 'edit':'fa-edit', 'save':'fa-save', 'file-excel':'fa-file-excel', 'link':'fa-link', 'ban':'fa-ban', 'layer-group':'fa-layer-group', 'desktop':'fa-desktop', 'sign-in-alt':'fa-sign-in-alt', 'calculator':'fa-calculator', 'tags':'fa-tags', 'broom':'fa-broom', 'info-circle':'fa-info-circle', 'lock':'fa-lock', 'key':'fa-key', 'folder-open':'fa-folder-open', 'file-invoice':'fa-file-invoice', 'history':'fa-history', 'redo-alt': 'fa-redo-alt', 'file-export':'fa-file-export', 'sitemap':'fa-sitemap', 'bolt':'fa-bolt', 'sort-amount-down':'fa-sort-amount-down', 'undo':'fa-undo', 'exchange-alt':'fa-exchange-alt', 'list':'fa-list', 'check-double':'fa-check-double', 'balance-scale':'fa-balance-scale', 'search-plus':'fa-search-plus', 'truck-loading':'fa-truck-loading', 'exclamation-circle': 'exclamation-circle', 'calendar-alt': 'fa-calendar-alt', 'cut':'fa-cut', 'rocket':'fa-rocket', 'archive':'fa-archive', 'filter':'fa-filter', 'alert-triangle':'fa-exclamation-triangle', 'download':'fa-download', 'skull':'fa-skull', 'sliders-horizontal':'fa-sliders-h', 'arrow-up':'fa-arrow-up', 'arrow-down':'fa-arrow-down' };
                 const faName = faMap[name] || `fa-${name}`;
                 return <i className={`fas ${faName} ${className}`} style={{ fontSize: size }} />;
             }
@@ -324,7 +326,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.7.0</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.7.2</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -455,16 +457,17 @@
                 let masterLinks = JSON.parse(localStorage.getItem('merchMasterLinks_v870') || 'null');
                 if (!masterLinks || !masterLinks.estimate) masterLinks = { estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } };
 
-                // 🌟 최신 엔진용 룰셋 로드
-                let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v880') || 'null');
+                // 🌟 최신 엔진용 룰셋 로드 (v882 동기화)
+                let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v882') || 'null');
                 if (!marginRules || marginRules.length === 0) {
                     marginRules = [
-                        { id: generateUUID(), catalogName: '행사, 특가', unit: '*', rate: 5, type: 'divide' },
-                        { id: generateUUID(), catalogName: '*', unit: 'box, 박스', rate: 10, type: 'divide' }, 
-                        { id: generateUUID(), catalogName: '*', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' }, 
-                        { id: 'default', catalogName: '*', unit: '*', rate: 20, type: 'divide' } 
+                        { id: generateUUID(), ruleName: '도매 (Box)', catalogName: '도매', unit: 'box, 박스', rate: 10, type: 'divide' },
+                        { id: generateUUID(), ruleName: '도매 (Ea)', catalogName: '도매', unit: 'ea, 개, 낱개, 봉, 마리, 포, 단', rate: 15, type: 'divide' }, 
+                        { id: generateUUID(), ruleName: '소매 (Box)', catalogName: '소매, 스마트스토어', unit: 'box, 박스', rate: 15, type: 'divide' }, 
+                        { id: generateUUID(), ruleName: '소매 (Ea)', catalogName: '소매, 스마트스토어', unit: 'ea, 개, 낱개, 봉, 마리, 포, 단', rate: 20, type: 'divide' }, 
+                        { id: 'default', ruleName: '기본 단가 (나머지)', catalogName: '*', unit: '*', rate: 20, type: 'divide' } 
                     ];
-                    localStorage.setItem('merchMarginRules_v880', JSON.stringify(marginRules));
+                    localStorage.setItem('merchMarginRules_v882', JSON.stringify(marginRules));
                 }
                 
                 return { cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules };
@@ -712,7 +715,6 @@
                         if (!isInvalid) {
                             const action = e.key === 'F8' ? 'report' : 'export';
                             onConfirm(checkedTargetCodes, { catalogOption, selectedExistingCatalog, newCatalogName, overrideNameSpec }, editedPrices, action); 
-                            onClose();
                         } else if (catalogOption === 'new' && !newCatalogName.trim()) {
                             const input = document.getElementById('new-catalog-input');
                             if(input) input.focus();
@@ -721,7 +723,7 @@
                 };
                 window.addEventListener('keydown', handleKeyDown, true);
                 return () => window.removeEventListener('keydown', handleKeyDown, true);
-            }, [isReadyToSave, filter, vendorFilter, catalogOption, selectedExistingCatalog, newCatalogName, overrideNameSpec, editedPrices, onConfirm, onClose, checkedTargetCodes]);
+            }, [isReadyToSave, filter, vendorFilter, catalogOption, selectedExistingCatalog, newCatalogName, overrideNameSpec, editedPrices, onConfirm, checkedTargetCodes]);
 
             const handlePriceChange = useCallback((code, value) => {
                 setEditedPrices(prev => ({ ...prev, [code]: value }));
@@ -1162,19 +1164,25 @@
 
         function App() {
             const config = useMerchConfig();
-            
+            const [activeTab, setActiveTab] = useState('display');
             const [toastMsg, setToastMsg] = useState('');
-            const [isProcessing, setIsProcessing] = useState(false); 
+            const [masterProducts, setMasterProducts] = useState({});
+            const [customEstColInput, setCustomEstColInput] = useState('');
+            const [isProcessing, setIsProcessing] = useState(false);
             const [processMsg, setProcessMsg] = useState('');
+            const [dangerLock, setDangerLock] = useState('');
+            const [isStandalone, setIsStandalone] = useState(true);
+
+            // 🌟 카탈로그 매칭 보드용 상태 변수
+            const [selectedRuleIdForMapping, setSelectedRuleIdForMapping] = useState('');
+            const [checkedCatalogsForMapping, setCheckedCatalogsForMapping] = useState(new Set());
             
             const [showSettingsModal, setShowSettingsModal] = useState(false);
             const [showReviewModal, setShowReviewModal] = useState(false);
             const [showExportModal, setShowExportModal] = useState(false);
-            
-            const [masterProducts, setMasterProducts] = useState({});
-            
-            const [managedItems, setManagedItems] = useState({});
+            const [exportTargetCodes, setExportTargetCodes] = useState([]); // 🌟 [추가] 엑셀 출력 대상 필터 저장소
 
+            const [managedItems, setManagedItems] = useState({});
             const [globalSearch, setGlobalSearch] = useState('');
             const [selectedCatalogs, setSelectedCatalogs] = useState(new Set());
             const [selectedCategories, setSelectedCategories] = useState(new Set());
@@ -1185,6 +1193,13 @@
             const catalogRef = useRef(null);
             const categoryRef = useRef(null);
 
+            const showToast = useCallback((msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); }, []);
+
+            useEffect(() => {
+                getIDB(STORAGE_KEYS.MASTER_DB).then(data => { if (data) setMasterProducts(data); }).catch(console.error);
+                try { if (window.self !== window.top || window.opener) setIsStandalone(false); } catch (e) { setIsStandalone(false); }
+            }, []);
+
             useEffect(() => {
                 const handleClickOutside = (event) => {
                     if (catalogRef.current && !catalogRef.current.contains(event.target)) setCatalogDropdownOpen(false);
@@ -1193,15 +1208,13 @@
                 document.addEventListener('mousedown', handleClickOutside);
                 return () => document.removeEventListener('mousedown', handleClickOutside);
             }, []);
-
-            const showToast = useCallback((msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); }, []);
             
             const handleNavigate = useCallback((e, path, isReady = true) => {
                 if (e && e.preventDefault) e.preventDefault();
                 if (!path || path === '#' || !isReady) return showToast("⚠️ 해당 페이지는 현재 준비 중이거나 경로가 올바르지 않습니다.");
                 try {
                     const protocol = window.location.protocol;
-                    if (protocol === 'about:' || protocol === 'blob:' || protocol === 'data:') showToast(`💡 미리보기 환경: [${path}] 로 이동을 시뮬레이션 합니다.`);
+                    if (protocol === 'about:' || protocol === 'blob:' || protocol === 'data:') showToast(`💡 미리보기 환경: [${path}] 로 이동 시뮬레이션`);
                     else window.location.href = path;
                 } catch (err) { showToast(`💡 이동 시뮬레이션: [${path}]`); }
             }, [showToast]);
@@ -1441,8 +1454,15 @@
                 return baseList;
             }, [managedItems, masterProducts, globalSearch, selectedCatalogs, selectedCategories]);
 
+            // 🌟 엑셀 출력 실행 (F9 모달에서 실행됨)
             const executeExport = useCallback((type, options) => {
-                const rowsToExport = selectedRows.size > 0 ? fullDisplayRows.filter(r => selectedRows.has(r.코드 || r.품목코드)) : fullDisplayRows;
+                // 🌟 수정: F8/F9 모달에서 체크된 대상만 추려내서 출력하도록 필터링
+                let rowsToExport = fullDisplayRows;
+                if (exportTargetCodes && exportTargetCodes.length > 0) {
+                    rowsToExport = fullDisplayRows.filter(r => exportTargetCodes.includes(r.코드 || r.품목코드));
+                } else if (selectedRows.size > 0) {
+                    rowsToExport = fullDisplayRows.filter(r => selectedRows.has(r.코드 || r.품목코드));
+                }
 
                 if (rowsToExport.length === 0) { showToast("⚠️ 내보낼 데이터가 없습니다."); return; }
                 
@@ -1566,11 +1586,14 @@
                         await setIDB(STORAGE_KEYS.MANAGED_ITEMS, {});
                         setManagedItems({});
                         localStorage.removeItem('merchPipeline_CurrentTag');
-                        setTimeout(() => { window.location.href = 'Report.html'; }, 1000);
+                        setExportTargetCodes([]); // 사용한 타겟코드 비우기
+
+                        // 🌟 리포트 화면으로 강제 이동 모듈 (미리보기 환경 지원)
+                        setTimeout(() => { handleNavigate(null, 'Report.html'); }, 1000);
                         
                     } catch(e) { console.error(e); showToast("❌ 엑셀 파일 생성 중 오류가 발생했습니다."); } finally { setIsProcessing(false); setProcessMsg(''); }
                 }, 100);
-            }, [fullDisplayRows, masterProducts, selectedRows, showToast]);
+            }, [fullDisplayRows, masterProducts, selectedRows, exportTargetCodes, showToast, handleNavigate]);
 
             const handleCommitEstimate = useCallback(async (targetCodes, options, editedPrices, actionAfterSync = 'report') => {
                 if (targetCodes.length === 0) return;
@@ -1639,6 +1662,8 @@
                 localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
 
                 if (actionAfterSync === 'export') {
+                    // 🌟 F9 누른 경우: 대상 코드를 기억해두고 모달 오픈 (DB 초기화는 미룸)
+                    setExportTargetCodes(targetCodes);
                     showToast(`✅ ${commitCount}건 반영 완료! 엑셀 출력 형식을 선택해주세요.`);
                     setShowExportModal(true); 
                 } else {
@@ -1647,17 +1672,18 @@
                     localStorage.removeItem('merchPipeline_CurrentTag');
 
                     showToast(`✅ ${commitCount}건 통합 반영 완료! 경영 보고서로 이동합니다...`);
-                    setTimeout(() => { window.location.href = 'Report.html'; }, 800);
+                    setTimeout(() => { handleNavigate(null, 'Report.html'); }, 800);
                 }
 
-            }, [managedItems, masterProducts, config.masterLinks, showToast, config.marginRules]);
+            }, [managedItems, masterProducts, config.masterLinks, showToast, config.marginRules, handleNavigate]);
 
             const handleCloseExportModal = async () => {
                 setShowExportModal(false);
+                setExportTargetCodes([]);
                 await setIDB(STORAGE_KEYS.MANAGED_ITEMS, {}); 
                 setManagedItems({});
                 localStorage.removeItem('merchPipeline_CurrentTag');
-                window.location.href='Report.html';
+                handleNavigate(null, 'Report.html');
             };
 
             const handlePush = async () => {
