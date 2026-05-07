@@ -101,6 +101,17 @@
             });
         };
 
+        // 🌟 [추가] 시스템 기본 마진 룰 상수를 전역으로 분리하여 관리합니다. (대소문자 BOX, EA 모두 추가)
+        const DEFAULT_MARGIN_RULES = [
+            { id: generateUUID(), whCode: '01', unit: 'box, 박스, BOX', rate: 10, type: 'divide' },
+            { id: generateUUID(), whCode: '01', unit: 'ea, 개, 낱개, EA', rate: 15, type: 'divide' },
+            { id: generateUUID(), whCode: '03, 05', unit: 'box, 박스, BOX', rate: 15, type: 'divide' },
+            { id: generateUUID(), whCode: '03, 05', unit: 'ea, 개, 낱개, EA', rate: 20, type: 'divide' },
+            { id: generateUUID(), whCode: '*', unit: 'box, 박스, BOX', rate: 10, type: 'divide' },
+            { id: generateUUID(), whCode: '*', unit: 'ea, 개, 낱개, EA', rate: 15, type: 'divide' },
+            { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' }
+        ];
+
         // ==========================================
         // 🧩 공통 React UI 컴포넌트 모음
         // ==========================================
@@ -167,45 +178,39 @@
                 return p?.estimate ? p : { estimate: ['카탈로그', '견적서', '입고가', '출고가', '입고B', '도매A'] }; 
             });
             
+            // 💡 [추가] 기본 노출 컬럼(UploadCols)에 '단위'를 필수로 포함시킵니다.
             const [visibleUploadCols, setVisibleUploadCols] = useState(() => { 
                 const s = localStorage.getItem('merchVisUpload_v870'); 
                 const p = s ? JSON.parse(s) : null; 
-                return p?.estimate ? p : { estimate: ['창고', '구매처', '견적서', '입고가', '출고가', '입고B', '도매A', '간단설명'] }; 
+                return p?.estimate ? p : { estimate: ['창고', '구매처', '견적서', '단위', '입고가', '출고가', '입고B', '도매A', '간단설명'] }; 
             });
             
+            // 💡 [추가] 엑셀 키워드 매핑(Mappings) 사전에 '단위'를 기본 내장시킵니다.
             const [mappings, setMappings] = useState(() => { 
                 const s = localStorage.getItem('merchMappings_v870'); 
                 const p = s ? JSON.parse(s) : null; 
-                return p?.master ? p : { master: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격, 규격명, 사이즈, 단량', '출고가': '출고가, 출고, 판매가, 시중가', '입고가': '입고가, 입고, 매입가' }, estimate: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격명, 규격, 사이즈, 단량', '구매처': '거래처명, 구매처, 거래처', '견적서': '견적서, 카테고리, 템플릿, 견적분류', '입고가': '입고가, 입고, 매입가', '출고가': '출고가, 출고, 판매가', '입고B': 'B단가, 입고B', '도매A': 'A판매, A판매가, 도매A', '도매B': 'B판매, B판매가, 도매B', '간단설명': '지시사항, 간단설명, 비고' } }; 
+                return p?.master ? p : { 
+                    master: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격, 규격명, 사이즈, 단량', '출고가': '출고가, 출고, 판매가, 시중가', '입고가': '입고가, 입고, 매입가' }, 
+                    estimate: { '창고': '창고, 창고코드', '품목코드': '품목코드, 상품코드, 바코드, 상품번호, 코드', '품목명': '품목명, 상품명, 품명, 상품이름', '규격': '규격명, 규격, 사이즈, 단량', '구매처': '거래처명, 구매처, 거래처', '견적서': '견적서, 카테고리, 템플릿, 견적분류', '단위': '단위, 판매단위, unit, 박스, ea', '입고가': '입고가, 입고, 매입가', '출고가': '출고가, 출고, 판매가', '입고B': 'B단가, 입고B', '도매A': 'A판매, A판매가, 도매A', '도매B': 'B판매, B판매가, 도매B', '간단설명': '지시사항, 간단설명, 비고' } 
+                }; 
             });
             
             const [masterLinks, setMasterLinks] = useState(() => { 
                 const s = localStorage.getItem('merchMasterLinks_v870'); 
                 const p = s ? JSON.parse(s) : null; 
-                return p?.estimate ? p : { master: {}, estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명' } }; 
+                return p?.estimate ? p : { estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '단위': '단위', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } }; 
             });
             
-            // 🌟 마진 룰 v879 적용 (시세관리 앱과 완벽 연동됨)
             const [marginRules, setMarginRules] = useState(() => {
                 const s = localStorage.getItem('merchMarginRules_v879');
-                
-                const def = [ 
-                    { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '01', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '03, 05', unit: 'box, 박스', rate: 15, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '03, 05', unit: 'ea, 개, 낱개', rate: 20, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '*', unit: 'box, 박스', rate: 10, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '*', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' }, 
-                    { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' } 
-                ];
-                
                 if (s) { 
                     try { 
                         const p = JSON.parse(s); 
                         if (p?.length > 2) return p.map(r => ({ ...r, whCode: r.whCode || '*', unit: r.unit || '*' })); 
                     } catch(e){} 
                 }
-                return def;
+                // 💡 [수정] 위에서 정의한 시스템 기본 상수를 바라보도록 수정
+                return DEFAULT_MARGIN_RULES;
             });
 
             const [opsMappings, setOpsMappings] = useState(() => {
@@ -423,6 +428,11 @@
                 showToast(`✅ [${cleanVal}] 항목이 추가되어 마스터 필드와 자동 연결되었습니다.`);
             };
 
+            const restoreDefaultMarginRules = () => {
+                config.setMarginRules(DEFAULT_MARGIN_RULES);
+                showToast("✅ 저장되었습니다.");
+            };
+
             const addMarginRule = () => config.setMarginRules([...config.marginRules, { id: generateUUID(), whCode: '', unit: '', rate: 10, type: 'divide' }]);
             const updateMarginRule = (id, field, value) => config.setMarginRules(config.marginRules.map(r => r.id === id ? { ...r, [field]: value } : r));
             const deleteMarginRule = (id) => config.setMarginRules(config.marginRules.filter(r => r.id !== id));
@@ -575,7 +585,7 @@
                                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                                         <h3 className="text-[16px] font-black text-slate-800 mb-4 pb-2 border-b flex items-center"><SafeIcon name="folder-open" size={18} className="text-indigo-500 mr-2"/> 파서 보관함 (카탈로그) 관리</h3>
                                         <div className="text-[13px] text-slate-500 font-bold mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                            스마트 파서에서 단가 작업 시 생성된 태그 목록입니다. 더 이상 사용하지 않는 카탈로그를 깔끔하게 삭제할 수 있습니다.
+                                            스마트 파서에서 단가 작업 시 생성된 태그 목록입니다. 더 더 이상 사용하지 않는 카탈로그를 깔끔하게 삭제할 수 있습니다.
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             {availableCatalogs.length === 0 ? <div className="col-span-full text-[14px] text-slate-400 font-bold p-8 text-center bg-slate-50 rounded-lg">등록된 카탈로그가 없습니다.</div> : availableCatalogs.map(tag => (
@@ -617,7 +627,10 @@
                                                 <h3 className="text-[18px] font-black text-rose-900 flex items-center"><SafeIcon name="calculator" size={20} className="mr-2 text-rose-500"/>동적 단가 계산 및 하이브리드 마진 룰</h3>
                                                 <p className="text-[13px] font-bold text-rose-600 mt-1.5">※ 매입 원가(입고가)에 마진을 곱하거나 나누어, 전사의 기준이 되는 **최종 출고가(시중가)**를 제안하는 공식입니다.</p>
                                             </div>
-                                            <button onClick={addMarginRule} className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-md flex items-center transform hover:scale-105"><SafeIcon name="plus" size={14} className="mr-1.5"/> 룰 추가</button>
+                                            <div className="flex gap-2">
+                                                <button onClick={restoreDefaultMarginRules} className="bg-slate-800 hover:bg-black text-white px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center"><SafeIcon name="save" size={14} className="mr-1.5"/> 저장</button>
+                                                <button onClick={addMarginRule} className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-md flex items-center transform hover:scale-105"><SafeIcon name="plus" size={14} className="mr-1.5"/> 룰 추가</button>
+                                            </div>
                                         </div>
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-left text-[13px]">
