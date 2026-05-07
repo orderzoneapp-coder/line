@@ -126,14 +126,17 @@
                 return p?.estimate ? p : { master: {}, estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } }; 
             });
             
-            // 🌟 룰 명칭(ruleName)이 추가된 새로운 v882 엔진 데이터 (기본값 하드코딩)
+            // 🌟 룰 명칭(ruleName)이 추가된 새로운 v883 엔진 데이터 (모든 카탈로그용 기본 마진 포함)
             const [marginRules, setMarginRules] = useState(() => {
-                const s = localStorage.getItem('merchMarginRules_v882');
+                const s = localStorage.getItem('merchMarginRules_v883');
                 const def = [ 
+                    { id: generateUUID(), ruleName: '특가/행사 마진', catalogName: '행사, 특가', unit: '*', rate: 5, type: 'divide' },
                     { id: generateUUID(), ruleName: '도매 (Box)', catalogName: '도매', unit: 'box, 박스', rate: 10, type: 'divide' },
                     { id: generateUUID(), ruleName: '도매 (Ea)', catalogName: '도매', unit: 'ea, 개, 낱개, 봉, 마리, 포, 단', rate: 15, type: 'divide' }, 
                     { id: generateUUID(), ruleName: '소매 (Box)', catalogName: '소매, 스마트스토어', unit: 'box, 박스', rate: 15, type: 'divide' }, 
                     { id: generateUUID(), ruleName: '소매 (Ea)', catalogName: '소매, 스마트스토어', unit: 'ea, 개, 낱개, 봉, 마리, 포, 단', rate: 20, type: 'divide' }, 
+                    { id: generateUUID(), ruleName: '기본 마진 (Box)', catalogName: '*', unit: 'box, 박스', rate: 10, type: 'divide' }, 
+                    { id: generateUUID(), ruleName: '기본 마진 (Ea)', catalogName: '*', unit: 'ea, 개, 낱개, 봉, 마리, 포, 단', rate: 15, type: 'divide' }, 
                     { id: 'default', ruleName: '기본 단가 (나머지)', catalogName: '*', unit: '*', rate: 20, type: 'divide' } 
                 ];
                 if (s) { 
@@ -162,7 +165,7 @@
                 localStorage.setItem('merchVisUpload_v870', JSON.stringify(visibleUploadCols));
                 localStorage.setItem('merchMappings_v870', JSON.stringify(mappings)); 
                 localStorage.setItem('merchMasterLinks_v870', JSON.stringify(masterLinks)); 
-                localStorage.setItem('merchMarginRules_v882', JSON.stringify(marginRules)); 
+                localStorage.setItem('merchMarginRules_v883', JSON.stringify(marginRules)); 
                 localStorage.setItem('inventoryMappingsLight', JSON.stringify(opsMappings));
                 localStorage.setItem('inventoryGroupingV79', JSON.stringify(opsGrouping));
             }, [cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules, opsMappings, opsGrouping]);
@@ -293,7 +296,7 @@
             }, [masterProducts, showToast, checkedCatalogsForMapping]);
 
             const handleExportSettings = () => {
-                const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v882', 'inventoryMappingsLight', 'inventoryGroupingV79'];
+                const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v883', 'inventoryMappingsLight', 'inventoryGroupingV79'];
                 const data = {}; keys.forEach(k => { data[k] = localStorage.getItem(k); });
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
@@ -318,7 +321,7 @@
                         config.setVisibleUploadCols(safeParse('merchVisUpload_v870', config.visibleUploadCols));
                         config.setMappings(safeParse('merchMappings_v870', config.mappings));
                         config.setMasterLinks(safeParse('merchMasterLinks_v870', config.masterLinks));
-                        config.setMarginRules(safeParse('merchMarginRules_v882', config.marginRules) || safeParse('merchMarginRules_v881', config.marginRules));
+                        config.setMarginRules(safeParse('merchMarginRules_v883', config.marginRules) || safeParse('merchMarginRules_v882', config.marginRules));
                         config.setOpsMappings(safeParse('inventoryMappingsLight', config.opsMappings));
                         config.setOpsGrouping(safeParse('inventoryGroupingV79', config.opsGrouping));
                         showToast("✅ 설정이 성공적으로 복원되어 화면에 즉시 적용되었습니다.");
@@ -341,7 +344,7 @@
             const handleFactoryReset = () => {
                 if (dangerLock !== '데이터를 모두 삭제합니다') return showToast('⚠️ 안전 잠금 해제 문구를 정확히 띄어쓰기하여 입력하세요.');
                 if (!window.confirm("경고: 커스텀된 매핑 규칙과 환경설정이 모두 초기화됩니다.\n진행하시겠습니까?")) return;
-                const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v882', 'merchMarginRules_v881', 'merchMarginRules_v880', 'inventoryMappingsLight', 'inventoryGroupingV79'];
+                const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v883', 'merchMarginRules_v882', 'merchMarginRules_v881', 'merchMarginRules_v880', 'inventoryMappingsLight', 'inventoryGroupingV79'];
                 keys.forEach(k => localStorage.removeItem(k)); setDangerLock('');
                 showToast("🔄 설정이 기본값으로 초기화되었습니다. 화면을 새로고침합니다."); setTimeout(() => window.location.reload(), 1500);
             };
