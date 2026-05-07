@@ -477,7 +477,8 @@
                 let masterLinks = JSON.parse(localStorage.getItem('merchMasterLinks_v870') || 'null');
                 if (!masterLinks || !masterLinks.estimate) masterLinks = { estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } };
 
-                let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v878') || 'null');
+                // 💡 [중요 수정] 구 버전 키인 'merchMarginRules_v878' 대신 환경설정 화면과 동일한 'merchMarginRules_v879' 키를 읽도록 동기화했습니다!
+                let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v879') || 'null');
                 if (!marginRules || marginRules.length <= 2) {
                     marginRules = [
                         { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' },
@@ -488,7 +489,7 @@
                         { id: generateUUID(), whCode: '*', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' },
                         { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' }
                     ];
-                    localStorage.setItem('merchMarginRules_v878', JSON.stringify(marginRules));
+                    localStorage.setItem('merchMarginRules_v879', JSON.stringify(marginRules));
                 }
                 
                 return { cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules };
