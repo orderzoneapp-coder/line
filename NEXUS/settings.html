@@ -428,9 +428,9 @@
                 showToast(`✅ [${cleanVal}] 항목이 추가되어 마스터 필드와 자동 연결되었습니다.`);
             };
 
-            const restoreDefaultMarginRules = () => {
-                config.setMarginRules(DEFAULT_MARGIN_RULES);
-                showToast("✅ 저장되었습니다.");
+            const handleForceSave = () => {
+                localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
+                showToast("✅ 저장 완료! 다른 화면(시세관리 등)에 즉시 강제 업데이트 됩니다.");
             };
 
             const addMarginRule = () => config.setMarginRules([...config.marginRules, { id: generateUUID(), whCode: '', unit: '', rate: 10, type: 'divide' }]);
@@ -628,7 +628,7 @@
                                                 <p className="text-[13px] font-bold text-rose-600 mt-1.5">※ 매입 원가(입고가)에 마진을 곱하거나 나누어, 전사의 기준이 되는 **최종 출고가(시중가)**를 제안하는 공식입니다.</p>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={restoreDefaultMarginRules} className="bg-slate-800 hover:bg-black text-white px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center"><SafeIcon name="save" size={14} className="mr-1.5"/> 저장</button>
+                                                <button onClick={handleForceSave} className="bg-slate-800 hover:bg-black text-white px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center"><SafeIcon name="save" size={14} className="mr-1.5"/> 저장</button>
                                                 <button onClick={addMarginRule} className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-md flex items-center transform hover:scale-105"><SafeIcon name="plus" size={14} className="mr-1.5"/> 룰 추가</button>
                                             </div>
                                         </div>
