@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.13]</title>
+    <title>NEXUS - Valuation Hub [v1.6.14]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -343,7 +343,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.13</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.14</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -486,7 +486,6 @@
                 if (!masterLinks || !masterLinks.estimate) masterLinks = { estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } };
 
                 let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v879') || 'null');
-                // 💡 [변경] 규칙이 2개 이하일 때 강제 덮어쓰던 조건 제거 -> 데이터가 아예 없을 때만 초기화
                 if (!marginRules || marginRules.length === 0) {
                     marginRules = [
                         { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' },
@@ -506,7 +505,7 @@
             useEffect(() => {
                 const handleStorageChange = () => setConfig(loadConfig());
                 window.addEventListener('storage', handleStorageChange);
-                window.addEventListener('force-config-reload', handleStorageChange); // 💡 명시적 설정 갱신 이벤트 추가
+                window.addEventListener('force-config-reload', handleStorageChange); 
                 return () => {
                     window.removeEventListener('storage', handleStorageChange);
                     window.removeEventListener('force-config-reload', handleStorageChange);
@@ -1001,7 +1000,6 @@
             );
         });
 
-        // 🌟 [핵심 수정] 컬럼(visMasterCols, visUploadCols)의 구성이 변경되었는지도 비교하여 즉각 리렌더링하도록 조건 추가
         const rowPropsAreEqual = (prevProps, nextProps) => {
             const masterColsSame = prevProps.visMasterCols.join(',') === nextProps.visMasterCols.join(',');
             const uploadColsSame = prevProps.visUploadCols.join(',') === nextProps.visUploadCols.join(',');
@@ -1239,7 +1237,7 @@
                     if (e.data && e.data.type === 'CLOSE_SETTINGS') {
                         setShowSettingsModal(false); 
                         loadMasterAndStaging(); 
-                        window.dispatchEvent(new Event('force-config-reload')); // 💡 닫을 때도 설정 파일 즉시 갱신
+                        window.dispatchEvent(new Event('force-config-reload')); 
                     }
                 };
                 window.addEventListener('message', handleMessage);
@@ -1318,7 +1316,6 @@
                                 newManaged[code] = {
                                     코드: code,
                                     sources: { estimate: {} },
-                                    // 🌟 카탈로그 로드 시, 마스터 데이터의 원래 단가를 그대로 보존합니다. (마진 룰 자동 적용 방지)
                                     finalData: calculatePricesEngine(parseNum(mItem['입고가']), mItem, {}, config.marginRules, false)
                                 };
                             }
@@ -1457,9 +1454,19 @@
             }, [managedItems, masterProducts, globalSearch, selectedCatalogs, selectedCategories]);
 
             const executeExport = useCallback((type, options) => {
-                const rowsToExport = fullDisplayRows.filter(r => managedItems[r.코드 || r.품목코드]);
+                // 🌟 전체 리스트 무단 출력 방지: 불러온 항목(managedItems)이 없거나, 카탈로그/카테고리/검색 필터가 아무것도 안 걸려있을 때 차단
+                if (Object.keys(managedItems).length === 0 && selectedCatalogs.size === 0 && selectedCategories.size === 0 && !globalSearch) {
+                    showToast("⚠️ 마스터 DB 전체는 출력할 수 없습니다. 카탈로그나 검색어로 항목을 필터링하세요.");
+                    return;
+                }
 
-                if (rowsToExport.length === 0) { showToast("⚠️ 내보낼 데이터(불러온 항목)가 없습니다."); return; }
+                // 🌟 화면에 보이는 목록(fullDisplayRows)을 그대로 엑셀로 내보냅니다.
+                const rowsToExport = fullDisplayRows;
+
+                if (rowsToExport.length === 0) { 
+                    showToast("⚠️ 내보낼 데이터가 없습니다."); 
+                    return; 
+                }
                 
                 setShowExportModal(false); 
                 setIsProcessing(true); setProcessMsg("엑셀 파일 생성 중...");
@@ -1468,7 +1475,6 @@
                     try {
                         const wb = window.XLSX.utils.book_new();
                         
-                        // 🌟 화면에 외주비, 노무비 노출 여부 파악
                         const activeCols = [...(config.visibleMasterCols.estimate || []), ...(config.visibleUploadCols.estimate || [])];
                         const hasOutsrc = activeCols.includes('외주비');
                         const hasLabor = activeCols.includes('노무비');
@@ -1532,7 +1538,6 @@
                             const priceMarketShop = pMarketPrice > 0 ? pMarketPrice : pOut;
                             const priceA = getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매']);
                             
-                            // 🌟 출고가 0원 시 옵션 처리 로직
                             let isForSale = '1';
                             let stockQty = '999';
                             if (pOut === 0) {
@@ -1565,7 +1570,6 @@
                                     const cMarketPrice = subMaster.시중가 > 0 ? subMaster.시중가 : cOut;
                                     const cPriceA = subMaster.도매A > 0 ? subMaster.도매A : 0;
                                     
-                                    // 🌟 서브 아이템 출고가 0원 시 옵션 동일 적용
                                     let cIsForSale = '1';
                                     let cStockQty = '999';
                                     if (cOut === 0) {
@@ -1578,7 +1582,6 @@
                             });
                         });
                         
-                        // 🌟 하나의 엑셀 파일(wb)에 두 개의 시트(쇼핑몰, ERP)를 각각 어펜드
                         window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(shopData), "쇼핑몰업로드"); 
                         window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(erpData), "ERP업데이트"); 
                         
@@ -1587,7 +1590,7 @@
                         
                     } catch(e) { console.error(e); showToast("❌ 엑셀 파일 생성 중 오류가 발생했습니다."); } finally { setIsProcessing(false); setProcessMsg(''); }
                 }, 100);
-            }, [fullDisplayRows, managedItems, masterProducts, showToast, config.visibleMasterCols, config.visibleUploadCols]);
+            }, [fullDisplayRows, managedItems, masterProducts, showToast, config.visibleMasterCols, config.visibleUploadCols, globalSearch, selectedCatalogs, selectedCategories]);
 
             const handleCommitEstimate = useCallback(async (targetCodes, options, editedPrices, actionAfterSync = 'report') => {
                 if (targetCodes.length === 0) return;
@@ -1748,13 +1751,12 @@
                 }, 100);
             }, [fullDisplayRows, masterProducts, config.marginRules, showToast]);
 
-            // 💡 [변경] 초기화 클릭 시 화면 비우기 + 로컬스토리지 설정 강제 갱신
             const handleReset = useCallback(() => {
                 setManagedItems({}); setIDB(STORAGE_KEYS.MANAGED_ITEMS, {}); 
                 setGlobalSearch(''); 
                 setSelectedCatalogs(new Set()); setSelectedCategories(new Set()); 
                 window.dispatchEvent(new Event('force-config-reload'));
-                showToast('화면 및 설정이 초기화 되었습니다.');
+                showToast('✅ 화면 및 설정이 초기화 되었습니다.');
             }, [showToast]);
 
             const handleFileUpload = async (e) => {
@@ -1793,7 +1795,6 @@
                         const pInRaw = (estIn !== undefined && estIn !== '') ? estIn : masterProducts[code]?.['입고가'];
                         const pInNum = parseNum(pInRaw);
                         
-                        // 🌟 엑셀 업로드 시, 마진 룰을 강제 적용하지 않고 엑셀/마스터에 있는 그대로 보존합니다.
                         mItem.finalData = calculatePricesEngine(pInNum, masterProducts[code] || {}, mItem.finalData, config.marginRules, false);
                         
                         count++;
@@ -1894,7 +1895,6 @@
                                         <button id="btn-open-review" onClick={() => setShowReviewModal(true)} className="h-9 px-4 rounded-lg text-[13px] font-bold bg-slate-800 text-white hover:bg-slate-700 border-slate-700 shadow-sm flex items-center shrink-0 transition-colors">
                                             <SafeIcon name="check-circle-2" className="mr-1.5" size={14}/> 검증 및 반영 [F8]
                                         </button>
-                                        {/* 🌟 [수정] managedItems(불러온 데이터)가 존재할 때만 계산기 버튼을 동적으로 노출합니다. */}
                                         {Object.keys(managedItems).length > 0 && (
                                             <Fragment>
                                                 <div className="w-px h-5 bg-slate-200 mx-1 shrink-0"></div>
@@ -1927,7 +1927,12 @@
                     <IframeSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
                     {showExportModal && <ExportModal onClose={handleCloseExportModal} onExport={executeExport}/>}
                     {showReviewModal && <ReviewModal onClose={() => setShowReviewModal(false)} onConfirm={handleCommitEstimate} displayRows={fullDisplayRows} masterProducts={masterProducts} availableCategories={availableCategories} />}
-                    {toastMsg && <div className="fixed bottom-10 right-10 z-[100] bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 fade-in border border-slate-700 font-bold"><SafeIcon name="check-circle-2" size={18} className="text-emerald-400" /><span className="text-sm font-bold tracking-tight">{toastMsg}</span></div>}
+                    {toastMsg && (
+                        <div className={`fixed bottom-10 right-10 z-[300] bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 fade-in border border-slate-700 font-bold`}>
+                            <SafeIcon name={toastMsg.includes('⚠️') || toastMsg.includes('❌') ? "alert-triangle" : "check-circle-2"} size={18} className={toastMsg.includes('⚠️') || toastMsg.includes('❌') ? "text-amber-400" : "text-emerald-400"} />
+                            <span className="text-sm font-bold tracking-tight">{toastMsg}</span>
+                        </div>
+                    )}
                 </div>
             );
         }
