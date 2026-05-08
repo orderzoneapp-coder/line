@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.9]</title>
+    <title>NEXUS - Valuation Hub [v1.6.11]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -343,7 +343,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.9</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.11</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -432,27 +432,28 @@
         };
 
         const ExportModal = ({ onClose, onExport }) => {
-            const [salePriceZero, setSalePriceZero] = useState('0');
-            const [stockZero, setStockZero] = useState('999');
+            const [zeroPriceAction, setZeroPriceAction] = useState('suspend');
+            
             return (
                 <div className="fixed inset-0 flex justify-center items-center bg-slate-900/70 backdrop-blur-sm fade-in z-[100]">
-                    <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden w-[500px]">
-                        <div className="bg-[#0f172a] p-4 text-white flex justify-between items-center"><h2 className="font-black text-[16px]">보고서 및 업로드 파일 출력</h2><button onClick={onClose}><SafeIcon name="x" size={20}/></button></div>
+                    <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden w-[450px]">
+                        <div className="bg-[#0f172a] p-4 text-white flex justify-between items-center"><h2 className="font-black text-[16px]">통합 엑셀 다운로드</h2><button onClick={onClose}><SafeIcon name="x" size={20}/></button></div>
                         <div className="p-6 space-y-6">
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                                <h3 className="text-sm font-black text-slate-800 flex items-center gap-2"><SafeIcon name="settings" size={16} className="text-indigo-500"/> 출력 데이터 전처리 설정</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><label className="text-[11px] font-black text-slate-500">출고가(판매가) 0원 시</label><select value={salePriceZero} onChange={e=>setSalePriceZero(e.target.value)} className="w-full text-xs p-2 border rounded-lg"><option value="0">0원으로 유지</option><option value="EMPTY">빈 칸으로 출력</option><option value="999999">999,999원 (임계값)</option></select></div>
-                                    <div className="space-y-1"><label className="text-[11px] font-black text-slate-500">재고수량 부재 시</label><select value={stockZero} onChange={e=>setStockZero(e.target.value)} className="w-full text-xs p-2 border rounded-lg"><option value="999">999개 (무제한)</option><option value="0">0개 (품절)</option></select></div>
+                                <h3 className="text-sm font-black text-slate-800 flex items-center gap-2"><SafeIcon name="settings" size={16} className="text-indigo-500"/> 출력 데이터 처리 규칙</h3>
+                                <div className="space-y-1">
+                                    <label className="text-[12px] font-black text-slate-600">출고가(판매가)가 0원 인 상품 처리</label>
+                                    <select value={zeroPriceAction} onChange={e=>setZeroPriceAction(e.target.value)} className="w-full text-[13px] font-bold text-slate-700 p-2.5 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm">
+                                        <option value="suspend">판매중지(0) 및 품절(0) 처리 (권장)</option>
+                                        <option value="keep">판매유지(1) 및 재고무제한(999) 설정</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 gap-3">
-                                <button onClick={()=>onExport('erp', {sale:salePriceZero, stock:stockZero})} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm flex items-center justify-center gap-3 shadow-lg transition-all"><SafeIcon name="file-excel" size={20}/> ERP 업데이트용 (행사열 제외) </button>
-                                <button onClick={()=>onExport('shop', {sale:salePriceZero, stock:stockZero})} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-sm flex items-center justify-center gap-3 shadow-lg transition-all"><SafeIcon name="shopping-cart" size={20}/> 쇼핑몰 일괄 업로드용 </button>
-                                <button onClick={()=>onExport('simple', {sale:salePriceZero, stock:stockZero})} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-sm flex items-center justify-center gap-3 border border-slate-300 transition-all"><SafeIcon name="list" size={20}/> 단순 시세 일람표 (마스터 기준) </button>
+                                <button onClick={()=>onExport('all', { zeroPriceAction })} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[14px] flex items-center justify-center gap-3 shadow-lg transition-all"><SafeIcon name="file-excel" size={20}/> 통합 엑셀 다운로드 (ERP, 쇼핑몰 시트 포함) </button>
                             </div>
                         </div>
-                        <div className="bg-slate-50 p-4 text-center border-t border-slate-200 text-[11px] text-slate-400 font-medium">내보내기 파일은 엑셀(.xlsx) 형식으로 저장됩니다.</div>
+                        <div className="bg-slate-50 p-4 text-center border-t border-slate-200 text-[11px] text-slate-400 font-medium">내보내기 파일은 엑셀(.xlsx) 형식으로 통합되어 저장됩니다.</div>
                     </div>
                 </div>
             );
@@ -1446,7 +1447,6 @@
             }, [managedItems, masterProducts, globalSearch, selectedCatalogs, selectedCategories]);
 
             const executeExport = useCallback((type, options) => {
-                // 🌟 [핵심 수정] 무작정 전체 리스트를 내보내지 않고, '불러온 정보(managedItems)'만 필터링하여 엑셀로 변환합니다.
                 const rowsToExport = fullDisplayRows.filter(r => managedItems[r.코드 || r.품목코드]);
 
                 if (rowsToExport.length === 0) { showToast("⚠️ 내보낼 데이터(불러온 항목)가 없습니다."); return; }
@@ -1505,58 +1505,71 @@
                             const pRowErp = createRowArr(rowCode, pIn, pOut, pBPrice, pASale, pBSale, pIn); 
                             if (pRowErp) erpData.push(pRowErp); 
                             
-                            const isZeroPrice = (pIn === 0 && pOut === 0);
-                            const priceMarketShop = isZeroPrice ? 0 : (pMarketPrice > 0 ? pMarketPrice : pOut);
+                            const priceMarketShop = pMarketPrice > 0 ? pMarketPrice : pOut;
+                            const priceA = getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매']);
                             
-                            const priceA = isZeroPrice ? 0 : getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매']);
-                            const isForSale = isZeroPrice ? '0' : (pIn >= 0 || pOut >= 0 ? '1' : '0');
-                            const stockQty = isZeroPrice ? '999' : '999';
+                            // 🌟 출고가 0원 시 옵션 처리 로직
+                            let isForSale = '1';
+                            let stockQty = '999';
+                            if (pOut === 0) {
+                                if (options.zeroPriceAction === 'suspend') {
+                                    isForSale = '0';
+                                    stockQty = '0';
+                                } else {
+                                    isForSale = '1';
+                                    stockQty = '999';
+                                }
+                            }
 
                             shopData.push([rowCode, dName, dSpec, pOut, priceA, priceMarketShop, 0, 0, 0, 0, 0, 0, dBrand, dInfo, isForSale, stockQty, '', '', '', '', '', dSearch]);
 
-                            [1].forEach(type => { 
-                                const cCodeRaw = getFirstValidStr([final, source, mItem], [`${type}종코드`]); 
+                            [1].forEach(t => { 
+                                const cCodeRaw = getFirstValidStr([final, source, mItem], [`${t}종코드`]); 
                                 if (isValidSubItemCode(cCodeRaw)) { 
                                     const cCode = String(cCodeRaw).trim();
-                                    const cIn = getFirstValidNum([final, source, mItem], [`${type}입고`, `${type}구매`]);
-                                    const cOut = getFirstValidNum([final, source, mItem], [`${type}출고`]); 
+                                    const cIn = getFirstValidNum([final, source, mItem], [`${t}입고`, `${t}구매`]);
+                                    const cOut = getFirstValidNum([final, source, mItem], [`${t}출고`]); 
                                     const cRowErp = createRowArr(cCode, cIn, cOut, '', '', '', cIn); 
                                     if (cRowErp) erpData.push(cRowErp); 
 
                                     const subMaster = masterProducts[cCode] || {};
-                                    const cName = subMaster.품목명 || getFirstValidStr([final, source, mItem], [`${type}그룹명`]) || `${dName} (소분)`;
-                                    const cSpec = subMaster.규격 || getFirstValidStr([mItem, source], [`${type}종규격`]) || '';
+                                    const cName = subMaster.품목명 || getFirstValidStr([final, source, mItem], [`${t}그룹명`]) || `${dName} (소분)`;
+                                    const cSpec = subMaster.규격 || getFirstValidStr([mItem, source], [`${t}종규격`]) || '';
                                     const cBrand = subMaster.브랜드 || dBrand;
                                     const cInfo = subMaster.간단설명 || dInfo;
                                     const cSearch = subMaster.검색어등록 || dSearch;
                                     
-                                    const cIsZeroPrice = (cIn === 0 && cOut === 0);
-                                    const cMarketPrice = cIsZeroPrice ? 0 : (subMaster.시중가 > 0 ? subMaster.시중가 : cOut);
+                                    const cMarketPrice = subMaster.시중가 > 0 ? subMaster.시중가 : cOut;
+                                    const cPriceA = subMaster.도매A > 0 ? subMaster.도매A : 0;
                                     
-                                    const cPriceA = cIsZeroPrice ? 0 : (subMaster.도매A > 0 ? subMaster.도매A : 0);
-                                    const cIsForSale = cIsZeroPrice ? '0' : (cIn > 0 || cOut > 0 ? '1' : '0');
-                                    const cStockQty = cIsZeroPrice ? '999' : '999';
+                                    // 🌟 서브 아이템 출고가 0원 시 옵션 동일 적용
+                                    let cIsForSale = '1';
+                                    let cStockQty = '999';
+                                    if (cOut === 0) {
+                                        if (options.zeroPriceAction === 'suspend') {
+                                            cIsForSale = '0';
+                                            cStockQty = '0';
+                                        } else {
+                                            cIsForSale = '1';
+                                            cStockQty = '999';
+                                        }
+                                    }
 
                                     shopData.push([cCode, cName, cSpec, cOut, cPriceA, cMarketPrice, 0, 0, 0, 0, 0, 0, cBrand, cInfo, cIsForSale, cStockQty, '', '', '', '', '', cSearch]);
                                 } 
                             });
                         });
                         
-                        if (type === 'erp') {
-                            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(erpData), "ERP업데이트"); 
-                        } else if (type === 'shop') {
-                            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(shopData), "쇼핑몰업로드"); 
-                        } else {
-                            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(shopData), "쇼핑몰업로드"); 
-                            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(erpData), "ERP업데이트"); 
-                        }
+                        // 🌟 하나의 엑셀 파일(wb)에 두 개의 시트(쇼핑몰, ERP)를 각각 어펜드
+                        window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(shopData), "쇼핑몰업로드"); 
+                        window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(erpData), "ERP업데이트"); 
                         
-                        window.XLSX.writeFile(wb, `보고서출력_${new Date().toISOString().slice(0,10)}.xlsx`);
+                        window.XLSX.writeFile(wb, `통합시세출력_${new Date().toISOString().slice(0,10)}.xlsx`);
                         showToast(`✅ 엑셀 다운로드가 완료되었습니다. 화면 및 데이터가 유지됩니다.`);
                         
                     } catch(e) { console.error(e); showToast("❌ 엑셀 파일 생성 중 오류가 발생했습니다."); } finally { setIsProcessing(false); setProcessMsg(''); }
                 }, 100);
-            }, [fullDisplayRows, masterProducts, showToast]);
+            }, [fullDisplayRows, managedItems, masterProducts, showToast]);
 
             const handleCommitEstimate = useCallback(async (targetCodes, options, editedPrices, actionAfterSync = 'report') => {
                 if (targetCodes.length === 0) return;
@@ -1865,8 +1878,13 @@
                                         <button id="btn-open-review" onClick={() => setShowReviewModal(true)} className="h-9 px-4 rounded-lg text-[13px] font-bold bg-slate-800 text-white hover:bg-slate-700 border-slate-700 shadow-sm flex items-center shrink-0 transition-colors">
                                             <SafeIcon name="check-circle-2" className="mr-1.5" size={14}/> 검증 및 반영 [F8]
                                         </button>
-                                        <div className="w-px h-5 bg-slate-200 mx-1 shrink-0"></div>
-                                        <button onClick={handleApplyMarginRules} className="h-9 px-3 rounded-md text-[13px] font-bold bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 text-rose-500 transition-colors shadow-sm flex items-center shrink-0 justify-center w-9" title="전체 마진 룰 일괄 적용"><SafeIcon name="calculator" size={14}/></button>
+                                        {/* 🌟 [수정] managedItems(불러온 데이터)가 존재할 때만 계산기 버튼을 동적으로 노출합니다. */}
+                                        {Object.keys(managedItems).length > 0 && (
+                                            <Fragment>
+                                                <div className="w-px h-5 bg-slate-200 mx-1 shrink-0"></div>
+                                                <button onClick={handleApplyMarginRules} className="h-9 px-3 rounded-md text-[13px] font-bold bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 text-rose-500 transition-colors shadow-sm flex items-center shrink-0 justify-center w-9" title="전체 마진 룰 일괄 적용"><SafeIcon name="calculator" size={14}/></button>
+                                            </Fragment>
+                                        )}
                                     </Fragment>
                                 )}
                                 
