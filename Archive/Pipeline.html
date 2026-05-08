@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.2 - Export Fix]</title>
+    <title>NEXUS - Valuation Hub [v1.8.0 - Context Search & Export Engine]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -34,8 +34,7 @@
         .data-row:hover > td.master-col { background-color: #e2e8f0; } 
         .data-row.is-modified > td { background-color: #fefce8 !important; }
         .data-row:focus-within > td { background-color: #eff6ff !important; }
-        /* 🌟 선택된 행 색상을 마스터 배경(f1f5f9)과 유사한 수준으로 더 진하게 변경 (기존 #e0e7ff -> #e2e8f0 수준 또는 Tailwind bg-slate-200) */
-        .data-row.is-selected > td { background-color: #e2e8f0 !important; }
+        .data-row.is-selected > td { background-color: #e0e7ff !important; }
         
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -108,6 +107,30 @@
             });
         };
 
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-6">
+                            <i className="fas fa-exclamation-triangle text-rose-500 text-6xl mb-6"></i>
+                            <h1 className="text-2xl font-black text-slate-800 mb-2">화면 렌더링 오류 발생 (Crash)</h1>
+                            <p className="text-slate-500 mb-6 text-center">데이터를 불러오는 중 문제가 발생했습니다.<br/>아래 [초기화] 버튼을 눌러 복구해 주세요.</p>
+                            <div className="bg-white border border-rose-200 p-4 rounded-lg text-xs font-mono text-rose-600 w-full max-w-2xl overflow-auto mb-8 shadow-sm">{this.state.error && this.state.error.toString()}</div>
+                            <button onClick={() => { indexedDB.deleteDatabase('MerchOpsDB'); localStorage.clear(); window.location.reload(); }} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-lg flex items-center gap-2">
+                                <i className="fas fa-redo-alt"></i> 로컬 데이터 초기화 및 복구하기
+                            </button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
         const parseExcelRobust = (file) => new Promise((resolve, reject) => {
             if (!window.XLSX) return reject(new Error("엑셀 파서 로드 안됨"));
             const reader = new FileReader();
@@ -142,7 +165,7 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // 🌟 코어 엔진 재정의: "시중가 = 전산단가", "출고가 = 판매가(수동조작 우선)" 철학 반영
+        // 🌟 코어 엔진: 사용자가 원했던 창고코드(whCode) + 규격 스캔 방식 유지
         const calculatePricesEngine = (baseInPrice, mItem = {}, currentFinalData = {}, marginRules = [], forceRecalc = false) => {
             if (baseInPrice === undefined || baseInPrice === null || baseInPrice < 0) {
                 return currentFinalData;
@@ -155,19 +178,24 @@
             if (baseInPrice > 0) {
                 outsrc = parseNum(currentFinalData?.['외주비'] ?? mItem?.['외주비']);
                 labor = parseNum(currentFinalData?.['노무비'] ?? mItem?.['노무비']);
-                totalCost = baseInPrice + outsrc + labor;
+                totalCost = baseInPrice + outsrc + labor; 
             }
 
             const whCode = String(currentFinalData?.['창고'] ?? mItem?.['창고'] ?? '').trim();
             const unitStr = String(currentFinalData?.['단위'] ?? mItem?.['단위'] ?? '').trim().toLowerCase();
+            const specStr = String(currentFinalData?.['규격'] ?? mItem?.['규격'] ?? '').trim().toLowerCase();
             
             const matchWh = (ruleWh, targetWh) => ruleWh === '*' || ruleWh.split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => s === targetWh || (targetWh !== '' && !isNaN(s) && !isNaN(targetWh) && Number(s) === Number(targetWh)));
-            const matchUnit = (ruleUnit, targetUnit) => ruleUnit === '*' || ruleUnit.toLowerCase().split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => targetUnit === s || targetUnit.includes(s));
+            
+            const matchUnit = (ruleUnit, targetUnit, targetSpec) => ruleUnit === '*' || ruleUnit.toLowerCase().split(/[,./|\s]+/).map(s => s.trim()).filter(Boolean).some(s => targetUnit === s || targetUnit.includes(s) || targetSpec === s || targetSpec.includes(s));
 
-            let bestRule = { rate: 10, type: 'divide' }, bestScore = -1;
+            let bestRule = { rate: 20, type: 'divide' }, bestScore = -1;
+            
             marginRules.forEach(r => {
-                if (matchWh(r.whCode, whCode) && matchUnit(r.unit, unitStr)) {
-                    let score = 0; if (r.whCode !== '*') score += 2; if (r.unit !== '*') score += 1;
+                if (matchWh(r.whCode, whCode) && matchUnit(r.unit, unitStr, specStr)) {
+                    let score = 0; 
+                    if (r.whCode !== '*') score += 2; 
+                    if (r.unit !== '*') score += 1;
                     if (score > bestScore) { bestScore = score; bestRule = r; }
                 }
             });
@@ -229,71 +257,20 @@
             }); return headerMap;
         };
 
-        class ErrorBoundary extends React.Component {
-            constructor(props) {
-                super(props);
-                this.state = { hasError: false, error: null };
-            }
-            static getDerivedStateFromError(error) { return { hasError: true, error }; }
-            render() {
-                if (this.state.hasError) {
-                    return (
-                        <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-6">
-                            <i className="fas fa-exclamation-triangle text-rose-500 text-6xl mb-6"></i>
-                            <h1 className="text-2xl font-black text-slate-800 mb-2">화면 렌더링 오류 발생 (Crash)</h1>
-                            <p className="text-slate-500 mb-6 text-center">불러온 데이터 중 잘못된 형식이 섞여있어 화면이 중단되었습니다.<br/>아래 [초기화] 버튼을 눌러 복구해 주세요.</p>
-                            <div className="bg-white border border-rose-200 p-4 rounded-lg text-xs font-mono text-rose-600 w-full max-w-2xl overflow-auto mb-8 shadow-sm">{this.state.error && this.state.error.toString()}</div>
-                            <button onClick={() => { indexedDB.deleteDatabase('MerchOpsDB'); localStorage.removeItem('merchMaster_v870'); window.location.reload(); }} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-lg flex items-center gap-2">
-                                <i className="fas fa-redo-alt"></i> 로컬 데이터 초기화 및 복구하기
-                            </button>
-                        </div>
-                    );
-                }
-                return this.props.children;
-            }
-        }
-
         const SafeIcon = React.memo(function SafeIconComponent({ name, size = 18, className = "" }) {
             const [svg, setSvg] = useState("");
             useEffect(() => {
                 if (window.lucide && window.lucide.icons) {
                     const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-                    const possibleNames = [
-                        kebabName, name,
-                        name === 'cloud-download' ? 'download-cloud' : name,
-                        name === 'cloud-upload' ? 'upload-cloud' : name,
-                        name === 'bar-chart-3' ? 'bar-chart' : name
-                    ];
+                    const possibleNames = [ kebabName, name, name === 'cloud-download' ? 'download-cloud' : name, name === 'cloud-upload' ? 'upload-cloud' : name, name === 'bar-chart-3' ? 'bar-chart' : name ];
                     for (const pName of possibleNames) {
-                        if (window.lucide.icons[pName]) {
-                            setSvg(window.lucide.icons[pName].toSvg({ width: size, height: size, class: className, 'stroke-width': 2.5 })); return;
-                        }
+                        if (window.lucide.icons[pName]) { setSvg(window.lucide.icons[pName].toSvg({ width: size, height: size, class: className, 'stroke-width': 2.5 })); return; }
                     }
                 }
             }, [name, size, className]);
 
             if (!svg) {
-                const faMap = {
-                    'cloud-download':'fa-cloud-download-alt', 'cloud-upload':'fa-cloud-upload-alt', 'settings':'fa-cogs', 
-                    'layout-dashboard':'fa-th-large', 'package-search':'fa-box-open', 'file-spreadsheet':'fa-table', 
-                    'zap':'fa-bolt', 'truck':'fa-truck', 'boxes':'fa-boxes', 'bar-chart-3':'fa-chart-bar', 
-                    'check-circle-2':'fa-check-circle', 'x':'fa-times', 'database':'fa-database', 'upload':'fa-upload', 
-                    'pie-chart':'fa-chart-pie', 'shopping-cart':'fa-shopping-cart', 'users':'fa-users', 'megaphone':'fa-bullhorn', 
-                    'book-open':'fa-address-book', 'shopping-bag':'fa-shopping-bag', 'credit-card':'fa-credit-card', 
-                    'line-chart':'fa-chart-line', 'printer':'fa-print', 'search':'fa-search', 'plus':'fa-plus', 
-                    'trash-alt':'fa-trash-alt', 'edit':'fa-edit', 'save':'fa-save', 'file-excel':'fa-file-excel', 
-                    'link':'fa-link', 'ban':'fa-ban', 'layer-group':'fa-layer-group', 'desktop':'fa-desktop', 
-                    'sign-in-alt':'fa-sign-in-alt', 'calculator':'fa-calculator', 'tags':'fa-tags', 'broom':'fa-broom', 
-                    'info-circle':'fa-info-circle', 'lock':'fa-lock', 'key':'fa-key', 'folder-open':'fa-folder-open', 
-                    'file-invoice':'fa-file-invoice', 'history':'fa-history', 'redo-alt': 'fa-redo-alt', 
-                    'file-export':'fa-file-export', 'sitemap':'fa-sitemap', 'bolt':'fa-bolt', 'sort-amount-down':'fa-sort-amount-down', 
-                    'undo':'fa-undo', 'exchange-alt':'fa-exchange-alt', 'list':'fa-list', 'check-double':'fa-check-double', 
-                    'balance-scale':'fa-balance-scale', 'search-plus':'fa-search-plus', 'truck-loading':'fa-truck-loading', 
-                    'exclamation-circle': 'fa-exclamation-circle', 'calendar-alt': 'fa-calendar-alt', 'cut':'fa-cut', 
-                    'rocket':'fa-rocket', 'archive':'fa-archive', 'filter':'fa-filter', 'alert-triangle':'fa-exclamation-triangle', 
-                    'download':'fa-download', 'skull':'fa-skull', 'sliders-horizontal':'fa-sliders-h', 'arrow-up':'fa-arrow-up', 
-                    'arrow-down':'fa-arrow-down', 'star':'fa-star', 'equals':'fa-equals'
-                };
+                const faMap = { 'cloud-download':'fa-cloud-download-alt', 'cloud-upload':'fa-cloud-upload-alt', 'settings':'fa-cogs', 'layout-dashboard':'fa-th-large', 'package-search':'fa-box-open', 'file-spreadsheet':'fa-table', 'zap':'fa-bolt', 'truck':'fa-truck', 'boxes':'fa-boxes', 'bar-chart-3':'fa-chart-bar', 'check-circle-2':'fa-check-circle', 'x':'fa-times', 'database':'fa-database', 'upload':'fa-upload', 'pie-chart':'fa-chart-pie', 'shopping-cart':'fa-shopping-cart', 'users':'fa-users', 'megaphone':'fa-bullhorn', 'book-open':'fa-address-book', 'shopping-bag':'fa-shopping-bag', 'credit-card':'fa-credit-card', 'line-chart':'fa-chart-line', 'printer':'fa-print', 'search':'fa-search', 'plus':'fa-plus', 'trash-alt':'fa-trash-alt', 'edit':'fa-edit', 'save':'fa-save', 'file-excel':'fa-file-excel', 'link':'fa-link', 'ban':'fa-ban', 'layer-group':'fa-layer-group', 'desktop':'fa-desktop', 'sign-in-alt':'fa-sign-in-alt', 'calculator':'fa-calculator', 'tags':'fa-tags', 'broom':'fa-broom', 'info-circle':'fa-info-circle', 'lock':'fa-lock', 'key':'fa-key', 'folder-open':'fa-folder-open', 'file-invoice':'fa-file-invoice', 'history':'fa-history', 'redo-alt': 'fa-redo-alt', 'file-export':'fa-file-export', 'sitemap':'fa-sitemap', 'bolt':'fa-bolt', 'sort-amount-down':'fa-sort-amount-down', 'undo':'fa-undo', 'exchange-alt':'fa-exchange-alt', 'list':'fa-list', 'check-double':'fa-check-double', 'balance-scale':'fa-balance-scale', 'search-plus':'fa-search-plus', 'truck-loading':'fa-truck-loading', 'exclamation-circle': 'exclamation-circle', 'calendar-alt': 'fa-calendar-alt', 'cut':'fa-cut', 'rocket':'fa-rocket', 'archive':'fa-archive', 'filter':'fa-filter', 'alert-triangle':'fa-exclamation-triangle', 'download':'fa-download', 'skull':'fa-skull', 'sliders-horizontal':'fa-sliders-h', 'arrow-up':'fa-arrow-up', 'arrow-down':'fa-arrow-down' };
                 const faName = faMap[name] || `fa-${name}`;
                 return <i className={`fas ${faName} ${className}`} style={{ fontSize: size }} />;
             }
@@ -309,12 +286,13 @@
 
             const groupLabels = { master: "MerchOps", ops: "DataOps", admin: "Insite", common: "Platform" };
 
+            // 🌟 탭 경로 Archive/ 절대/상대 경로 호환되도록 처리
             const tabs = [
                 { id: 'dashboard', label: '통합 대시보드', icon: "layout-dashboard", path: 'Dashboard.html', group: 'common', isReady: true, shortTag: 'TOTAL BOARD' },
                 { id: 'guide', label: '시스템 가이드', icon: "book-open", path: 'Guide/guide.html', group: 'common', isReady: true, shortTag: 'USER MANUAL' },
                 { id: 'item-info', label: '마스터 DB', icon: "database", path: 'Master.html', group: 'master', isReady: true, shortTag: 'GOLDEN MASTER' },
                 { id: 'item-manage', label: '상품 관리', icon: "package-search", path: 'Item_manager.html', group: 'master', isReady: true, shortTag: 'ITEM FORGE' },
-                { id: 'pipeline', label: '시세 관리', icon: "file-spreadsheet", path: 'Pipeline.html', group: 'master', isReady: true, shortTag: 'PRICE HUB' },
+                { id: 'pipeline', label: '시세 관리', icon: "file-spreadsheet", path: 'https://line.orderz.co.kr/Archive/Pipeline.html', group: 'master', isReady: true, shortTag: 'PRICE HUB' },
                 { id: 'parser', label: '스마트 파서', icon: "zap", path: 'Parser.html', group: 'master', isReady: true, shortTag: 'AUTO PARSER' },
                 { id: 'partner-db', label: '거래처 DB', icon: "book-open", path: 'partner_db.html', group: 'master', isReady: true, shortTag: 'ENTITY REGISTER' },
                 { id: 'partners', label: '거래처 관리', icon: "users", path: 'partners.html', group: 'master', isReady: true, shortTag: 'NETWORK CRM' },
@@ -345,7 +323,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.2</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.8.0</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -426,36 +404,9 @@
                                     <span className="font-bold text-sm">설정 모듈을 불러오는 중입니다...</span>
                                 </div>
                             </div>
-                            <iframe src="settings.html?mode=iframe" className="absolute inset-0 w-full h-full border-0 bg-white relative z-10" title="Settings Center"></iframe>
+                            {/* 🌟 명시적 하드코딩 URL 매칭 */}
+                            <iframe src="https://line.orderz.co.kr/Archive/settings.html?mode=iframe" className="absolute inset-0 w-full h-full border-0 bg-white relative z-10" title="Settings Center"></iframe>
                         </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // 🌟 엑셀 출력 옵션 모달 추가 (F9 연동)
-        const ExportModal = ({ onClose, onExport }) => {
-            const [salePriceZero, setSalePriceZero] = useState('0');
-            const [stockZero, setStockZero] = useState('999');
-            return (
-                <div className="fixed inset-0 flex justify-center items-center bg-slate-900/70 backdrop-blur-sm fade-in z-[100]">
-                    <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden w-[500px]">
-                        <div className="bg-[#0f172a] p-4 text-white flex justify-between items-center"><h2 className="font-black text-[16px]">보고서 및 업로드 파일 출력</h2><button onClick={onClose}><SafeIcon name="x" size={20}/></button></div>
-                        <div className="p-6 space-y-6">
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                                <h3 className="text-sm font-black text-slate-800 flex items-center gap-2"><SafeIcon name="settings" size={16} className="text-indigo-500"/> 출력 데이터 전처리 설정</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><label className="text-[11px] font-black text-slate-500">출고가(판매가) 0원 시</label><select value={salePriceZero} onChange={e=>setSalePriceZero(e.target.value)} className="w-full text-xs p-2 border rounded-lg"><option value="0">0원으로 유지</option><option value="EMPTY">빈 칸으로 출력</option><option value="999999">999,999원 (임계값)</option></select></div>
-                                    <div className="space-y-1"><label className="text-[11px] font-black text-slate-500">재고수량 부재 시</label><select value={stockZero} onChange={e=>setStockZero(e.target.value)} className="w-full text-xs p-2 border rounded-lg"><option value="999">999개 (무제한)</option><option value="0">0개 (품절)</option></select></div>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-3">
-                                <button onClick={()=>onExport('erp', {sale:salePriceZero, stock:stockZero})} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm flex items-center justify-center gap-3 shadow-lg transition-all"><SafeIcon name="file-excel" size={20}/> ERP 업데이트용 (행사열 제외) </button>
-                                <button onClick={()=>onExport('shop', {sale:salePriceZero, stock:stockZero})} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-sm flex items-center justify-center gap-3 shadow-lg transition-all"><SafeIcon name="shopping-cart" size={20}/> 쇼핑몰 일괄 업로드용 </button>
-                                <button onClick={()=>onExport('simple', {sale:salePriceZero, stock:stockZero})} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-sm flex items-center justify-center gap-3 border border-slate-300 transition-all"><SafeIcon name="list" size={20}/> 단순 시세 일람표 (마스터 기준) </button>
-                            </div>
-                        </div>
-                        <div className="bg-slate-50 p-4 text-center border-t border-slate-200 text-[11px] text-slate-400 font-medium">내보내기 파일은 엑셀(.xlsx) 형식으로 저장됩니다.</div>
                     </div>
                 </div>
             );
@@ -477,7 +428,7 @@
                 let masterLinks = JSON.parse(localStorage.getItem('merchMasterLinks_v870') || 'null');
                 if (!masterLinks || !masterLinks.estimate) masterLinks = { estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } };
 
-                let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v878') || 'null');
+                let marginRules = JSON.parse(localStorage.getItem('merchMarginRules_v879') || 'null');
                 if (!marginRules || marginRules.length <= 2) {
                     marginRules = [
                         { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' },
@@ -488,7 +439,6 @@
                         { id: generateUUID(), whCode: '*', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' },
                         { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' }
                     ];
-                    localStorage.setItem('merchMarginRules_v878', JSON.stringify(marginRules));
                 }
                 
                 return { cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules };
@@ -497,7 +447,11 @@
             useEffect(() => {
                 const handleStorageChange = () => setConfig(loadConfig());
                 window.addEventListener('storage', handleStorageChange);
-                return () => window.removeEventListener('storage', handleStorageChange);
+                window.addEventListener('force-config-reload', handleStorageChange);
+                return () => {
+                    window.removeEventListener('storage', handleStorageChange);
+                    window.removeEventListener('force-config-reload', handleStorageChange);
+                };
             }, []);
             return config;
         };
@@ -717,7 +671,6 @@
                 return filteredList.filter(i => checkedItems.has(i.코드)).map(r => r.코드);
             }, [filteredList, checkedItems]);
 
-            // 🌟 F8 / F9 단축키 연동 (action 매개변수로 구분)
             useEffect(() => {
                 const handleKeyDown = (e) => {
                     if (e.key === 'F8' || e.key === 'F9') {
@@ -902,8 +855,9 @@
                                     }
                                     className="h-11 px-4 text-[13px] font-black text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-md flex items-center transition-colors disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
                                 >
-                                    <SafeIcon name="pie-chart" className="mr-1.5" size={14}/> 반영 및 리포트 이동 [F8]
+                                    <SafeIcon name="pie-chart" className="mr-1.5" size={14}/> 반영 및 저장 [F8]
                                 </button>
+                                {/* 🌟 F9 누르면 모달창 없이 2종 엑셀 즉시 출력 */}
                                 <button 
                                     onClick={()=>{
                                         onConfirm(checkedTargetCodes, { catalogOption, selectedExistingCatalog, newCatalogName, overrideNameSpec }, editedPrices, 'export'); 
@@ -916,7 +870,7 @@
                                     }
                                     className="h-11 px-4 text-[13px] font-black text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 shadow-md flex items-center transition-colors disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
                                 >
-                                    <SafeIcon name="file-excel" className="mr-1.5" size={14}/> 반영 및 엑셀 출력 [F9]
+                                    <SafeIcon name="file-excel" className="mr-1.5" size={14}/> 즉시 엑셀 출력 (2종) [F9]
                                 </button>
                             </div>
                         </div>
@@ -991,11 +945,12 @@
 
         const rowPropsAreEqual = (prevProps, nextProps) => {
             return prevProps.row.코드 === nextProps.row.코드 &&
+                   prevProps.isSel === nextProps.isSel &&
                    prevProps.isEstimateUploaded === nextProps.isEstimateUploaded &&
                    JSON.stringify(prevProps.row.finalData) === JSON.stringify(nextProps.row.finalData);
         };
 
-        const MemoizedTableRow = React.memo(({ row, idx, mItem, isEstimateUploaded, visMasterCols, visUploadCols, masterLinksEst, onUpdateCell }) => {
+        const MemoizedTableRow = React.memo(({ row, idx, isSel, mItem, isEstimateUploaded, visMasterCols, visUploadCols, masterLinksEst, onToggleSelection, onMouseDown, onMouseEnter, onUpdateCell }) => {
             const dName = row.finalData?.['품목명'] || row.sources?.['estimate']?.['품목명'] || mItem.품목명 || '[미등록]';
             const dSpec = row.finalData?.['규격'] || row.sources?.['estimate']?.['규격'] || mItem.규격 || '';
             const rowCode = row.코드 || row.품목코드 || '';
@@ -1023,7 +978,7 @@
             }
 
             return (
-                <tr className={`data-row border-b border-slate-100 ${isRowModified ? 'is-modified' : ''}`}>
+                <tr className={`data-row border-b border-slate-100 ${isSel ? 'is-selected' : ''} ${isRowModified ? 'is-modified' : ''}`} onMouseDown={(e) => onMouseDown && onMouseDown(e, rowCode, isSel)} onMouseEnter={(e) => onMouseEnter && onMouseEnter(e, rowCode)}>
                     <td className={`sticky z-20 px-4 py-3.5 border-slate-200 min-w-[280px] w-[280px] max-w-[280px] master-col ${!visMasterCols.length ? 'border-r-2 border-r-slate-300 shadow-[3px_0_5px_rgba(0,0,0,0.05)]' : 'border-r'}`} style={{left:0}}>
                         <div className="flex flex-col w-full overflow-hidden">
                             <span className="text-[10.5px] font-mono text-indigo-500 mb-0.5 tracking-tight font-bold">{rowCode}</span>
@@ -1096,10 +1051,33 @@
         }, rowPropsAreEqual);
 
         const ExcelDataGrid = ({ state, actions }) => {
-            const { isEstimateUploaded, fullDisplayRows, visibleMasterCols, visibleUploadCols, masterProducts, masterLinksEst } = state;
+            const { isEstimateUploaded, fullDisplayRows, visibleMasterCols, visibleUploadCols, masterProducts, masterLinksEst, selectedRows } = state;
             
             const [scrollTop, setScrollTop] = useState(0);
             const handleScroll = useCallback((e) => setScrollTop(e.target.scrollTop), []);
+
+            const isDragging = useRef(false);
+            const dragSelectMode = useRef(true);
+
+            useEffect(() => {
+                const handleMouseUp = () => { isDragging.current = false; };
+                window.addEventListener('mouseup', handleMouseUp);
+                return () => window.removeEventListener('mouseup', handleMouseUp);
+            }, []);
+
+            const handleMouseDown = useCallback((e, rowCode, isSel) => {
+                const targetTag = e.target.tagName.toLowerCase();
+                if (['input', 'select', 'button', 'i'].includes(targetTag)) return;
+                isDragging.current = true;
+                dragSelectMode.current = !isSel;
+                actions.setRowSelection(rowCode, !isSel);
+            }, [actions]);
+
+            const handleMouseEnter = useCallback((e, rowCode) => {
+                if (isDragging.current) {
+                    actions.setRowSelection(rowCode, dragSelectMode.current);
+                }
+            }, [actions]);
 
             const ROW_HEIGHT = 56; 
             const BUFFER_SIZE = 15; 
@@ -1143,7 +1121,8 @@
                                         {displayRows.map((row, idx) => {
                                             const rowCode = row.코드 || row.품목코드;
                                             const mItem = masterProducts[rowCode] || masterProducts[row.품목코드] || {};
-                                            return <MemoizedTableRow key={rowCode} row={{...row, 코드: rowCode}} idx={idx} mItem={mItem} isEstimateUploaded={isEstimateUploaded} visMasterCols={visMaster} visUploadCols={visUpload} masterLinksEst={masterLinksEst} onUpdateCell={actions.handleUpdateCell} />;
+                                            const isSel = selectedRows.has(rowCode);
+                                            return <MemoizedTableRow key={rowCode} row={{...row, 코드: rowCode}} idx={idx} isSel={isSel} mItem={mItem} isEstimateUploaded={isEstimateUploaded} visMasterCols={visMaster} visUploadCols={visUpload} masterLinksEst={masterLinksEst} onToggleSelection={actions.toggleRowSelection} onMouseDown={handleMouseDown} onMouseEnter={handleMouseEnter} onUpdateCell={actions.handleUpdateCell} />;
                                         })}
                                         
                                         {bottomPadding > 0 && <tr style={{ height: `${bottomPadding}px` }}><td colSpan="50" className="p-0 border-0"></td></tr>}
@@ -1165,10 +1144,8 @@
             
             const [showSettingsModal, setShowSettingsModal] = useState(false);
             const [showReviewModal, setShowReviewModal] = useState(false);
-            const [showExportModal, setShowExportModal] = useState(false); // 🌟 엑셀 출력 모달 State 추가
             
             const [masterProducts, setMasterProducts] = useState({});
-            
             const [managedItems, setManagedItems] = useState({});
 
             const [globalSearch, setGlobalSearch] = useState('');
@@ -1176,6 +1153,7 @@
             const [selectedCategories, setSelectedCategories] = useState(new Set());
             const [catalogDropdownOpen, setCatalogDropdownOpen] = useState(false);
             const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+            const [selectedRows, setSelectedRows] = useState(new Set());
 
             const catalogRef = useRef(null);
             const categoryRef = useRef(null);
@@ -1196,7 +1174,7 @@
                 if (!path || path === '#' || !isReady) return showToast("⚠️ 해당 페이지는 현재 준비 중이거나 경로가 올바르지 않습니다.");
                 try {
                     const protocol = window.location.protocol;
-                    if (protocol === 'about:' || protocol === 'blob:' || protocol === 'data:') showToast(`💡 미리보기 환경: [${path}] 로 이동을 시뮬레이션 합니다.`);
+                    if (protocol === 'about:' || protocol === 'blob:' || protocol === 'data:') showToast(`💡 미리보기 환경: [${path}] 로 이동 시뮬레이션`);
                     else window.location.href = path;
                 } catch (err) { showToast(`💡 이동 시뮬레이션: [${path}]`); }
             }, [showToast]);
@@ -1211,41 +1189,6 @@
                     showToast("📥 파서에서 전송된 대기 데이터를 불러왔습니다.");
                 }
             }, [showToast]);
-
-            useEffect(() => { 
-                loadMasterAndStaging(); 
-                const onSync = (e) => { if(e.key === STORAGE_KEYS.SYNC_TRIGGER) loadMasterAndStaging(); }; 
-                window.addEventListener('storage', onSync); 
-                
-                const handleMessage = (e) => {
-                    if (e.data && e.data.type === 'CLOSE_SETTINGS') {
-                        setShowSettingsModal(false); loadMasterAndStaging(); 
-                    }
-                };
-                window.addEventListener('message', handleMessage);
-
-                const handleKeyDown = (e) => {
-                    if (e.key === 'F3') {
-                        e.preventDefault();
-                        const searchInput = document.getElementById('global-search-input');
-                        if (searchInput) { searchInput.focus(); searchInput.select(); }
-                    }
-                    if (e.key === 'F8') {
-                        e.preventDefault();
-                        const btn = document.getElementById('btn-open-review');
-                        if (btn && !btn.disabled) {
-                            setShowReviewModal(true);
-                        }
-                    }
-                };
-                window.addEventListener('keydown', handleKeyDown);
-
-                return () => {
-                    window.removeEventListener('storage', onSync); 
-                    window.removeEventListener('message', handleMessage);
-                    window.removeEventListener('keydown', handleKeyDown);
-                };
-            }, [loadMasterAndStaging]);
 
             const availableCatalogs = useMemo(() => {
                 const counts = {};
@@ -1264,83 +1207,6 @@
                 });
                 return Object.keys(counts).sort().map(tag => ({ name: tag, count: counts[tag] }));
             }, [masterProducts]);
-
-            const handleLoadWorkspaceData = useCallback((catalogs, categories) => {
-                if (catalogs.size === 0 && categories.size === 0) {
-                    setManagedItems({});
-                    setIDB(STORAGE_KEYS.MANAGED_ITEMS, {});
-                    return;
-                }
-
-                setIsProcessing(true); setProcessMsg('데이터 로드 및 병합 중...');
-                
-                setTimeout(() => {
-                    let newManaged = {};
-                    
-                    Object.values(masterProducts).forEach(mItem => {
-                        let isMatch = false;
-
-                        if (catalogs.size > 0) {
-                            const catalogStr = mItem['카탈로그'] || '';
-                            const tags = catalogStr.split(',').map(c => c.trim());
-                            if (tags.some(t => catalogs.has(t))) isMatch = true;
-                        }
-
-                        if (categories.size > 0) {
-                            const catStr = mItem['견적서'] || mItem['카테고리'] || '';
-                            const tags = catStr.split(',').map(c => c.trim());
-                            if (tags.some(t => categories.has(t))) isMatch = true;
-                        }
-
-                        if (isMatch) {
-                            const code = mItem['코드'] || mItem['품목코드'];
-                            if (code) {
-                                newManaged[code] = {
-                                    코드: code,
-                                    sources: { estimate: {} },
-                                    finalData: calculatePricesEngine(parseNum(mItem['입고가']), mItem, {}, config.marginRules, false)
-                                };
-                            }
-                        }
-                    });
-                    
-                    setManagedItems(newManaged); 
-                    setIDB(STORAGE_KEYS.MANAGED_ITEMS, newManaged);
-                    showToast(`✅ ${catalogs.size + categories.size}개 카탈로그 데이터 로드 완료! (${Object.keys(newManaged).length}건)`);
-                    setIsProcessing(false); setProcessMsg('');
-                }, 100);
-            }, [masterProducts, config.marginRules, showToast]);
-
-            const toggleCatalog = useCallback((name) => {
-                setSelectedCatalogs(prev => { const next = new Set(prev); if (next.has(name)) next.delete(name); else next.add(name); return next; });
-            }, []);
-
-            const toggleCategory = useCallback((name) => {
-                setSelectedCategories(prev => { const next = new Set(prev); if (next.has(name)) next.delete(name); else next.add(name); return next; });
-            }, []);
-
-            const isFirstRender = useRef(true);
-            useEffect(() => {
-                if (isFirstRender.current) { isFirstRender.current = false; return; }
-                handleLoadWorkspaceData(selectedCatalogs, selectedCategories);
-            }, [selectedCatalogs, selectedCategories, handleLoadWorkspaceData]);
-
-            const handleUpdateCell = useCallback((code, field, linkedMasterField, value) => {
-                setManagedItems(prev => {
-                    let currentItem = prev[code] || { 코드: code, sources: { estimate: {} }, finalData: {} };
-                    currentItem = { ...currentItem, finalData: { ...currentItem.finalData, [field]: value } };
-                    
-                    if (['입고가', '출고가', '외주비', '노무비'].includes(field) || ['입고가', '출고가'].includes(linkedMasterField)) {
-                        const pInRaw = (field === '입고가' || linkedMasterField === '입고가') ? value : (currentItem.finalData['입고가'] ?? currentItem.sources['estimate']?.['입고가'] ?? masterProducts[code]?.['입고가'] ?? 0);
-                        
-                        const isOutPriceEdit = field === '출고가' || linkedMasterField === '출고가';
-                        currentItem.finalData = calculatePricesEngine(parseNum(pInRaw), masterProducts[code] || {}, currentItem.finalData, config.marginRules, !isOutPriceEdit);
-                    } 
-                    const next = { ...prev, [code]: currentItem };
-                    setIDB(STORAGE_KEYS.MANAGED_ITEMS, next);
-                    return next;
-                });
-            }, [masterProducts, config.marginRules]);
 
             const fullDisplayRows = useMemo(() => {
                 let baseList = [];
@@ -1435,19 +1301,198 @@
                 return baseList;
             }, [managedItems, masterProducts, globalSearch, selectedCatalogs, selectedCategories]);
 
-            // 🌟 엑셀 출력 실행 (F9 모달에서 실행됨)
-            const executeExport = useCallback((type, options) => {
-                const rowsToExport = fullDisplayRows;
+            // 🌟 강제 재계산 로직 (화면의 모든 상품을 최신 룰에 맞춰 재계산)
+            const handleRecalculateAll = useCallback((isAuto = false) => {
+                const hasContext = Object.keys(managedItems).length > 0 || globalSearch.trim() !== '' || selectedCatalogs.size > 0 || selectedCategories.size > 0;
+                
+                if (!hasContext) {
+                    if (!isAuto) showToast("⚠️ 작업 대기열 또는 검색된 데이터가 없습니다.");
+                    return;
+                }
+                if (!isAuto && !window.confirm("현재 화면에 표시된 상품들의 단가를 최신 룰에 맞춰 다시 계산하시겠습니까?\n(수기로 수정한 단가도 룰에 맞게 덮어씌워집니다.)")) return;
+                
+                setIsProcessing(true); setProcessMsg('최신 단가 룰 적용 중...');
+                
+                setTimeout(() => {
+                    let latestRules = JSON.parse(localStorage.getItem('merchMarginRules_v879'));
+                    if (!latestRules || latestRules.length === 0) latestRules = config.marginRules;
 
+                    setManagedItems(prev => {
+                        let newManaged = { ...prev };
+                        let count = 0;
+                        
+                        // 🌟 개선: 자동일 때는 기존, 수동(계산기 버튼)일 때는 '현재 화면에 검색/필터링 된 상품들'만 골라서 재계산!
+                        const targetRows = isAuto ? Object.values(newManaged) : fullDisplayRows;
+
+                        targetRows.forEach(row => {
+                            const code = row.코드 || row.품목코드;
+                            
+                            // 검색 등에서 가져온 항목이 아직 managedItems에 없으면 생성 (검색된 상태에서 바로 단가계산 가능하게)
+                            if (!newManaged[code]) {
+                                newManaged[code] = { 
+                                    코드: code, 
+                                    sources: { estimate: {} }, 
+                                    finalData: { ...(masterProducts[code] || {}) } 
+                                };
+                            }
+                            
+                            const item = newManaged[code];
+                            const mItem = masterProducts[code] || {};
+                            const pInRaw = item.finalData?.['입고가'] ?? item.sources?.['estimate']?.['입고가'] ?? mItem['입고가'] ?? 0;
+                            
+                            item.finalData = calculatePricesEngine(parseNum(pInRaw), mItem, item.finalData, latestRules, true);
+                            count++;
+                        });
+                        
+                        setIDB(STORAGE_KEYS.MANAGED_ITEMS, newManaged);
+                        if (isAuto && count > 0) {
+                            showToast(`✅ 환경설정 룰이 변경되어 ${count}건의 단가가 자동 재계산되었습니다.`);
+                        } else if (!isAuto) {
+                            showToast(`✅ 화면에 표시된 ${count}건의 상품에 최신 단가 룰이 적용되었습니다.`);
+                        }
+                        return newManaged;
+                    });
+                    setIsProcessing(false); setProcessMsg('');
+                }, 150);
+            }, [managedItems, masterProducts, config.marginRules, showToast, fullDisplayRows, globalSearch, selectedCatalogs, selectedCategories]);
+
+            // 🌟 설정 모달 닫기 (자동 재계산 트리거)
+            const handleCloseSettings = useCallback(() => {
+                setShowSettingsModal(false);
+                window.dispatchEvent(new Event('force-config-reload'));
+                loadMasterAndStaging(); 
+                
+                setTimeout(() => {
+                    handleRecalculateAll(true);
+                }, 300);
+            }, [loadMasterAndStaging, handleRecalculateAll]);
+
+
+            useEffect(() => { 
+                loadMasterAndStaging(); 
+                const onSync = (e) => { if(e.key === STORAGE_KEYS.SYNC_TRIGGER) loadMasterAndStaging(); }; 
+                window.addEventListener('storage', onSync); 
+                
+                const handleMessage = (e) => {
+                    if (e.data && e.data.type === 'CLOSE_SETTINGS') {
+                        handleCloseSettings();
+                    }
+                };
+                window.addEventListener('message', handleMessage);
+
+                // 🌟 전체리스트가 아닐 때만 단축키 작동
+                const hasActiveContext = Object.keys(managedItems).length > 0 || globalSearch.trim() !== '' || selectedCatalogs.size > 0 || selectedCategories.size > 0;
+                
+                const handleKeyDown = (e) => {
+                    if (e.key === 'F3') {
+                        e.preventDefault();
+                        const searchInput = document.getElementById('global-search-input');
+                        if (searchInput) { searchInput.focus(); searchInput.select(); }
+                    }
+                    if (e.key === 'F8' && hasActiveContext) {
+                        e.preventDefault();
+                        const btn = document.getElementById('btn-open-review');
+                        if (btn && !btn.disabled) {
+                            setShowReviewModal(true);
+                        }
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+
+                return () => {
+                    window.removeEventListener('storage', onSync); 
+                    window.removeEventListener('message', handleMessage);
+                    window.removeEventListener('keydown', handleKeyDown);
+                };
+            }, [loadMasterAndStaging, handleCloseSettings, managedItems, globalSearch, selectedCatalogs, selectedCategories]);
+
+            const handleLoadWorkspaceData = useCallback((catalogs, categories) => {
+                if (catalogs.size === 0 && categories.size === 0) {
+                    setManagedItems({});
+                    setIDB(STORAGE_KEYS.MANAGED_ITEMS, {});
+                    return;
+                }
+
+                setIsProcessing(true); setProcessMsg('데이터 로드 및 병합 중...');
+                
+                setTimeout(() => {
+                    let newManaged = {};
+                    
+                    Object.values(masterProducts).forEach(mItem => {
+                        let isMatch = false;
+
+                        if (catalogs.size > 0) {
+                            const catalogStr = mItem['카탈로그'] || '';
+                            const tags = catalogStr.split(',').map(c => c.trim());
+                            if (tags.some(t => catalogs.has(t))) isMatch = true;
+                        }
+
+                        if (categories.size > 0) {
+                            const catStr = mItem['견적서'] || mItem['카테고리'] || '';
+                            const tags = catStr.split(',').map(c => c.trim());
+                            if (tags.some(t => categories.has(t))) isMatch = true;
+                        }
+
+                        if (isMatch) {
+                            const code = mItem['코드'] || mItem['품목코드'];
+                            if (code) {
+                                newManaged[code] = {
+                                    코드: code,
+                                    sources: { estimate: {} },
+                                    finalData: calculatePricesEngine(parseNum(mItem['입고가']), mItem, {}, config.marginRules, false)
+                                };
+                            }
+                        }
+                    });
+                    
+                    setManagedItems(newManaged); 
+                    setIDB(STORAGE_KEYS.MANAGED_ITEMS, newManaged);
+                    setSelectedRows(new Set()); 
+                    showToast(`✅ ${catalogs.size + categories.size}개 카탈로그 데이터 로드 완료! (${Object.keys(newManaged).length}건)`);
+                    setIsProcessing(false); setProcessMsg('');
+                }, 100);
+            }, [masterProducts, config.marginRules, showToast]);
+
+            const toggleCatalog = useCallback((name) => {
+                setSelectedCatalogs(prev => { const next = new Set(prev); if (next.has(name)) next.delete(name); else next.add(name); return next; });
+            }, []);
+
+            const toggleCategory = useCallback((name) => {
+                setSelectedCategories(prev => { const next = new Set(prev); if (next.has(name)) next.delete(name); else next.add(name); return next; });
+            }, []);
+
+            const isFirstRender = useRef(true);
+            useEffect(() => {
+                if (isFirstRender.current) { isFirstRender.current = false; return; }
+                handleLoadWorkspaceData(selectedCatalogs, selectedCategories);
+            }, [selectedCatalogs, selectedCategories, handleLoadWorkspaceData]);
+
+            const handleUpdateCell = useCallback((code, field, linkedMasterField, value) => {
+                setManagedItems(prev => {
+                    let currentItem = prev[code] || { 코드: code, sources: { estimate: {} }, finalData: {} };
+                    currentItem = { ...currentItem, finalData: { ...currentItem.finalData, [field]: value } };
+                    
+                    if (['입고가', '출고가', '외주비', '노무비'].includes(field) || ['입고가', '출고가'].includes(linkedMasterField)) {
+                        const pInRaw = (field === '입고가' || linkedMasterField === '입고가') ? value : (currentItem.finalData['입고가'] ?? currentItem.sources['estimate']?.['입고가'] ?? masterProducts[code]?.['입고가'] ?? 0);
+                        
+                        const isOutPriceEdit = field === '출고가' || linkedMasterField === '출고가';
+                        currentItem.finalData = calculatePricesEngine(parseNum(pInRaw), masterProducts[code] || {}, currentItem.finalData, config.marginRules, !isOutPriceEdit);
+                    } 
+                    const next = { ...prev, [code]: currentItem };
+                    setIDB(STORAGE_KEYS.MANAGED_ITEMS, next);
+                    return next;
+                });
+            }, [masterProducts, config.marginRules]);
+
+            // 🌟 엑셀 동시 출력 (모달 없이 즉시 2종 출력 및 페이지 유지, 데이터 초기화 안 함)
+            const executeExport = useCallback((rowsToExport) => {
                 if (rowsToExport.length === 0) { showToast("⚠️ 내보낼 데이터가 없습니다."); return; }
                 
-                setShowExportModal(false); 
-                setIsProcessing(true); setProcessMsg("엑셀 파일 생성 중...");
+                setIsProcessing(true); setProcessMsg("엑셀 파일 2종 동시 생성 중...");
 
                 setTimeout(async () => {
                     try {
-                        const wb = window.XLSX.utils.book_new();
-                        
+                        const wbErp = window.XLSX.utils.book_new();
                         let erpData = []; 
                         erpData.push(['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '1']);
                         
@@ -1455,15 +1500,12 @@
                         
                         const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='') => { 
                             if (!code) return null; 
-                            const outIn = inPrice >= 0 ? inPrice : ''; 
-                            const outOut = outPrice >= 0 ? outPrice : ''; 
-                            const outFinal = finalPrice >= 0 ? finalPrice : outIn; 
-                            
-                            return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', (inPrice >= 0 || outPrice >= 0) ? '1' : '' ]; 
+                            const hasPrice = (inPrice !== '' && inPrice > 0) || (outPrice !== '' && outPrice > 0);
+                            return [ code, inPrice, '0', outPrice, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', finalPrice, 'n', hasPrice ? '1' : '' ]; 
                         };
 
-                        const getFirstValidNum = (objList, keys) => {
-                            for (let obj of objList) { if (!obj) continue; for (let k of keys) { if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return parseNum(obj[k]); } } return 0;
+                        const getFirstValidNumOrEmpty = (objList, keys) => {
+                            for (let obj of objList) { if (!obj) continue; for (let k of keys) { if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return parseNum(obj[k]); } } return '';
                         };
                         const getFirstValidStr = (objList, keys) => {
                             for (let obj of objList) { if (!obj) continue; for (let k of keys) { if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k]; } } return '';
@@ -1472,15 +1514,19 @@
                             if (!code) return false; const s = String(code).trim(); return s !== '' && s !== '0' && s !== '00' && s !== '-' && s.toLowerCase() !== 'undefined' && s.toLowerCase() !== 'null';
                         };
 
+                        const processedCodes = new Set();
+
                         rowsToExport.forEach(row => {
                             const rowCode = row.코드 || row.품목코드;
+                            if (!rowCode) return;
+
                             const mItem = masterProducts[rowCode] || masterProducts[row.품목코드] || {};
                             const final = row.finalData || {};
                             const source = row.sources?.['estimate'] || {};
 
-                            const pIn = getFirstValidNum([final, source, mItem], ['입고가', '입고']);
-                            const pOut = getFirstValidNum([final, source, mItem], ['출고가', '출고']);
-                            const pMarketPrice = getFirstValidNum([final, mItem], ['시중가']);
+                            const pIn = getFirstValidNumOrEmpty([final, source, mItem], ['입고가', '입고']);
+                            const pOut = getFirstValidNumOrEmpty([final, source, mItem], ['출고가', '출고']);
+                            const pMarketPrice = getFirstValidNumOrEmpty([final, mItem], ['시중가']);
 
                             const dName = getFirstValidStr([source, mItem], ['품목명']);
                             const dSpec = getFirstValidStr([source, mItem], ['규격']);
@@ -1488,71 +1534,81 @@
                             const dInfo = getFirstValidStr([source, mItem], ['상품정보', '기본설명', '간단설명']);
                             const dSearch = getFirstValidStr([source, mItem], ['검색어등록', '상품태그']);
                             
-                            const pBPrice = getFirstValidNum([final, source, mItem], ['입고B', 'B단가']);
-                            const pASale = getFirstValidNum([final, source, mItem], ['도매A', 'A판매', 'A판매가']);
-                            const pBSale = getFirstValidNum([final, source, mItem], ['도매B', 'B판매', 'B 도매가']);
+                            const pBPrice = getFirstValidNumOrEmpty([final, source, mItem], ['입고B', 'B단가']);
+                            const pASale = getFirstValidNumOrEmpty([final, source, mItem], ['도매A', 'A판매', 'A판매가']);
+                            const pBSale = getFirstValidNumOrEmpty([final, source, mItem], ['도매B', 'B판매', 'B 도매가']);
                             
-                            const pRowErp = createRowArr(rowCode, pIn, pOut, pBPrice, pASale, pBSale, pIn); 
-                            if (pRowErp) erpData.push(pRowErp); 
-                            
-                            const isZeroPrice = (pIn === 0 && pOut === 0);
-                            const priceMarketShop = isZeroPrice ? 0 : (pMarketPrice > 0 ? pMarketPrice : pOut);
-                            
-                            const priceA = isZeroPrice ? 0 : getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매']);
-                            const isForSale = isZeroPrice ? '0' : (pIn >= 0 || pOut >= 0 ? '1' : '0');
-                            const stockQty = isZeroPrice ? '999' : '999';
+                            if (!processedCodes.has(rowCode)) {
+                                const pRowErp = createRowArr(rowCode, pIn, pOut, pBPrice, pASale, pBSale, pIn); 
+                                if (pRowErp) erpData.push(pRowErp); 
+                                
+                                const numPIn = pIn === '' ? 0 : pIn;
+                                const numPOut = pOut === '' ? 0 : pOut;
+                                const isZeroPrice = (numPIn === 0 && numPOut === 0);
+                                const priceMarketShop = isZeroPrice ? 0 : (pMarketPrice !== '' && pMarketPrice > 0 ? pMarketPrice : numPOut);
+                                
+                                const priceA = isZeroPrice ? 0 : (pASale !== '' ? pASale : 0);
+                                
+                                const isForSale = '1'; 
+                                const stockQty = (numPOut === 0) ? '0' : '999';
 
-                            shopData.push([rowCode, dName, dSpec, pOut, priceA, priceMarketShop, 0, 0, 0, 0, 0, 0, dBrand, dInfo, isForSale, stockQty, '', '', '', '', '', dSearch]);
+                                shopData.push([rowCode, dName, dSpec, numPOut, priceA, priceMarketShop, 0, 0, 0, 0, 0, 0, dBrand, dInfo, isForSale, stockQty, '', '', '', '', '', dSearch]);
+                                processedCodes.add(rowCode);
+                            }
 
                             [1].forEach(type => { 
                                 const cCodeRaw = getFirstValidStr([final, source, mItem], [`${type}종코드`]); 
                                 if (isValidSubItemCode(cCodeRaw)) { 
                                     const cCode = String(cCodeRaw).trim();
-                                    const cIn = getFirstValidNum([final, source, mItem], [`${type}입고`, `${type}구매`]);
-                                    const cOut = getFirstValidNum([final, source, mItem], [`${type}출고`]); 
-                                    const cRowErp = createRowArr(cCode, cIn, cOut, '', '', '', cIn); 
-                                    if (cRowErp) erpData.push(cRowErp); 
-
-                                    const subMaster = masterProducts[cCode] || {};
-                                    const cName = subMaster.품목명 || getFirstValidStr([final, source, mItem], [`${type}그룹명`]) || `${dName} (소분)`;
-                                    const cSpec = subMaster.규격 || getFirstValidStr([mItem, source], [`${type}종규격`]) || '';
-                                    const cBrand = subMaster.브랜드 || dBrand;
-                                    const cInfo = subMaster.간단설명 || dInfo;
-                                    const cSearch = subMaster.검색어등록 || dSearch;
                                     
-                                    const cIsZeroPrice = (cIn === 0 && cOut === 0);
-                                    const cMarketPrice = cIsZeroPrice ? 0 : (subMaster.시중가 > 0 ? subMaster.시중가 : cOut);
-                                    
-                                    const cPriceA = cIsZeroPrice ? 0 : (subMaster.도매A > 0 ? subMaster.도매A : 0);
-                                    const cIsForSale = cIsZeroPrice ? '0' : (cIn > 0 || cOut > 0 ? '1' : '0');
-                                    const cStockQty = cIsZeroPrice ? '999' : '999';
+                                    if (!processedCodes.has(cCode)) {
+                                        const cIn = getFirstValidNumOrEmpty([final, source, mItem], [`${type}입고`, `${type}구매`]);
+                                        const cOut = getFirstValidNumOrEmpty([final, source, mItem], [`${type}출고`]); 
+                                        const cRowErp = createRowArr(cCode, cIn, cOut, '', '', '', cIn); 
+                                        if (cRowErp) erpData.push(cRowErp); 
 
-                                    shopData.push([cCode, cName, cSpec, cOut, cPriceA, cMarketPrice, 0, 0, 0, 0, 0, 0, cBrand, cInfo, cIsForSale, cStockQty, '', '', '', '', '', cSearch]);
+                                        const subMaster = masterProducts[cCode] || {};
+                                        const cName = subMaster.품목명 || getFirstValidStr([final, source, mItem], [`${type}그룹명`]) || `${dName} (소분)`;
+                                        const cSpec = subMaster.규격 || getFirstValidStr([mItem, source], [`${type}종규격`]) || '';
+                                        const cBrand = subMaster.브랜드 || dBrand;
+                                        const cInfo = subMaster.간단설명 || dInfo;
+                                        const cSearch = subMaster.검색어등록 || dSearch;
+                                        
+                                        const numCIn = cIn === '' ? 0 : cIn;
+                                        const numCOut = cOut === '' ? 0 : cOut;
+                                        const cIsZeroPrice = (numCIn === 0 && numCOut === 0);
+                                        const cMarketPrice = cIsZeroPrice ? 0 : (subMaster.시중가 > 0 ? subMaster.시중가 : numCOut);
+                                        
+                                        const cPriceA = cIsZeroPrice ? 0 : (subMaster.도매A > 0 ? subMaster.도매A : 0);
+                                        
+                                        const cIsForSale = '1';
+                                        const cStockQty = (numCOut === 0) ? '0' : '999';
+
+                                        shopData.push([cCode, cName, cSpec, numCOut, cPriceA, cMarketPrice, 0, 0, 0, 0, 0, 0, cBrand, cInfo, cIsForSale, cStockQty, '', '', '', '', '', cSearch]);
+                                        processedCodes.add(cCode);
+                                    }
                                 } 
                             });
                         });
                         
-                        if (type === 'erp') {
-                            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(erpData), "ERP업데이트"); 
-                        } else if (type === 'shop') {
-                            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(shopData), "쇼핑몰업로드"); 
-                        } else {
-                            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(shopData), "쇼핑몰업로드"); 
-                            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(erpData), "ERP업데이트"); 
-                        }
-                        
-                        window.XLSX.writeFile(wb, `보고서출력_${new Date().toISOString().slice(0,10)}.xlsx`);
-                        showToast(`✅ 엑셀 다운로드가 완료되었습니다. 보고서로 이동합니다.`);
-                        
-                        // 🌟 다운로드 직후 메모리를 완전히 비우고 경영보고서로 자동 이동
-                        await setIDB(STORAGE_KEYS.MANAGED_ITEMS, {});
-                        setManagedItems({});
-                        localStorage.removeItem('merchPipeline_CurrentTag');
-                        setTimeout(() => { window.location.href = 'Report.html'; }, 1000);
-                        
-                    } catch(e) { console.error(e); showToast("❌ 엑셀 파일 생성 중 오류가 발생했습니다."); } finally { setIsProcessing(false); setProcessMsg(''); }
+                        window.XLSX.utils.book_append_sheet(wbErp, window.XLSX.utils.aoa_to_sheet(erpData), "ERP업데이트"); 
+                        window.XLSX.writeFile(wbErp, `ERP업데이트용_${new Date().toISOString().slice(0,10)}.xlsx`);
+
+                        // 다운로드 충돌 방지용 시간차 (500ms 후 쇼핑몰 엑셀 다운)
+                        setTimeout(async () => {
+                            const wbShop = window.XLSX.utils.book_new();
+                            window.XLSX.utils.book_append_sheet(wbShop, window.XLSX.utils.aoa_to_sheet(shopData), "쇼핑몰업로드"); 
+                            window.XLSX.writeFile(wbShop, `쇼핑몰업로드용_${new Date().toISOString().slice(0,10)}.xlsx`);
+                            
+                            showToast(`✅ ERP용 및 쇼핑몰용 엑셀 파일 2종이 성공적으로 출력되었습니다.`);
+                            
+                            // 🌟 리포트 화면 이동 금지 및 화면 데이터 유지 (삭제 로직 제거됨)
+                            setIsProcessing(false); setProcessMsg('');
+                        }, 500);
+
+                    } catch(e) { console.error(e); showToast("❌ 엑셀 파일 생성 중 오류가 발생했습니다."); setIsProcessing(false); setProcessMsg(''); }
                 }, 100);
-            }, [fullDisplayRows, masterProducts, showToast]);
+            }, [masterProducts, showToast]);
 
             const handleCommitEstimate = useCallback(async (targetCodes, options, editedPrices, actionAfterSync = 'report') => {
                 if (targetCodes.length === 0) return;
@@ -1561,9 +1617,15 @@
                 let newMaster = { ...masterProducts }, commitCount = 0, localLogs = []; const nowStr = new Date().toLocaleString('ko-KR');
 
                 targetCodes.forEach(code => {
-                    const item = managedItems[code]; if (!item || !item.코드) return;
+                    let item = managedItems[code];
                     const oldItem = masterProducts[code] || {};
-                    newMaster[item.코드] = { ...(newMaster[item.코드] || { 코드: item.코드 }) };
+                    
+                    // 🌟 검색 등으로 가져와 아직 managedItems에 없는 항목을 저장/엑셀출력할 경우 방어 로직
+                    if (!item) {
+                        item = { 코드: code, sources: { estimate: {} }, finalData: { ...oldItem } };
+                    }
+                    
+                    newMaster[code] = { ...(newMaster[code] || { 코드: code }) };
 
                     if (editedPrices && editedPrices[code] !== undefined) {
                         item.finalData = item.finalData || {};
@@ -1582,7 +1644,7 @@
                                 const oldVal = NUMERIC_HEADERS.includes(linked) ? parseNum(oldItem[linked]) : oldItem[linked];
                                 if (['입고가', '출고가'].includes(linked) && oldVal >= 0 && oldVal !== newVal) {
                                     localLogs.push({ id: generateUUID(), timestamp: nowStr, code: code, name: oldItem.품목명 || item.sources?.estimate?.품목명 || '', field: linked, oldVal, newVal, diff: newVal - oldVal });
-                                } newMaster[item.코드][linked] = newVal;
+                                } newMaster[code][linked] = newVal;
                             }
                         });
                     } 
@@ -1620,30 +1682,20 @@
                 await setIDB(STORAGE_KEYS.MASTER_DB, newMaster);
                 localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
 
-                // 🌟 F9(출력 연동) 분기 처리 
                 if (actionAfterSync === 'export') {
-                    // 반영만 마치고 메모리는 유지한 채 출력 모달 창 오픈
-                    showToast(`✅ ${commitCount}건 반영 완료! 엑셀 출력 형식을 선택해주세요.`);
-                    setShowExportModal(true); 
+                    // 🌟 F9 엑셀 출력 시 모달창 없이 2종 즉시 출력 및 페이지/데이터 유지
+                    const rowsToExport = fullDisplayRows.filter(r => targetCodes.includes(r.코드 || r.품목코드));
+                    executeExport(rowsToExport);
                 } else {
-                    // F8일 경우 즉시 메모리 정리하고 보고서 이동
+                    // 🌟 F8 저장 시에만 리포트로 이동
                     await setIDB(STORAGE_KEYS.MANAGED_ITEMS, {});
                     setManagedItems({});
                     localStorage.removeItem('merchPipeline_CurrentTag');
-
                     showToast(`✅ ${commitCount}건 통합 반영 완료! 경영 보고서로 이동합니다...`);
-                    setTimeout(() => { window.location.href = 'Report.html'; }, 800);
+                    setTimeout(() => { handleNavigate(null, 'Report.html'); }, 800);
                 }
 
-            }, [managedItems, masterProducts, config.masterLinks, showToast, config.marginRules]);
-
-            const handleCloseExportModal = async () => {
-                setShowExportModal(false);
-                await setIDB(STORAGE_KEYS.MANAGED_ITEMS, {}); 
-                setManagedItems({});
-                localStorage.removeItem('merchPipeline_CurrentTag');
-                window.location.href='Report.html';
-            };
+            }, [managedItems, masterProducts, config.masterLinks, showToast, config.marginRules, executeExport, fullDisplayRows, handleNavigate]);
 
             const handlePush = async () => {
                 if (!config.cloudUrl) return showToast("⚠️ 설정에서 앱스크립트 URL을 입력하세요.");
@@ -1699,12 +1751,24 @@
                 } finally { setIsProcessing(false); setProcessMsg(""); }
             };
 
+            // 🌟 초기화 버튼 시 설정 화면도 강제 초기화 연동
             const handleReset = useCallback(() => {
                 setManagedItems({}); setIDB(STORAGE_KEYS.MANAGED_ITEMS, {}); 
-                setGlobalSearch(''); 
+                setGlobalSearch(''); setSelectedRows(new Set());
                 setSelectedCatalogs(new Set()); setSelectedCategories(new Set()); 
-                showToast('화면이 초기화 되었습니다.');
+                window.dispatchEvent(new Event('force-config-reload')); 
+                showToast('화면 및 설정이 초기화 되었습니다. 새로운 룰을 불러옵니다.');
             }, [showToast]);
+
+            const handleRemoveFromWorkspace = useCallback(() => {
+                if (selectedRows.size === 0) return showToast('⚠️ 숨길 항목을 선택하세요.');
+                setManagedItems(p => { 
+                    const n = { ...p }; selectedRows.forEach(c => delete n[c]); 
+                    setIDB(STORAGE_KEYS.MANAGED_ITEMS, n);
+                    return n; 
+                });
+                setSelectedRows(new Set()); showToast('✅ 선택한 항목이 화면에서 숨겨졌습니다.');
+            }, [selectedRows, showToast]);
 
             const handleFileUpload = async (e) => {
                 const file = e.target.files[0];
@@ -1716,11 +1780,12 @@
                     const curMap = config.mappings['estimate'] || {}; const headerCache = createHeaderMap(Object.keys(excelData[0]), curMap);
                     const allFields = Array.from(new Set([...Object.keys(curMap), ...MASTER_HEADERS, ...NUMERIC_HEADERS]));
                     
-                    let newManaged = { ...managedItems }; let count = 0;
+                    let newManaged = {}; 
+                    let count = 0;
                     excelData.forEach(row => {
                         const codeKey = headerCache['품목코드']; 
-                        const code = row[codeKey] || row['품목코드'] || row['상품코드'] || row['코드'];
-                        if (!code || String(code).replace(/\s/g, '').includes('출력')) return;
+                        const code = String(row[codeKey] || row['품목코드'] || row['상품코드'] || row['코드'] || '').trim();
+                        if (!code || code.includes('출력') || code.includes('합계') || code.includes('총계')) return;
                         
                         if (!newManaged[code]) newManaged[code] = { 코드: code, sources: { estimate: {} }, finalData: {} };
                         let mItem = newManaged[code];
@@ -1734,20 +1799,14 @@
                                 const val = row[actualKey];
                                 const isNum = NUMERIC_HEADERS.includes(config.masterLinks['estimate']?.[h]) || NUMERIC_HEADERS.includes(h);
                                 mItem.sources['estimate'][h] = isNum ? parseNum(val) : val;
-                                // 엑셀 수기값 우선 보존
                                 mItem.finalData[h] = isNum ? parseNum(val) : val;
                             }
                         });
                         
-                        // 🌟 엑셀 업로드 시 연산 엔진 재가동 (출고가 개입 여부 확인 포함)
                         const estIn = mItem.sources['estimate']['입고가'];
                         const pInRaw = (estIn !== undefined && estIn !== '') ? estIn : masterProducts[code]?.['입고가'];
                         const pInNum = parseNum(pInRaw);
-                        
-                        // 엑셀 열에 출고가가 있는지 파악 (없으면 자동 연산 대상)
                         const hasExcelOutPrice = mItem.sources['estimate']['출고가'] !== undefined && mItem.sources['estimate']['출고가'] !== '';
-                        
-                        // hasExcelOutPrice가 true면 엔진 내부에서 출고가를 절대 덮어쓰지 않음
                         mItem.finalData = calculatePricesEngine(pInNum, masterProducts[code] || {}, mItem.finalData, config.marginRules, !hasExcelOutPrice);
                         
                         count++;
@@ -1780,9 +1839,13 @@
                 return '';
             }, [managedItems, selectedCatalogs, selectedCategories, availableCatalogs, availableCategories]);
 
-            const appState = { isEstimateUploaded: Object.keys(managedItems).length > 0, fullDisplayRows, visibleMasterCols: config.visibleMasterCols, visibleUploadCols: config.visibleUploadCols, masterProducts, masterLinksEst: config.masterLinks?.['estimate']||{}, globalSearch, selectedCatalogs, selectedCategories, isProcessing };
+            // 🌟 전체리스트일 때는 동작 버튼 숨김
+            const hasActiveContext = Object.keys(managedItems).length > 0 || globalSearch.trim() !== '' || selectedRows.size > 0 || selectedCatalogs.size > 0 || selectedCategories.size > 0;
+
+            const appState = { isEstimateUploaded: Object.keys(managedItems).length > 0, fullDisplayRows, visibleMasterCols: config.visibleMasterCols, visibleUploadCols: config.visibleUploadCols, masterProducts, masterLinksEst: config.masterLinks?.['estimate']||{}, globalSearch, selectedCatalogs, selectedCategories, selectedRows, isProcessing };
             const appActions = { 
-                handleUpdateCell, setShowReviewModal, setGlobalSearch, handleReset, handleFileUpload, showToast 
+                handleUpdateCell, setRowSelection: useCallback((code, isSelected) => { setSelectedRows(p => { const n = new Set(p); if (isSelected) n.add(code); else n.delete(code); return n; }); }, []),
+                handleRemoveFromWorkspace, setShowReviewModal, setGlobalSearch, handleReset, handleFileUpload, showToast 
             };
 
             return (
@@ -1838,20 +1901,28 @@
                             <div className="w-px h-5 bg-slate-200 mx-1 shrink-0"></div>
                             <div className="flex items-center gap-1 shrink-0">
                                 <label className="h-9 px-3 rounded-md text-[13px] font-bold bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm flex items-center shrink-0 text-emerald-600 border-emerald-200 hover:bg-emerald-50 cursor-pointer">
-                                    <SafeIcon name="file-excel" className="mr-1.5 text-emerald-500"/> 불러오기
+                                    <SafeIcon name="file-excel" className="mr-1.5 text-emerald-500" size={14}/> 불러오기
                                     <input type="file" className="hidden" multiple onChange={(e) => handleFileUpload(e)} accept=".xlsx, .xls, .csv" disabled={isProcessing} />
                                 </label>
                             </div>
                             <div className="flex items-center gap-2 shrink-0 ml-auto pl-4">
-                                {fullDisplayRows.length > 0 && (
+                                {selectedRows.size > 0 && <button onClick={handleRemoveFromWorkspace} className="h-9 px-3 rounded-md text-[13px] font-bold bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm flex items-center shrink-0 bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100" title="선택 항목 숨기기"><SafeIcon name="x" className="mr-1.5" size={13}/> 숨기기 ({selectedRows.size})</button>}
+                                
+                                {/* 🌟 전체 리스트 상태가 아닐 때만 동작 버튼들 표시 */}
+                                {hasActiveContext && fullDisplayRows.length > 0 && (
                                     <Fragment>
-                                        <button id="btn-open-review" onClick={() => setShowReviewModal(true)} className="h-9 px-4 rounded-lg text-[13px] font-bold bg-slate-800 text-white hover:bg-slate-700 border-slate-700 shadow-sm flex items-center shrink-0 transition-colors">
-                                            <SafeIcon name="check-circle-2" className="mr-1.5" size={14}/> 검증 및 반영 [F8]
+                                        <button id="btn-open-review" onClick={() => setShowReviewModal(true)} className="h-9 px-4 rounded-lg text-[13px] font-bold bg-slate-800 text-white hover:bg-slate-700 border-slate-700 shadow-sm flex items-center shrink-0 transition-colors whitespace-nowrap">
+                                            <SafeIcon name="check-circle-2" className="mr-1.5" size={14}/> 검증 및 저장 [F8/F9]
+                                        </button>
+                                        
+                                        {/* 🌟 계산기 버튼 위치 변경: 검증과 초기화 사이 */}
+                                        <button onClick={() => handleRecalculateAll(false)} className="h-9 w-9 rounded-lg text-[13px] font-bold bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors shadow-sm flex items-center justify-center shrink-0 text-indigo-600 ml-1" title="화면에 보이는 상품 단가 일괄 재계산">
+                                            <SafeIcon name="calculator" size={15}/>
                                         </button>
                                     </Fragment>
                                 )}
                                 
-                                <div className="w-px h-5 bg-slate-200 mx-1 shrink-0"></div>
+                                <div className="w-px h-5 bg-slate-200 mx-1 shrink-0 ml-1"></div>
                                 <button onClick={handleReset} className="h-9 px-3 rounded-md text-[13px] font-bold bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm flex items-center shrink-0 w-9 justify-center text-slate-500 hover:text-slate-800" title="화면 초기화"><SafeIcon name="redo-alt" size={13}/></button>
                                 <div className="relative w-48 sm:w-64 h-9 shrink-0">
                                     <input id="global-search-input" type="text" placeholder="결과 내 검색 (F3)" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); const t = document.querySelector('tbody tr.data-row input[data-field="입고가"]') || document.querySelector('tbody tr.data-row td:has(input[type="text"]) input'); if (t) { t.focus(); setTimeout(() => t.select(), 0); } } }} className="appearance-none bg-white border border-blue-200 text-blue-600 font-bold text-[13px] py-1.5 px-3 pr-7 rounded-md outline-none focus:border-blue-400 cursor-pointer h-9 shadow-sm w-full h-full !pl-3 pr-8 py-1 !cursor-text" />
@@ -1872,7 +1943,6 @@
                     </main>
 
                     <IframeSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
-                    {showExportModal && <ExportModal onClose={handleCloseExportModal} onExport={executeExport}/>}
                     {showReviewModal && <ReviewModal onClose={() => setShowReviewModal(false)} onConfirm={handleCommitEstimate} displayRows={fullDisplayRows} masterProducts={masterProducts} availableCategories={availableCategories} />}
                     {toastMsg && <div className="fixed bottom-10 right-10 z-[100] bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 fade-in border border-slate-700 font-bold"><SafeIcon name="check-circle-2" size={18} className="text-emerald-400" /><span className="text-sm font-bold tracking-tight">{toastMsg}</span></div>}
                 </div>
