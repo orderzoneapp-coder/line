@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.3 - Config Fix]</title>
+    <title>NEXUS - Valuation Hub [v1.6.4]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -343,7 +343,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.3</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.4</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -1301,7 +1301,8 @@
                                 newManaged[code] = {
                                     코드: code,
                                     sources: { estimate: {} },
-                                    finalData: calculatePricesEngine(parseNum(mItem['입고가']), mItem, {}, config.marginRules, false)
+                                    // 🌟 카탈로그 로드 시, 과거 마스터 단가 보존을 무시하고 무조건 현재 설정된 최신 마진 룰을 강제 적용 (forceRecalc: true)
+                                    finalData: calculatePricesEngine(parseNum(mItem['입고가']), mItem, {}, config.marginRules, true)
                                 };
                             }
                         }
