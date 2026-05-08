@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.8]</title>
+    <title>NEXUS - Valuation Hub [v1.6.9]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -343,7 +343,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.8</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.9</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -1446,9 +1446,10 @@
             }, [managedItems, masterProducts, globalSearch, selectedCatalogs, selectedCategories]);
 
             const executeExport = useCallback((type, options) => {
-                const rowsToExport = fullDisplayRows;
+                // 🌟 [핵심 수정] 무작정 전체 리스트를 내보내지 않고, '불러온 정보(managedItems)'만 필터링하여 엑셀로 변환합니다.
+                const rowsToExport = fullDisplayRows.filter(r => managedItems[r.코드 || r.품목코드]);
 
-                if (rowsToExport.length === 0) { showToast("⚠️ 내보낼 데이터가 없습니다."); return; }
+                if (rowsToExport.length === 0) { showToast("⚠️ 내보낼 데이터(불러온 항목)가 없습니다."); return; }
                 
                 setShowExportModal(false); 
                 setIsProcessing(true); setProcessMsg("엑셀 파일 생성 중...");
