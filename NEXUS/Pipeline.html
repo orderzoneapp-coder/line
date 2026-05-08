@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.11]</title>
+    <title>NEXUS - Valuation Hub [v1.6.13]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -343,7 +343,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.11</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.13</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -432,7 +432,8 @@
         };
 
         const ExportModal = ({ onClose, onExport }) => {
-            const [zeroPriceAction, setZeroPriceAction] = useState('suspend');
+            const [forSaleOption, setForSaleOption] = useState('0');
+            const [stockOption, setStockOption] = useState('0');
             
             return (
                 <div className="fixed inset-0 flex justify-center items-center bg-slate-900/70 backdrop-blur-sm fade-in z-[100]">
@@ -440,17 +441,26 @@
                         <div className="bg-[#0f172a] p-4 text-white flex justify-between items-center"><h2 className="font-black text-[16px]">통합 엑셀 다운로드</h2><button onClick={onClose}><SafeIcon name="x" size={20}/></button></div>
                         <div className="p-6 space-y-6">
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                                <h3 className="text-sm font-black text-slate-800 flex items-center gap-2"><SafeIcon name="settings" size={16} className="text-indigo-500"/> 출력 데이터 처리 규칙</h3>
-                                <div className="space-y-1">
-                                    <label className="text-[12px] font-black text-slate-600">출고가(판매가)가 0원 인 상품 처리</label>
-                                    <select value={zeroPriceAction} onChange={e=>setZeroPriceAction(e.target.value)} className="w-full text-[13px] font-bold text-slate-700 p-2.5 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm">
-                                        <option value="suspend">판매중지(0) 및 품절(0) 처리 (권장)</option>
-                                        <option value="keep">판매유지(1) 및 재고무제한(999) 설정</option>
-                                    </select>
+                                <h3 className="text-sm font-black text-slate-800 flex items-center gap-2"><SafeIcon name="settings" size={16} className="text-indigo-500"/> 출고가(판매가) 0원 상품 처리 설정</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[12px] font-black text-slate-600">판매여부</label>
+                                        <select value={forSaleOption} onChange={e=>setForSaleOption(e.target.value)} className="w-full text-[13px] font-bold text-slate-700 p-2.5 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm">
+                                            <option value="0">0 (판매중지)</option>
+                                            <option value="1">1 (판매유지)</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[12px] font-black text-slate-600">재고수량</label>
+                                        <select value={stockOption} onChange={e=>setStockOption(e.target.value)} className="w-full text-[13px] font-bold text-slate-700 p-2.5 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm">
+                                            <option value="0">0 (품절)</option>
+                                            <option value="999">999 (무제한)</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 gap-3">
-                                <button onClick={()=>onExport('all', { zeroPriceAction })} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[14px] flex items-center justify-center gap-3 shadow-lg transition-all"><SafeIcon name="file-excel" size={20}/> 통합 엑셀 다운로드 (ERP, 쇼핑몰 시트 포함) </button>
+                                <button onClick={()=>onExport('all', { forSaleOption, stockOption })} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[14px] flex items-center justify-center gap-3 shadow-lg transition-all"><SafeIcon name="file-excel" size={20}/> 통합 엑셀 다운로드 (ERP, 쇼핑몰 시트 포함) </button>
                             </div>
                         </div>
                         <div className="bg-slate-50 p-4 text-center border-t border-slate-200 text-[11px] text-slate-400 font-medium">내보내기 파일은 엑셀(.xlsx) 형식으로 통합되어 저장됩니다.</div>
@@ -1458,18 +1468,29 @@
                     try {
                         const wb = window.XLSX.utils.book_new();
                         
+                        // 🌟 화면에 외주비, 노무비 노출 여부 파악
+                        const activeCols = [...(config.visibleMasterCols.estimate || []), ...(config.visibleUploadCols.estimate || [])];
+                        const hasOutsrc = activeCols.includes('외주비');
+                        const hasLabor = activeCols.includes('노무비');
+
                         let erpData = []; 
-                        erpData.push(['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '1']);
+                        let erpHeader = ['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '1'];
+                        if (hasOutsrc) erpHeader.push('외주비');
+                        if (hasLabor) erpHeader.push('노무비');
+                        erpData.push(erpHeader);
                         
                         let shopData = []; shopData.push(['상품코드\n코드', '상품명', '규격', '출고가', '도매A', '시중가', '도매B', '도매B', 'C 판매가', 'C 도매가', 'D 판매가', 'D 도매가', '브랜드', '기본설명', '판매여부', '재고수량', '테마1', '테마2', '테마3', '테마4', '테마5', '상품태그']);
                         
-                        const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='') => { 
+                        const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='', outsrc='', labor='') => { 
                             if (!code) return null; 
                             const outIn = inPrice >= 0 ? inPrice : ''; 
                             const outOut = outPrice >= 0 ? outPrice : ''; 
                             const outFinal = finalPrice >= 0 ? finalPrice : outIn; 
                             
-                            return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', (inPrice >= 0 || outPrice >= 0) ? '1' : '' ]; 
+                            let row = [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', (inPrice >= 0 || outPrice >= 0) ? '1' : '' ]; 
+                            if (hasOutsrc) row.push(outsrc !== '' ? outsrc : '');
+                            if (hasLabor) row.push(labor !== '' ? labor : '');
+                            return row;
                         };
 
                         const getFirstValidNum = (objList, keys) => {
@@ -1502,7 +1523,10 @@
                             const pASale = getFirstValidNum([final, source, mItem], ['도매A', 'A판매', 'A판매가']);
                             const pBSale = getFirstValidNum([final, source, mItem], ['도매B', 'B판매', 'B 도매가']);
                             
-                            const pRowErp = createRowArr(rowCode, pIn, pOut, pBPrice, pASale, pBSale, pIn); 
+                            const pOutsrc = getFirstValidNum([final, source, mItem], ['외주비']);
+                            const pLabor = getFirstValidNum([final, source, mItem], ['노무비']);
+                            
+                            const pRowErp = createRowArr(rowCode, pIn, pOut, pBPrice, pASale, pBSale, pIn, pOutsrc, pLabor); 
                             if (pRowErp) erpData.push(pRowErp); 
                             
                             const priceMarketShop = pMarketPrice > 0 ? pMarketPrice : pOut;
@@ -1512,13 +1536,8 @@
                             let isForSale = '1';
                             let stockQty = '999';
                             if (pOut === 0) {
-                                if (options.zeroPriceAction === 'suspend') {
-                                    isForSale = '0';
-                                    stockQty = '0';
-                                } else {
-                                    isForSale = '1';
-                                    stockQty = '999';
-                                }
+                                isForSale = options.forSaleOption;
+                                stockQty = options.stockOption;
                             }
 
                             shopData.push([rowCode, dName, dSpec, pOut, priceA, priceMarketShop, 0, 0, 0, 0, 0, 0, dBrand, dInfo, isForSale, stockQty, '', '', '', '', '', dSearch]);
@@ -1529,10 +1548,14 @@
                                     const cCode = String(cCodeRaw).trim();
                                     const cIn = getFirstValidNum([final, source, mItem], [`${t}입고`, `${t}구매`]);
                                     const cOut = getFirstValidNum([final, source, mItem], [`${t}출고`]); 
-                                    const cRowErp = createRowArr(cCode, cIn, cOut, '', '', '', cIn); 
+                                    
+                                    const subMaster = masterProducts[cCode] || {};
+                                    const cOutsrc = subMaster['외주비'] ? parseNum(subMaster['외주비']) : '';
+                                    const cLabor = subMaster['노무비'] ? parseNum(subMaster['노무비']) : '';
+
+                                    const cRowErp = createRowArr(cCode, cIn, cOut, '', '', '', cIn, cOutsrc, cLabor); 
                                     if (cRowErp) erpData.push(cRowErp); 
 
-                                    const subMaster = masterProducts[cCode] || {};
                                     const cName = subMaster.품목명 || getFirstValidStr([final, source, mItem], [`${t}그룹명`]) || `${dName} (소분)`;
                                     const cSpec = subMaster.규격 || getFirstValidStr([mItem, source], [`${t}종규격`]) || '';
                                     const cBrand = subMaster.브랜드 || dBrand;
@@ -1546,13 +1569,8 @@
                                     let cIsForSale = '1';
                                     let cStockQty = '999';
                                     if (cOut === 0) {
-                                        if (options.zeroPriceAction === 'suspend') {
-                                            cIsForSale = '0';
-                                            cStockQty = '0';
-                                        } else {
-                                            cIsForSale = '1';
-                                            cStockQty = '999';
-                                        }
+                                        cIsForSale = options.forSaleOption;
+                                        cStockQty = options.stockOption;
                                     }
 
                                     shopData.push([cCode, cName, cSpec, cOut, cPriceA, cMarketPrice, 0, 0, 0, 0, 0, 0, cBrand, cInfo, cIsForSale, cStockQty, '', '', '', '', '', cSearch]);
@@ -1569,7 +1587,7 @@
                         
                     } catch(e) { console.error(e); showToast("❌ 엑셀 파일 생성 중 오류가 발생했습니다."); } finally { setIsProcessing(false); setProcessMsg(''); }
                 }, 100);
-            }, [fullDisplayRows, managedItems, masterProducts, showToast]);
+            }, [fullDisplayRows, managedItems, masterProducts, showToast, config.visibleMasterCols, config.visibleUploadCols]);
 
             const handleCommitEstimate = useCallback(async (targetCodes, options, editedPrices, actionAfterSync = 'report') => {
                 if (targetCodes.length === 0) return;
@@ -1710,8 +1728,6 @@
             };
 
             const handleApplyMarginRules = useCallback(() => {
-                if (!window.confirm("현재 화면에 표시된 모든 상품에 마진 룰을 일괄 적용하시겠습니까?\n(기존 출고가는 무시되고 최신 공식으로 재계산됩니다.)")) return;
-                
                 setIsProcessing(true); setProcessMsg('마진 룰 강제 적용 중...');
                 setTimeout(() => {
                     setManagedItems(prev => {
