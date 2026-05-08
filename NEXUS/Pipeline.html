@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.4]</title>
+    <title>NEXUS - Valuation Hub [v1.6.6]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -343,7 +343,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.4</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.6</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -1301,8 +1301,8 @@
                                 newManaged[code] = {
                                     코드: code,
                                     sources: { estimate: {} },
-                                    // 🌟 카탈로그 로드 시, 과거 마스터 단가 보존을 무시하고 무조건 현재 설정된 최신 마진 룰을 강제 적용 (forceRecalc: true)
-                                    finalData: calculatePricesEngine(parseNum(mItem['입고가']), mItem, {}, config.marginRules, true)
+                                    // 🌟 카탈로그 로드 시, 마스터 데이터의 원래 단가를 그대로 보존합니다. (마진 룰 자동 적용 방지)
+                                    finalData: calculatePricesEngine(parseNum(mItem['입고가']), mItem, {}, config.marginRules, false)
                                 };
                             }
                         }
@@ -1698,6 +1698,29 @@
                 } finally { setIsProcessing(false); setProcessMsg(""); }
             };
 
+            const handleApplyMarginRules = useCallback(() => {
+                if (!window.confirm("현재 화면에 표시된 모든 상품에 마진 룰을 일괄 적용하시겠습니까?\n(기존 출고가는 무시되고 최신 공식으로 재계산됩니다.)")) return;
+                
+                setIsProcessing(true); setProcessMsg('마진 룰 강제 적용 중...');
+                setTimeout(() => {
+                    setManagedItems(prev => {
+                        let next = { ...prev };
+                        fullDisplayRows.forEach(row => {
+                            const code = row.코드 || row.품목코드;
+                            if (next[code]) {
+                                const mItem = masterProducts[code] || {};
+                                const pInRaw = next[code].finalData?.['입고가'] ?? next[code].sources?.['estimate']?.['입고가'] ?? mItem['입고가'];
+                                next[code].finalData = calculatePricesEngine(parseNum(pInRaw), mItem, next[code].finalData, config.marginRules, true);
+                            }
+                        });
+                        setIDB(STORAGE_KEYS.MANAGED_ITEMS, next);
+                        return next;
+                    });
+                    showToast("✅ 화면의 상품들에 마진 룰이 일괄 적용되었습니다.");
+                    setIsProcessing(false); setProcessMsg('');
+                }, 100);
+            }, [fullDisplayRows, masterProducts, config.marginRules, showToast]);
+
             // 💡 [변경] 초기화 클릭 시 화면 비우기 + 로컬스토리지 설정 강제 갱신
             const handleReset = useCallback(() => {
                 setManagedItems({}); setIDB(STORAGE_KEYS.MANAGED_ITEMS, {}); 
@@ -1743,9 +1766,8 @@
                         const pInRaw = (estIn !== undefined && estIn !== '') ? estIn : masterProducts[code]?.['입고가'];
                         const pInNum = parseNum(pInRaw);
                         
-                        const hasExcelOutPrice = mItem.sources['estimate']['출고가'] !== undefined && mItem.sources['estimate']['출고가'] !== '';
-                        
-                        mItem.finalData = calculatePricesEngine(pInNum, masterProducts[code] || {}, mItem.finalData, config.marginRules, !hasExcelOutPrice);
+                        // 🌟 엑셀 업로드 시, 마진 룰을 강제 적용하지 않고 엑셀/마스터에 있는 그대로 보존합니다.
+                        mItem.finalData = calculatePricesEngine(pInNum, masterProducts[code] || {}, mItem.finalData, config.marginRules, false);
                         
                         count++;
                     });
@@ -1845,6 +1867,8 @@
                                         <button id="btn-open-review" onClick={() => setShowReviewModal(true)} className="h-9 px-4 rounded-lg text-[13px] font-bold bg-slate-800 text-white hover:bg-slate-700 border-slate-700 shadow-sm flex items-center shrink-0 transition-colors">
                                             <SafeIcon name="check-circle-2" className="mr-1.5" size={14}/> 검증 및 반영 [F8]
                                         </button>
+                                        <div className="w-px h-5 bg-slate-200 mx-1 shrink-0"></div>
+                                        <button onClick={handleApplyMarginRules} className="h-9 px-3 rounded-md text-[13px] font-bold bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 text-rose-500 transition-colors shadow-sm flex items-center shrink-0 justify-center w-9" title="전체 마진 룰 일괄 적용"><SafeIcon name="calculator" size={14}/></button>
                                     </Fragment>
                                 )}
                                 
