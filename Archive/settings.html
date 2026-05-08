@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>ONEAPP NEXES - Settings Center</title>
+    <title>ONEAPP NEXES - Settings Center [Rollback Ver]</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -30,19 +30,8 @@
     <script type="text/babel">
         const { useState, useMemo, useEffect, useCallback } = React;
 
-        // ==========================================
-        // 🧩 코어 전역 상수 및 로컬 데이터베이스 컨트롤러 (인라인 병합)
-        // ==========================================
         const STORAGE_KEYS = {
-            MASTER_DB: 'merchMaster_v870',
-            CLOUD_URL: 'skuSyncCloudUrl_v6',
-            SYNC_TRIGGER: 'merchMaster_sync_trigger',
-            HISTORY_DB: 'merchHistory_v870',
-            CLOSING_DB: 'merchClosing_v1',
-            MANAGED_ITEMS: 'merchPipeline_Managed_v2',
-            UNSYNCED_MASTER: 'merchUnsyncedMaster_v1',
-            UNSYNCED_HISTORY: 'merchUnsyncedHistory_v1',
-            UNSYNCED_DELETES: 'merchUnsyncedDeletes_v1'
+            MASTER_DB: 'merchMaster_v870', CLOUD_URL: 'skuSyncCloudUrl_v6', SYNC_TRIGGER: 'merchMaster_sync_trigger'
         };
 
         const MASTER_HEADERS = [
@@ -54,19 +43,11 @@
             "연동", "싯가", "단위", "준비기간", "마감시간", "검색어등록", "소싱태그", "순번"
         ];
 
-        const NUMERIC_HEADERS = [
-            "안전재고", "출고가", "입고가", "입고B", "도매A", "도매B", "상장가", "최종전송", 
-            "최종입고", "단가H", "단가I", "시중가", "행사가", "1종연산", "2종연산", "외주비", 
-            "노무비", "경비", "1구매", "1출고", "2구매", "2출고", "1입고", "2입고", "순번"
-        ];
+        const requiredCoreFields = ['품목코드'];
 
         const initIDB = () => new Promise((resolve, reject) => {
             const request = indexedDB.open('MerchOpsDB', 1);
-            request.onupgradeneeded = (e) => { 
-                if (!e.target.result.objectStoreNames.contains('store')) {
-                    e.target.result.createObjectStore('store'); 
-                }
-            };
+            request.onupgradeneeded = (e) => { if (!e.target.result.objectStoreNames.contains('store')) e.target.result.createObjectStore('store'); };
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
@@ -91,73 +72,58 @@
             });
         };
 
-        const safeStr = (val, def = '') => (val !== undefined && val !== null && val !== '') ? String(val) : def;
-        const parseNum = (v) => (!v ? 0 : Number(String(v).replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0);
         const generateUUID = () => {
             if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16);
             });
         };
 
-        // ==========================================
-        // 🧩 공통 React UI 컴포넌트 모음
-        // ==========================================
+        // 에러 방어 모듈
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 p-6">
+                            <i className="fas fa-exclamation-triangle text-rose-500 text-6xl mb-6"></i>
+                            <h1 className="text-2xl font-black text-slate-800 mb-2">화면 렌더링 오류 발생</h1>
+                            <p className="text-slate-500 mb-6 text-center">설정 창 로드 중 오류가 발생했습니다.<br/>아래 [초기화] 버튼을 눌러 복구해 주세요.</p>
+                            <div className="bg-white border border-rose-200 p-4 rounded-lg text-xs font-mono text-rose-600 w-full max-w-2xl overflow-auto mb-8 shadow-sm">{this.state.error && this.state.error.toString()}</div>
+                            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-lg flex items-center gap-2">
+                                <i className="fas fa-redo-alt"></i> 로컬 설정 초기화 및 복구하기
+                            </button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
         const SafeIcon = React.memo(function SafeIconComponent({ name, size = 18, className = "" }) {
             const [svg, setSvg] = useState("");
-            
             useEffect(() => {
-                const renderIcon = () => {
-                    if (window.lucide && window.lucide.icons) {
-                        const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-                        const possibleNames = [
-                            kebabName, name,
-                            name === 'cloud-download' ? 'download-cloud' : name,
-                            name === 'cloud-upload' ? 'upload-cloud' : name,
-                            name === 'bar-chart-3' ? 'bar-chart' : name
-                        ];
-                        for (const pName of possibleNames) {
-                            if (window.lucide.icons[pName]) {
-                                setSvg(window.lucide.icons[pName].toSvg({ width: size, height: size, class: className, 'stroke-width': 2.5 })); return;
-                            }
-                        }
+                if (window.lucide && window.lucide.icons) {
+                    const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+                    const possibleNames = [ kebabName, name, name === 'cloud-download' ? 'download-cloud' : name, name === 'cloud-upload' ? 'upload-cloud' : name, name === 'bar-chart-3' ? 'bar-chart' : name ];
+                    for (const pName of possibleNames) {
+                        if (window.lucide.icons[pName]) { setSvg(window.lucide.icons[pName].toSvg({ width: size, height: size, class: className, 'stroke-width': 2.5 })); return; }
                     }
-                }; renderIcon();
+                }
             }, [name, size, className]);
 
             if (!svg) {
-                const faMap = {
-                    'cloud-download':'fa-cloud-download-alt', 'cloud-upload':'fa-cloud-upload-alt', 'settings':'fa-cogs', 
-                    'layout-dashboard':'fa-th-large', 'package-search':'fa-box-open', 'file-spreadsheet':'fa-table', 
-                    'zap':'fa-bolt', 'truck':'fa-truck', 'boxes':'fa-boxes', 'bar-chart-3':'fa-chart-bar', 
-                    'check-circle-2':'fa-check-circle', 'x':'fa-times', 'database':'fa-database', 'upload':'fa-upload', 
-                    'pie-chart':'fa-chart-pie', 'shopping-cart':'fa-shopping-cart', 'users':'fa-users', 'megaphone':'fa-bullhorn', 
-                    'book-open':'fa-address-book', 'shopping-bag':'fa-shopping-bag', 'credit-card':'fa-credit-card', 
-                    'line-chart':'fa-chart-line', 'printer':'fa-print', 'search':'fa-search', 'plus':'fa-plus', 
-                    'trash-alt':'fa-trash-alt', 'edit':'fa-edit', 'save':'fa-save', 'file-excel':'fa-file-excel', 
-                    'link':'fa-link', 'ban':'fa-ban', 'layer-group':'fa-layer-group', 'desktop':'fa-desktop', 
-                    'sign-in-alt':'fa-sign-in-alt', 'calculator':'fa-calculator', 'tags':'fa-tags', 'broom':'fa-broom', 
-                    'info-circle':'fa-info-circle', 'lock':'fa-lock', 'key':'fa-key', 'folder-open':'fa-folder-open', 
-                    'file-invoice':'fa-file-invoice', 'history':'fa-history', 'redo-alt': 'fa-redo-alt', 
-                    'file-export':'fa-file-export', 'sitemap':'fa-sitemap', 'bolt':'fa-bolt', 'sort-amount-down':'fa-sort-amount-down', 
-                    'undo':'fa-undo', 'exchange-alt':'fa-exchange-alt', 'list':'fa-list', 'check-double':'fa-check-double', 
-                    'balance-scale':'fa-balance-scale', 'search-plus':'fa-search-plus', 'truck-loading':'fa-truck-loading', 
-                    'exclamation-circle': 'fa-exclamation-circle', 'calendar-alt': 'fa-calendar-alt', 'cut':'fa-cut', 
-                    'rocket':'fa-rocket', 'archive':'fa-archive', 'filter':'fa-filter', 'alert-triangle':'fa-exclamation-triangle', 
-                    'download':'fa-download', 'skull':'fa-skull', 'sliders-horizontal':'fa-sliders-h'
-                };
+                const faMap = { 'cloud-download':'fa-cloud-download-alt', 'cloud-upload':'fa-cloud-upload-alt', 'settings':'fa-cogs', 'layout-dashboard':'fa-th-large', 'package-search':'fa-box-open', 'file-spreadsheet':'fa-table', 'zap':'fa-bolt', 'truck':'fa-truck', 'boxes':'fa-boxes', 'bar-chart-3':'fa-chart-bar', 'check-circle-2':'fa-check-circle', 'x':'fa-times', 'database':'fa-database', 'upload':'fa-upload', 'pie-chart':'fa-chart-pie', 'shopping-cart':'fa-shopping-cart', 'users':'fa-users', 'megaphone':'fa-bullhorn', 'book-open':'fa-address-book', 'shopping-bag':'fa-shopping-bag', 'credit-card':'fa-credit-card', 'line-chart':'fa-chart-line', 'printer':'fa-print', 'search':'fa-search', 'plus':'fa-plus', 'trash-alt':'fa-trash-alt', 'edit':'fa-edit', 'save':'fa-save', 'file-excel':'fa-file-excel', 'link':'fa-link', 'ban':'fa-ban', 'layer-group':'fa-layer-group', 'desktop':'fa-desktop', 'sign-in-alt':'fa-sign-in-alt', 'calculator':'fa-calculator', 'tags':'fa-tags', 'broom':'fa-broom', 'info-circle':'fa-info-circle', 'lock':'fa-lock', 'key':'fa-key', 'folder-open':'fa-folder-open', 'file-invoice':'fa-file-invoice', 'history':'fa-history', 'redo-alt': 'fa-redo-alt', 'file-export':'fa-file-export', 'sitemap':'fa-sitemap', 'bolt':'fa-bolt', 'sort-amount-down':'fa-sort-amount-down', 'undo':'fa-undo', 'exchange-alt':'fa-exchange-alt', 'list':'fa-list', 'check-double':'fa-check-double', 'balance-scale':'fa-balance-scale', 'search-plus':'fa-search-plus', 'truck-loading':'fa-truck-loading', 'exclamation-circle': 'fa-exclamation-circle', 'calendar-alt': 'fa-calendar-alt', 'cut':'fa-cut', 'rocket':'fa-rocket', 'archive':'fa-archive', 'filter':'fa-filter', 'alert-triangle':'fa-exclamation-triangle', 'download':'fa-download', 'skull':'fa-skull', 'sliders-horizontal':'fa-sliders-h', 'arrow-up':'fa-arrow-up', 'arrow-down':'fa-arrow-down' };
                 const faName = faMap[name] || `fa-${name}`;
                 return <i className={`fas ${faName} ${className}`} style={{ fontSize: size }} />;
             }
             return <span className="inline-flex shrink-0 items-center justify-center" dangerouslySetInnerHTML={{ __html: svg }} />;
         });
 
-        const requiredCoreFields = ['품목코드'];
-
-        // ==========================================
-        // 🧩 Hooks (Global Setting Manager)
-        // ==========================================
         const useMerchConfig = () => {
             const [cloudUrl, setCloudUrl] = useState(() => localStorage.getItem(STORAGE_KEYS.CLOUD_URL) || '');
             
@@ -182,28 +148,25 @@
             const [masterLinks, setMasterLinks] = useState(() => { 
                 const s = localStorage.getItem('merchMasterLinks_v870'); 
                 const p = s ? JSON.parse(s) : null; 
-                return p?.estimate ? p : { master: {}, estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명' } }; 
+                return p?.estimate ? p : { master: {}, estimate: { '창고': '창고', '구매처': '구매처', '견적서': '견적서', '입고가': '입고가', '출고가': '출고가', '입고B': '입고B', '도매A': '도매A', '도매B': '도매B', '간단설명': '간단설명', '순번': '순번' } }; 
             });
             
+            // 🌟 롤백: 창고코드 기반(v879) 룰 엔진
             const [marginRules, setMarginRules] = useState(() => {
-                // 💡 [수정] 버전 키를 v879로 올려서 기존의 꼬인 데이터를 무시하고 7가지 기본값을 강제 적용합니다.
                 const s = localStorage.getItem('merchMarginRules_v879');
-                
-                // 🌟 이미지에 맞춘 7가지 강력한 기본값 하드코딩
                 const def = [ 
-                    { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '01', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '03, 05', unit: 'box, 박스', rate: 15, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '03, 05', unit: 'ea, 개, 낱개', rate: 20, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '*', unit: 'box, 박스', rate: 10, type: 'divide' }, 
-                    { id: generateUUID(), whCode: '*', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' }, 
-                    { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' } 
+                    { id: generateUUID(), whCode: '01', unit: 'box, 박스', rate: 10, type: 'divide' },
+                    { id: generateUUID(), whCode: '01', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' },
+                    { id: generateUUID(), whCode: '03, 05', unit: 'box, 박스', rate: 15, type: 'divide' },
+                    { id: generateUUID(), whCode: '03, 05', unit: 'ea, 개, 낱개', rate: 20, type: 'divide' },
+                    { id: generateUUID(), whCode: '*', unit: 'box, 박스', rate: 10, type: 'divide' },
+                    { id: generateUUID(), whCode: '*', unit: 'ea, 개, 낱개', rate: 15, type: 'divide' },
+                    { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' }
                 ];
-                
                 if (s) { 
                     try { 
                         const p = JSON.parse(s); 
-                        if (p?.length > 2) return p.map(r => ({ ...r, whCode: r.whCode || '*', unit: r.unit || '*' })); 
+                        if (p?.length >= 1) return p; 
                     } catch(e){} 
                 }
                 return def;
@@ -212,18 +175,7 @@
             const [opsMappings, setOpsMappings] = useState(() => {
                 const s = localStorage.getItem('inventoryMappingsLight');
                 const def = { code: '품목코드, 상품코드, 코드, 품번, 바코드, sku', name: '품명, 품목명(규격), 품목명[규격], 상품명, 제품명, 이름, 품목, 상품', spec: '규격, 옵션, 사이즈', qty: '기말실사(이월수량), 기말실사, 기말/실사, 수량, 재고, 기말잔량(실사반영), 기말잔량(실사), 기말잔량, 수량(합계), 입고수량, 출고수량, 판매수량, 잔량, 실사, 합계, 기말, 판매량, 출고량, 입고량', price: '매입단가(원가), 단가, 입고단가, 구매단가, 판매단가, 매입단가, 매입가, 판매가, 공급가액, 공급가, 금액, 원가, 가격, 최종(창고), 최종입고', date: '결산일자, 매입일자, 일자, 날짜, 구매일자, 판매일자, 입고일자, 출고일자, 기록', vendor: '매출처명, 매입처(Lot), 매입처(거래처), 거래처명, 거래처, 거래, 매장명, 매장, 고객, 판매처, 공급사, 판매, 청과, 3거래', matchVendor: '구매처, 매입처, 매칭정보, 원매입처, lot', excludeVendor: '3우리, 우리농산, 1전송, 창고이동, 폐기, 샘플', lifoVendor: '2전송, 쿠팡, B2B, 당일우선, 현금판매', internalLot: '우리, 공용, 분배, 담당자, 우리농산', priorityVendor: '2전송>1창고' };
-                
-                if (s) { 
-                    try {
-                        let parsed = JSON.parse(s);
-                        if (parsed.price && !parsed.price.includes('최종입고')) parsed.price += ', 최종입고';
-                        if (parsed.date && !parsed.date.includes('기록')) parsed.date += ', 기록';
-                        if (parsed.qty && !parsed.qty.includes('재고')) parsed.qty += ', 재고';
-                        if (parsed.vendor && !parsed.vendor.includes('거래')) parsed.vendor += ', 거래';
-                        return { ...def, ...parsed };
-                    } catch(e) {}
-                }
-                return def;
+                if (s) { try { return { ...def, ...JSON.parse(s) }; } catch(e) {} } return def;
             });
 
             const [opsGrouping, setOpsGrouping] = useState(() => {
@@ -237,11 +189,12 @@
                 localStorage.setItem('merchVisUpload_v870', JSON.stringify(visibleUploadCols));
                 localStorage.setItem('merchMappings_v870', JSON.stringify(mappings)); 
                 localStorage.setItem('merchMasterLinks_v870', JSON.stringify(masterLinks)); 
-                localStorage.setItem('merchMarginRules_v879', JSON.stringify(marginRules)); // 💡 [수정] v879
+                localStorage.setItem('merchMarginRules_v879', JSON.stringify(marginRules)); 
                 localStorage.setItem('inventoryMappingsLight', JSON.stringify(opsMappings));
                 localStorage.setItem('inventoryGroupingV79', JSON.stringify(opsGrouping));
                 
-                localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
+                // 설정 변경 시 스토리지 이벤트를 강제 트리거하여 Pipeline.html이 즉시 인식하게 함
+                window.dispatchEvent(new Event('storage'));
             }, [cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules, opsMappings, opsGrouping]);
             
             return { cloudUrl, setCloudUrl, visibleMasterCols, setVisibleMasterCols, visibleUploadCols, setVisibleUploadCols, mappings, setMappings, masterLinks, setMasterLinks, marginRules, setMarginRules, opsMappings, setOpsMappings, opsGrouping, setOpsGrouping };
@@ -253,25 +206,14 @@
             const [toastMsg, setToastMsg] = useState('');
             const [masterProducts, setMasterProducts] = useState({});
             const [customEstColInput, setCustomEstColInput] = useState('');
-            const [isProcessing, setIsProcessing] = useState(false);
             const [dangerLock, setDangerLock] = useState('');
-            
-            // 💡 [추가] 팝업창인지 단독 실행인지 감지하는 상태
             const [isStandalone, setIsStandalone] = useState(true);
 
             const showToast = useCallback((msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); }, []);
 
             useEffect(() => {
                 getIDB(STORAGE_KEYS.MASTER_DB).then(data => { if (data) setMasterProducts(data); }).catch(console.error);
-                
-                // 💡 [추가] iframe 내부이거나 팝업으로 열렸는지 감지
-                try {
-                    if (window.self !== window.top || window.opener) {
-                        setIsStandalone(false);
-                    }
-                } catch (e) {
-                    setIsStandalone(false); // 권한 오류 발생 시 보통 iframe 환경임
-                }
+                try { if (window.self !== window.top || window.opener) setIsStandalone(false); } catch (e) { setIsStandalone(false); }
             }, []);
 
             const availableCatalogs = useMemo(() => {
@@ -330,16 +272,12 @@
             }, [masterProducts, showToast]);
 
             const handleExportSettings = () => {
-                // 💡 [수정] 내보내기 키 v879 적용
                 const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v879', 'inventoryMappingsLight', 'inventoryGroupingV79'];
-                const data = {};
-                keys.forEach(k => { data[k] = localStorage.getItem(k); });
+                const data = {}; keys.forEach(k => { data[k] = localStorage.getItem(k); });
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `ONEAPP_Settings_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
+                const a = document.createElement('a'); a.href = url; a.download = `ONEAPP_Settings_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.json`;
+                a.click(); URL.revokeObjectURL(url);
                 showToast("✅ 설정 백업 파일이 다운로드되었습니다.");
             };
 
@@ -350,122 +288,76 @@
                 reader.onload = (evt) => {
                     try {
                         const imported = JSON.parse(evt.target.result);
-                        
-                        // 💡 [유지] 데이터 로딩 중 일부 값이 없거나 형식이 달라도 전체가 중단되지 않도록 보호
                         const safeParse = (key, fallbackState) => {
                             if (!imported[key]) return fallbackState;
-                            try {
-                                if (typeof imported[key] === 'object') return imported[key];
-                                return JSON.parse(imported[key]);
-                            } catch (err) {
-                                return fallbackState;
-                            }
+                            try { return typeof imported[key] === 'object' ? imported[key] : JSON.parse(imported[key]); } catch (err) { return fallbackState; }
                         };
-
-                        // 💡 [유지] 화면 상태만 업데이트하면 기존에 만들어둔 자동저장 기능이 알아서 완벽하게 덮어씁니다.
                         if (imported[STORAGE_KEYS.CLOUD_URL] !== undefined) config.setCloudUrl(imported[STORAGE_KEYS.CLOUD_URL]);
-                        
                         config.setVisibleMasterCols(safeParse('merchVisMaster_v870', config.visibleMasterCols));
                         config.setVisibleUploadCols(safeParse('merchVisUpload_v870', config.visibleUploadCols));
                         config.setMappings(safeParse('merchMappings_v870', config.mappings));
                         config.setMasterLinks(safeParse('merchMasterLinks_v870', config.masterLinks));
-                        // 💡 [수정] 가져오기 키 v879 적용 (혹시 백업본이 v878이면 덮어쓰지 않고 최신 유지)
-                        config.setMarginRules(safeParse('merchMarginRules_v879', config.marginRules) || safeParse('merchMarginRules_v878', config.marginRules));
+                        config.setMarginRules(safeParse('merchMarginRules_v879', config.marginRules));
                         config.setOpsMappings(safeParse('inventoryMappingsLight', config.opsMappings));
                         config.setOpsGrouping(safeParse('inventoryGroupingV79', config.opsGrouping));
-
                         showToast("✅ 설정이 성공적으로 복원되어 화면에 즉시 적용되었습니다.");
-                    } catch(err) {
-                        console.error("Import Error:", err);
-                        showToast("❌ 설정 파일 형식이 올바르지 않습니다.");
-                    }
+                    } catch(err) { showToast("❌ 설정 파일 형식이 올바르지 않습니다."); }
                 };
-                reader.readAsText(file);
-                e.target.value = '';
+                reader.readAsText(file); e.target.value = '';
             };
 
             const handleDataClear = async () => {
                 if (dangerLock !== '데이터를 모두 삭제합니다') return showToast('⚠️ 안전 잠금 해제 문구를 정확히 띄어쓰기하여 입력하세요.');
-                if (!window.confirm("경고: 실무 데이터(마스터, 주문, 구매, 판매, 재고)가 정답 삭제됩니다.\n이 작업은 복구할 수 없습니다. 계속하시겠습니까?")) return;
-                
-                setIsProcessing(true);
+                if (!window.confirm("경고: 실무 데이터(마스터, 주문, 구매, 판매, 재고)가 영구 삭제됩니다.\n이 작업은 복구할 수 없습니다. 계속하시겠습니까?")) return;
                 try {
-                    await setIDB(STORAGE_KEYS.MASTER_DB, {});
-                    await setIDB(STORAGE_KEYS.HISTORY_DB, []);
-                    await setIDB(STORAGE_KEYS.CLOSING_DB, []);
-                    await setIDB('merchOrders_v9', []);
-                    await setIDB('merchSales_v9', []);
-                    await setIDB('merchPipeline_Managed_v2', {});
+                    await setIDB(STORAGE_KEYS.MASTER_DB, {}); await setIDB(STORAGE_KEYS.HISTORY_DB, []); await setIDB(STORAGE_KEYS.CLOSING_DB, []);
+                    await setIDB('merchOrders_v9', []); await setIDB('merchSales_v9', []); await setIDB('merchPipeline_Managed_v2', {});
                     localStorage.setItem(STORAGE_KEYS.SYNC_TRIGGER, Date.now().toString());
-                    setDangerLock('');
-                    setMasterProducts({});
-                    showToast("🗑️ 데이터베이스가 완전히 초기화되었습니다.");
-                } catch(e) { showToast("❌ 데이터 삭제 실패"); } finally { setIsProcessing(false); }
+                    setDangerLock(''); setMasterProducts({}); showToast("🗑️ 데이터베이스가 완전히 초기화되었습니다.");
+                } catch(e) { showToast("❌ 데이터 삭제 실패"); }
             };
 
             const handleFactoryReset = () => {
                 if (dangerLock !== '데이터를 모두 삭제합니다') return showToast('⚠️ 안전 잠금 해제 문구를 정확히 띄어쓰기하여 입력하세요.');
                 if (!window.confirm("경고: 커스텀된 매핑 규칙과 환경설정이 모두 초기화됩니다.\n진행하시겠습니까?")) return;
-                
-                // 💡 [수정] 공장 초기화 키 v879 적용
                 const keys = ['skuSyncCloudUrl_v6', 'merchVisMaster_v870', 'merchVisUpload_v870', 'merchMappings_v870', 'merchMasterLinks_v870', 'merchMarginRules_v879', 'inventoryMappingsLight', 'inventoryGroupingV79'];
-                keys.forEach(k => localStorage.removeItem(k));
-                setDangerLock('');
-                showToast("🔄 설정이 기본값으로 초기화되었습니다. 화면을 새로고침합니다.");
-                setTimeout(() => window.location.reload(), 1500);
+                keys.forEach(k => localStorage.removeItem(k)); setDangerLock('');
+                showToast("🔄 설정이 기본값으로 초기화되었습니다. 화면을 새로고침합니다."); setTimeout(() => window.location.reload(), 1500);
             };
 
             const toggleMasterCol = (tabId, header) => config.setVisibleMasterCols(prev => { const list = prev[tabId] || []; return { ...prev, [tabId]: list.includes(header) ? list.filter(h => h !== header) : [...list, header] }; });
-
             const addCustomUploadCol = (type, val) => {
-                if(!val || !val.trim()) return; 
-                const cleanVal = val.trim();
-                
+                if(!val || !val.trim()) return; const cleanVal = val.trim();
                 if ((config.visibleUploadCols[type] || []).includes(cleanVal)) return showToast('⚠️ 이미 화면에 추가된 항목입니다.');
-                
                 config.setVisibleUploadCols(prev => ({ ...prev, [type]: [...(prev[type] || []), cleanVal] }));
                 config.setMappings(prev => ({ ...prev, [type]: { ...prev[type], [cleanVal]: cleanVal } }));
                 config.setMasterLinks(prev => ({ ...prev, [type]: { ...prev[type], [cleanVal]: cleanVal } }));
-                
-                setCustomEstColInput('');
-                showToast(`✅ [${cleanVal}] 항목이 추가되어 마스터 필드와 자동 연결되었습니다.`);
+                setCustomEstColInput(''); showToast(`✅ [${cleanVal}] 항목이 추가되었습니다.`);
             };
 
-            const addMarginRule = () => config.setMarginRules([...config.marginRules, { id: generateUUID(), whCode: '', unit: '', rate: 10, type: 'divide' }]);
+            // 🌟 롤백: 창고코드 기반 룰 조작 함수들
+            const addMarginRule = () => config.setMarginRules([{ id: generateUUID(), whCode: '', unit: '', rate: 10, type: 'divide' }, ...config.marginRules]);
             const updateMarginRule = (id, field, value) => config.setMarginRules(config.marginRules.map(r => r.id === id ? { ...r, [field]: value } : r));
             const deleteMarginRule = (id) => config.setMarginRules(config.marginRules.filter(r => r.id !== id));
-
-            const saveAll = () => {
-                showToast("💾 설정 저장은 변경 즉시 백그라운드에서 자동 적용되고 있습니다.");
-            };
+            const moveRuleUp = (index) => { if (index === 0) return; const newRules = [...config.marginRules]; [newRules[index - 1], newRules[index]] = [newRules[index], newRules[index - 1]]; config.setMarginRules(newRules); };
+            const moveRuleDown = (index) => { if (index === config.marginRules.length - 1) return; const newRules = [...config.marginRules]; [newRules[index + 1], newRules[index]] = [newRules[index], newRules[index + 1]]; config.setMarginRules(newRules); };
 
             const availableUploadHeaders = useMemo(() => {
-                const currentCols = config.visibleUploadCols['estimate'] || [];
-                return MASTER_HEADERS.filter(h => !requiredCoreFields.includes(h) && !currentCols.includes(h));
+                const currentCols = config.visibleUploadCols['estimate'] || []; return MASTER_HEADERS.filter(h => !requiredCoreFields.includes(h) && !currentCols.includes(h));
             }, [config.visibleUploadCols]);
 
             return (
                 <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 relative select-none">
-                    
-                    {/* 💡 [추가] 단독 실행(isStandalone)일 때만 보이는 글로벌 네비게이션 헤더 */}
                     {isStandalone && (
                         <header className="bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between shrink-0 z-20 shadow-md">
                             <div className="flex items-center gap-8">
-                                <div className="font-black text-lg tracking-wider text-indigo-400 flex items-center">
-                                    <SafeIcon name="boxes" size={20} className="mr-2.5"/> ONEAPP
-                                </div>
+                                <div className="font-black text-lg tracking-wider text-indigo-400 flex items-center"><SafeIcon name="boxes" size={20} className="mr-2.5"/> ONEAPP</div>
                                 <nav className="flex gap-6 text-[14px] font-bold">
                                     <a href="#" className="text-slate-400 hover:text-white transition-colors py-1">대시보드</a>
                                     <a href="#" className="text-slate-400 hover:text-white transition-colors py-1">상품·시세</a>
                                     <a href="#" className="text-slate-400 hover:text-white transition-colors py-1">주문·운영</a>
                                     <a href="#" className="text-white border-b-2 border-indigo-500 pb-1">시스템 설정</a>
                                 </nav>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => showToast("☁️ 글로벌 클라우드 동기화가 실행됩니다.")} className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-indigo-600 rounded-full transition-colors tooltip-trigger shadow-inner">
-                                    <SafeIcon name="cloud-upload" size={16} className="text-indigo-300"/>
-                                </button>
-                                <div className="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-[12px] font-bold text-white shadow-md cursor-pointer border-2 border-slate-700">A</div>
                             </div>
                         </header>
                     )}
@@ -476,12 +368,12 @@
                             <p className="text-[12px] text-slate-500 mt-1 ml-8">모든 NEXES 운영 모듈(시세, 구매, 판매, 재고)에 공통으로 적용되는 전역 규칙(Global Baseline)을 관리합니다.</p>
                         </div>
                         <div className="flex gap-3">
-                            <button onClick={saveAll} className="px-8 py-2.5 bg-indigo-600 text-white rounded-lg text-[13px] font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center"><SafeIcon name="save" size={14} className="mr-1.5"/> 설정 확인 완료</button>
+                            <button onClick={()=>showToast("💾 설정 저장은 변경 즉시 백그라운드에서 자동 적용되고 있습니다.")} className="px-8 py-2.5 bg-indigo-600 text-white rounded-lg text-[13px] font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center"><SafeIcon name="save" size={14} className="mr-1.5"/> 설정 확인 완료</button>
                         </div>
                     </div>
 
                     <main className="flex-1 flex overflow-hidden bg-slate-50">
-                        {/* LNB (사이드바) */}
+                        {/* LNB */}
                         <div className="w-[280px] bg-white border-r border-slate-200 flex flex-col py-4 shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.02)] z-10 overflow-y-auto custom-scrollbar">
                             <div className="px-5 pb-2 mb-2 border-b border-slate-100"><h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Settings Menu</h3></div>
                             <button onClick={() => setActiveTab('display')} className={`px-6 py-4 text-left text-[14px] font-bold border-l-4 transition-all flex items-center ${activeTab === 'display' ? 'border-indigo-500 text-indigo-700 bg-indigo-50' : 'border-transparent text-slate-600 hover:bg-slate-50'}`}><SafeIcon name="cloud-upload" size={16} className="mr-2.5 opacity-80"/> 1. 시스템 & 클라우드</button>
@@ -499,37 +391,17 @@
                             {activeTab === 'display' && (
                                 <div className="w-full max-w-[1400px] space-y-6 fade-in mx-auto">
                                     <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-200 shadow-sm">
-                                        <h3 className="text-[15px] font-black text-emerald-900 mb-3 pb-2 border-b border-emerald-200 flex items-center">
-                                            <SafeIcon name="download" size={16} className="text-emerald-500 mr-2"/>시스템 설정 백업 및 복원 (Export / Import)
-                                        </h3>
-                                        <p className="text-[13px] text-emerald-700 font-bold mb-4 leading-relaxed">
-                                            현재 세팅된 엑셀 매핑 규칙, 화면 노출 항목, 단가 마진 룰을 파일로 안전하게 저장하거나 불러옵니다.<br/>
-                                            PC 교체 시나 시스템 초기화 전 필수 백업용 전용으로 사용하세요.
-                                        </p>
+                                        <h3 className="text-[15px] font-black text-emerald-900 mb-3 pb-2 border-b border-emerald-200 flex items-center"><SafeIcon name="download" size={16} className="text-emerald-500 mr-2"/>시스템 설정 백업 및 복원 (Export / Import)</h3>
+                                        <p className="text-[13px] text-emerald-700 font-bold mb-4 leading-relaxed">현재 세팅된 엑셀 매핑 규칙, 화면 노출 항목, 단가 마진 룰을 파일로 안전하게 저장하거나 불러옵니다.<br/>PC 교체 시나 시스템 초기화 전 필수 백업용 전용으로 사용하세요.</p>
                                         <div className="flex gap-3">
-                                            <button onClick={handleExportSettings} className="px-5 py-2.5 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center">
-                                                <SafeIcon name="download" size={14} className="mr-1.5"/> 설정 파일 백업 다운로드
-                                            </button>
-                                            <label className="cursor-pointer px-5 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center">
-                                                <SafeIcon name="upload" size={14} className="mr-1.5"/> 백업 파일 불러오기 (Import)
-                                                <input type="file" className="hidden" accept=".json" onChange={handleImportSettings} />
-                                            </label>
+                                            <button onClick={handleExportSettings} className="px-5 py-2.5 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center"><SafeIcon name="download" size={14} className="mr-1.5"/> 설정 파일 백업 다운로드</button>
+                                            <label className="cursor-pointer px-5 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center"><SafeIcon name="upload" size={14} className="mr-1.5"/> 백업 파일 불러오기 (Import)<input type="file" className="hidden" accept=".json" onChange={handleImportSettings} /></label>
                                         </div>
                                     </div>
-
                                     <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100 shadow-sm">
                                         <h3 className="text-[15px] font-black text-indigo-900 mb-4 pb-2 border-b border-indigo-200 flex items-center"><SafeIcon name="link" size={16} className="text-indigo-500 mr-2"/>클라우드 동기화 URL 셋팅</h3>
                                         <input type="text" value={config.cloudUrl} onChange={e=>config.setCloudUrl(e.target.value)} placeholder="Google Apps Script 웹앱 URL 입력..." className="w-full border border-indigo-200 rounded-lg px-4 py-3 text-[13px] outline-none focus:border-indigo-500 bg-white shadow-sm font-mono focus:ring-2 focus:ring-indigo-200" />
                                         <p className="text-[12px] text-indigo-600 mt-3 font-bold">※ URL 입력 후 글로벌 헤더의 구름 아이콘(☁️)을 누르면 모든 데이터 백업 및 수신이 진행됩니다.</p>
-                                    </div>
-                                    <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 shadow-sm">
-                                        <h3 className="text-[15px] font-black text-rose-900 mb-3 pb-2 border-b border-rose-200 flex items-center">
-                                            <SafeIcon name="broom" size={16} className="text-rose-500 mr-2"/>클라우드 DB 최적화 (검색어 찌꺼기 삭제)
-                                        </h3>
-                                        <p className="text-[13px] text-rose-700 font-bold mb-4">과거 엑셀 업로드 시 저장되었던 불필요한 '검색어등록', '상품태그' 필드의 찌꺼기 데이터들을 한 번에 삭제합니다.</p>
-                                        <button onClick={cleanUpGarbageTags} className="px-5 py-2.5 bg-white border border-rose-300 text-rose-600 hover:bg-rose-100 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center">
-                                            <SafeIcon name="trash-alt" size={14} className="mr-1.5"/> 기존 엑셀 검색어 일괄 삭제
-                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -539,13 +411,8 @@
                                     <div className="bg-white p-8 rounded-xl border-2 border-rose-500 shadow-lg relative overflow-hidden">
                                         <div className="absolute top-0 left-0 w-full h-2 bg-rose-500"></div>
                                         <div className="flex items-center mb-6">
-                                            <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mr-4 shadow-inner">
-                                                <SafeIcon name="skull" size={28} />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-xl font-black text-rose-700">위험 구역 (Danger Zone)</h3>
-                                                <p className="text-[13px] font-bold text-slate-500 mt-1">이곳의 작업은 시스템 전체에 치명적이며, 실행 시 절대 복구할 수 없습니다.</p>
-                                            </div>
+                                            <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mr-4 shadow-inner"><SafeIcon name="skull" size={28} /></div>
+                                            <div><h3 className="text-xl font-black text-rose-700">위험 구역 (Danger Zone)</h3><p className="text-[13px] font-bold text-slate-500 mt-1">이곳의 작업은 시스템 전체에 치명적이며, 실행 시 절대 복구할 수 없습니다.</p></div>
                                         </div>
 
                                         <div className="bg-rose-50 p-6 rounded-lg border border-rose-200 mb-8 shadow-inner">
@@ -556,23 +423,13 @@
 
                                         <div className="space-y-4">
                                             <div className="flex items-center justify-between p-5 bg-white border border-slate-200 rounded-xl hover:border-rose-300 transition-colors shadow-sm">
-                                                <div>
-                                                    <h4 className="text-[15px] font-black text-slate-800">상품 데이터베이스 (DB) 완전 삭제</h4>
-                                                    <p className="text-[12px] text-slate-500 font-medium mt-1.5 leading-relaxed">마스터 상품, 주문 내역, 구매/판매 내역, 재고 및 모든 히스토리를 영구 삭제합니다.<br/>※ 매핑 규칙, 마진 룰 등의 <strong className="text-indigo-500">환경설정은 유지</strong>됩니다.</p>
-                                                </div>
-                                                <button onClick={handleDataClear} disabled={dangerLock !== '데이터를 모두 삭제합니다'} className={`px-6 py-3 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center shrink-0 ${dangerLock === '데이터를 모두 삭제합니다' ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-                                                    <SafeIcon name="trash-alt" size={14} className="mr-1.5"/> DB 전체 초기화
-                                                </button>
+                                                <div><h4 className="text-[15px] font-black text-slate-800">상품 데이터베이스 (DB) 완전 삭제</h4><p className="text-[12px] text-slate-500 font-medium mt-1.5 leading-relaxed">마스터 상품, 주문 내역, 구매/판매 내역, 재고 및 모든 히스토리를 영구 삭제합니다.<br/>※ 매핑 규칙, 마진 룰 등의 <strong className="text-indigo-500">환경설정은 유지</strong>됩니다.</p></div>
+                                                <button onClick={handleDataClear} disabled={dangerLock !== '데이터를 모두 삭제합니다'} className={`px-6 py-3 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center shrink-0 ${dangerLock === '데이터를 모두 삭제합니다' ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}><SafeIcon name="trash-alt" size={14} className="mr-1.5"/> DB 전체 초기화</button>
                                             </div>
 
                                             <div className="flex items-center justify-between p-5 bg-white border border-slate-200 rounded-xl hover:border-orange-300 transition-colors shadow-sm">
-                                                <div>
-                                                    <h4 className="text-[15px] font-black text-slate-800">시스템 환경설정 공장 초기화 (Factory Reset)</h4>
-                                                    <p className="text-[12px] text-slate-500 font-medium mt-1.5 leading-relaxed">모든 엑셀 매핑 규칙, 마진 룰, 화면 컬럼 설정값을 앱 설치 최초 상태로 되돌립니다.<br/>※ 마스터 상품 등의 <strong className="text-emerald-500">데이터베이스는 유지</strong>됩니다.</p>
-                                                </div>
-                                                <button onClick={handleFactoryReset} disabled={dangerLock !== '데이터를 모두 삭제합니다'} className={`px-6 py-3 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center shrink-0 ${dangerLock === '데이터를 모두 삭제합니다' ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-                                                    <SafeIcon name="broom" size={14} className="mr-1.5"/> 설정 기본값 복원
-                                                </button>
+                                                <div><h4 className="text-[15px] font-black text-slate-800">시스템 환경설정 공장 초기화 (Factory Reset)</h4><p className="text-[12px] text-slate-500 font-medium mt-1.5 leading-relaxed">모든 엑셀 매핑 규칙, 마진 룰, 화면 컬럼 설정값을 앱 설치 최초 상태로 되돌립니다.<br/>※ 마스터 상품 등의 <strong className="text-emerald-500">데이터베이스는 유지</strong>됩니다.</p></div>
+                                                <button onClick={handleFactoryReset} disabled={dangerLock !== '데이터를 모두 삭제합니다'} className={`px-6 py-3 rounded-lg text-[13px] font-bold transition-all shadow-sm flex items-center shrink-0 ${dangerLock === '데이터를 모두 삭제합니다' ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}><SafeIcon name="broom" size={14} className="mr-1.5"/> 설정 기본값 복원</button>
                                             </div>
                                         </div>
                                     </div>
@@ -582,7 +439,10 @@
                             {activeTab === 'tagManager' && (
                                 <div className="w-full max-w-[1400px] space-y-6 fade-in mx-auto">
                                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                        <h3 className="text-[16px] font-black text-slate-800 mb-4 pb-2 border-b flex items-center"><SafeIcon name="folder-open" size={18} className="text-indigo-500 mr-2"/> 파서 보관함 (카탈로그) 관리</h3>
+                                        <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                            <h3 className="text-[16px] font-black text-slate-800 flex items-center"><SafeIcon name="folder-open" size={18} className="text-indigo-500 mr-2"/> 파서 보관함 (카탈로그) 관리</h3>
+                                            <button onClick={cleanUpGarbageTags} className="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 rounded text-[11px] font-bold transition-all flex items-center"><SafeIcon name="broom" size={12} className="mr-1"/>검색어 찌꺼기 청소</button>
+                                        </div>
                                         <div className="text-[13px] text-slate-500 font-bold mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
                                             스마트 파서에서 단가 작업 시 생성된 태그 목록입니다. 더 이상 사용하지 않는 카탈로그를 깔끔하게 삭제할 수 있습니다.
                                         </div>
@@ -620,33 +480,63 @@
 
                             {activeTab === 'marginRule' && (
                                 <div className="w-full max-w-[1400px] space-y-6 fade-in mx-auto">
-                                    <div className="bg-white p-8 rounded-xl border border-rose-200 shadow-sm">
-                                        <div className="flex justify-between items-center mb-6 border-b border-rose-100 pb-4">
+                                    <div className="bg-white p-8 rounded-xl border border-rose-200 shadow-sm mt-8">
+                                        <div className="flex justify-between items-start mb-6 border-b border-rose-100 pb-4">
                                             <div>
                                                 <h3 className="text-[18px] font-black text-rose-900 flex items-center"><SafeIcon name="calculator" size={20} className="mr-2 text-rose-500"/>동적 단가 계산 및 하이브리드 마진 룰</h3>
                                                 <p className="text-[13px] font-bold text-rose-600 mt-1.5">※ 매입 원가(입고가)에 마진을 곱하거나 나누어, 전사의 기준이 되는 **최종 출고가(시중가)**를 제안하는 공식입니다.</p>
                                             </div>
-                                            <button onClick={addMarginRule} className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-md flex items-center transform hover:scale-105"><SafeIcon name="plus" size={14} className="mr-1.5"/> 룰 추가</button>
+                                            <button onClick={addMarginRule} className="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-md flex items-center transform hover:scale-105 shrink-0"><SafeIcon name="plus" size={14} className="mr-1.5"/> 룰 추가</button>
                                         </div>
-                                        <div className="overflow-x-auto">
+
+                                        <div className="overflow-x-auto overflow-y-visible">
                                             <table className="w-full text-left text-[13px]">
                                                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                                                    <tr><th className="p-4 w-[180px]">조건1. 창고코드 (그룹)</th><th className="p-4 w-[180px]">조건2. 단위 (ea, box 등)</th><th className="p-4 w-[120px] text-center">마진율 (%)</th><th className="p-4 w-[140px] text-center">연산 방식</th><th className="p-4 text-center">동작 예시 (1만원 기준)</th><th className="p-4 w-[80px] text-center">삭제</th></tr>
+                                                    <tr>
+                                                        <th className="p-4 w-[60px] text-center">순번</th>
+                                                        <th className="p-4 w-[180px]">조건1. 창고코드 (그룹)</th>
+                                                        <th className="p-4 w-[180px]">조건2. 단위/규격 (ea, box 등)</th>
+                                                        <th className="p-4 w-[120px] text-center">마진율 (%)</th>
+                                                        <th className="p-4 w-[120px] text-center">연산 방식</th>
+                                                        <th className="p-4 text-center">동작 예시 (1만원 기준)</th>
+                                                        <th className="p-4 w-[100px] text-center">순서/삭제</th>
+                                                    </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
-                                                    {config.marginRules.map(rule => {
+                                                    {config.marginRules.map((rule, index) => {
                                                         const isDefault = rule.id === 'default';
                                                         const rawPrice = rule.type === 'divide' ? (10000 / (1 - rule.rate / 100)) : (10000 * (1 + rule.rate / 100));
                                                         const examplePrice = Math.round(rawPrice / 100) * 100;
                                                         const exampleFormula = rule.type === 'divide' ? `10k ÷ ${(1 - rule.rate / 100).toFixed(2)}` : `10k × ${(1 + rule.rate / 100).toFixed(2)}`;
                                                         return (
-                                                            <tr key={rule.id} className="hover:bg-slate-50 transition-colors group">
-                                                                <td className="p-3">{isDefault ? <div className="text-slate-400 text-center font-bold bg-slate-100 py-2 rounded">* (모든 창고)</div> : <input type="text" value={rule.whCode} onChange={e=>updateMarginRule(rule.id, 'whCode', e.target.value)} placeholder="예: 01, * (전체)" className="w-full border border-slate-300 rounded-md px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-white text-[13px] font-bold text-slate-700 transition-all" />}</td>
-                                                                <td className="p-3">{isDefault ? <div className="text-slate-400 text-center font-bold bg-slate-100 py-2 rounded">* (모든 단위)</div> : <input type="text" value={rule.unit} onChange={e=>updateMarginRule(rule.id, 'unit', e.target.value)} placeholder="예: ea, *, box" className="w-full border border-slate-300 rounded-md px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-white text-[13px] font-bold text-slate-700 transition-all" />}</td>
+                                                            <tr key={rule.id} className={`hover:bg-slate-50 transition-colors group ${isDefault ? 'opacity-80 bg-slate-50/50' : 'bg-white'}`}>
+                                                                <td className="p-3 text-center">
+                                                                    <div className={`w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[11px] font-black ${index === 0 ? 'bg-rose-500 text-white shadow-sm' : isDefault ? 'bg-slate-200 text-slate-500' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                                                                        {isDefault ? '끝' : index + 1}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    {isDefault ? (
+                                                                        <div className="text-slate-400 text-center font-bold bg-slate-100 py-2 rounded">* (모든 창고)</div>
+                                                                    ) : (
+                                                                        <input type="text" value={rule.whCode} onChange={e=>updateMarginRule(rule.id, 'whCode', e.target.value)} placeholder="예: 01, 03" className="w-full border border-slate-300 rounded-md px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-white text-[13px] font-bold text-slate-700 transition-all" />
+                                                                    )}
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    {isDefault ? <div className="text-slate-400 text-center font-bold bg-slate-100 py-2 rounded">* (모든 단위)</div> : <input type="text" value={rule.unit} onChange={e=>updateMarginRule(rule.id, 'unit', e.target.value)} placeholder="예: ea, *, box" className="w-full border border-slate-300 rounded-md px-3 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-white text-[13px] font-bold text-slate-700 transition-all" />}
+                                                                </td>
                                                                 <td className="p-3"><div className="flex items-center bg-white border border-slate-300 rounded-md overflow-hidden focus-within:border-rose-400 focus-within:ring-2 focus-within:ring-rose-100 transition-all shadow-sm"><input type="number" value={rule.rate} onChange={e=>updateMarginRule(rule.id, 'rate', Number(e.target.value))} className="w-full text-center py-2 outline-none font-black text-rose-700 text-[14px] bg-transparent" /></div></td>
                                                                 <td className="p-3"><select value={rule.type} onChange={e=>updateMarginRule(rule.id, 'type', e.target.value)} className="w-full border border-slate-300 rounded-md px-2 py-2 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 bg-white font-bold text-slate-700 cursor-pointer text-[13px] transition-all shadow-sm"><option value="divide">나누기(÷)</option><option value="multiply">곱하기(×)</option></select></td>
                                                                 <td className="p-3 text-center"><div className="bg-slate-100 py-2 px-3 rounded-md inline-block"><span className="text-[12px] font-mono text-slate-500 font-bold">{exampleFormula} <i className="fas fa-arrow-right mx-1 text-slate-400"></i> <span className="text-slate-800">{examplePrice.toLocaleString()}원</span></span></div></td>
-                                                                <td className="p-3 text-center">{!isDefault && <button onClick={()=>deleteMarginRule(rule.id)} className="w-9 h-9 rounded-md text-slate-400 bg-slate-100 hover:bg-rose-500 hover:text-white transition-colors flex items-center justify-center mx-auto shadow-sm"><SafeIcon name="trash-alt" size={14}/></button>}</td>
+                                                                <td className="p-3 text-center">
+                                                                    {!isDefault && (
+                                                                        <div className="flex items-center justify-center gap-1">
+                                                                            <button onClick={()=>moveRuleUp(index)} disabled={index === 0} className="w-7 h-7 rounded bg-slate-100 text-slate-500 hover:bg-indigo-500 hover:text-white disabled:opacity-30 transition-colors"><SafeIcon name="arrow-up" size={12}/></button>
+                                                                            <button onClick={()=>moveRuleDown(index)} disabled={index === config.marginRules.length - 2} className="w-7 h-7 rounded bg-slate-100 text-slate-500 hover:bg-indigo-500 hover:text-white disabled:opacity-30 transition-colors"><SafeIcon name="arrow-down" size={12}/></button>
+                                                                            <button onClick={()=>deleteMarginRule(rule.id)} className="w-7 h-7 rounded bg-slate-100 text-slate-400 hover:bg-rose-500 hover:text-white transition-colors ml-1"><SafeIcon name="trash-alt" size={12}/></button>
+                                                                        </div>
+                                                                    )}
+                                                                </td>
                                                             </tr>
                                                         );
                                                     })}
@@ -694,7 +584,7 @@
                             {activeTab === 'opsMap' && (
                                 <div className="w-full max-w-[1400px] space-y-6 fade-in mx-auto">
                                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="bg-slate-50 p-5 border-b border-slate-200"><h3 className="text-[15px] font-black text-slate-800 flex items-center"><SafeIcon name="layer-group" size={18} className="text-blue-500 mr-2"/>운영 관리(Ops) 엑셀 매핑 설정</h3><p className="text-[12px] text-slate-500 mt-1.5 font-medium">구매, 판매, 재고 마마감 등 운영 모듈에서 업로드되는 엑셀의 열을 추적하고 차감 룰을 결정하는 키워드입니다.</p></div>
+                                        <div className="bg-slate-50 p-5 border-b border-slate-200"><h3 className="text-[15px] font-black text-slate-800 flex items-center"><SafeIcon name="layer-group" size={18} className="text-blue-500 mr-2"/>운영 관리(Ops) 엑셀 매핑 설정</h3><p className="text-[12px] text-slate-500 mt-1.5 font-medium">구매, 판매, 재고 마감 등 운영 모듈에서 업로드되는 엑셀의 열을 추적하고 차감 룰을 결정하는 키워드입니다.</p></div>
                                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-white">
                                             {Object.entries({ code: '품목코드 (필수)', name: '품목명 (필수)', spec: '규격 열 (선택)', qty: '수량/실사 (필수)', price: '단가 (필수)', date: '일자 (필수)', vendor: '거래처명 (선택)', matchVendor: '판매전표 내 매입처(Lot 매칭)', excludeVendor: '제외 거래처(창고이동 등)', lifoVendor: '당일우선 출고(LIFO) 거래처', internalLot: '내부분배/공용 로트 (LIFO 예외)', priorityVendor: '출고 우선순위(A>B)' }).map(([k, lbl]) => (
                                                 <div key={k} className="flex flex-col relative group">
@@ -791,7 +681,7 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
 </html>
