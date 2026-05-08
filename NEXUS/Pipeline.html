@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="google" content="notranslate">
-    <title>NEXUS - Valuation Hub [v1.6.6]</title>
+    <title>NEXUS - Valuation Hub [v1.6.8]</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -343,7 +343,7 @@
                                 <div className="flex flex-col border-l-2 border-slate-700/70 pl-4 py-0.5">
                                     <div className="flex items-center">
                                         <span className="font-black text-[16px] leading-none text-indigo-400 tracking-widest uppercase mt-0.5">{activeGroupLabel}</span>
-                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.6</span>
+                                        <span className="ml-2.5 bg-indigo-500/10 border border-indigo-400/30 text-indigo-400 px-[5px] py-[2px] rounded text-[9px] font-black tracking-wider shadow-sm leading-none">v1.6.8</span>
                                     </div>
                                     <span className="text-[10px] text-slate-400/90 font-medium tracking-[0.15em] mt-1 uppercase">{currentTab ? currentTab.shortTag : 'WORKSPACE'}</span>
                                 </div>
@@ -990,9 +990,15 @@
             );
         });
 
+        // 🌟 [핵심 수정] 컬럼(visMasterCols, visUploadCols)의 구성이 변경되었는지도 비교하여 즉각 리렌더링하도록 조건 추가
         const rowPropsAreEqual = (prevProps, nextProps) => {
+            const masterColsSame = prevProps.visMasterCols.join(',') === nextProps.visMasterCols.join(',');
+            const uploadColsSame = prevProps.visUploadCols.join(',') === nextProps.visUploadCols.join(',');
+
             return prevProps.row.코드 === nextProps.row.코드 &&
                    prevProps.isEstimateUploaded === nextProps.isEstimateUploaded &&
+                   masterColsSame &&
+                   uploadColsSame &&
                    JSON.stringify(prevProps.row.finalData) === JSON.stringify(nextProps.row.finalData);
         };
 
@@ -1545,12 +1551,7 @@
                         }
                         
                         window.XLSX.writeFile(wb, `보고서출력_${new Date().toISOString().slice(0,10)}.xlsx`);
-                        showToast(`✅ 엑셀 다운로드가 완료되었습니다. 보고서로 이동합니다.`);
-                        
-                        await setIDB(STORAGE_KEYS.MANAGED_ITEMS, {});
-                        setManagedItems({});
-                        localStorage.removeItem('merchPipeline_CurrentTag');
-                        setTimeout(() => { window.location.href = 'Report.html'; }, 1000);
+                        showToast(`✅ 엑셀 다운로드가 완료되었습니다. 화면 및 데이터가 유지됩니다.`);
                         
                     } catch(e) { console.error(e); showToast("❌ 엑셀 파일 생성 중 오류가 발생했습니다."); } finally { setIsProcessing(false); setProcessMsg(''); }
                 }, 100);
@@ -1636,12 +1637,8 @@
 
             }, [managedItems, masterProducts, config.masterLinks, showToast, config.marginRules]);
 
-            const handleCloseExportModal = async () => {
+            const handleCloseExportModal = () => {
                 setShowExportModal(false);
-                await setIDB(STORAGE_KEYS.MANAGED_ITEMS, {}); 
-                setManagedItems({});
-                localStorage.removeItem('merchPipeline_CurrentTag');
-                window.location.href='Report.html';
             };
 
             const handlePush = async () => {
