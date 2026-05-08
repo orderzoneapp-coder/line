@@ -101,7 +101,6 @@
             });
         };
 
-        // 🌟 [추가] 시스템 기본 마진 룰 상수를 전역으로 분리하여 관리합니다. (대소문자 BOX, EA 모두 추가)
         const DEFAULT_MARGIN_RULES = [
             { id: generateUUID(), whCode: '01', unit: 'box, 박스, BOX', rate: 10, type: 'divide' },
             { id: generateUUID(), whCode: '01', unit: 'ea, 개, 낱개, EA', rate: 15, type: 'divide' },
@@ -178,14 +177,12 @@
                 return p?.estimate ? p : { estimate: ['카탈로그', '견적서', '입고가', '출고가', '입고B', '도매A'] }; 
             });
             
-            // 💡 [추가] 기본 노출 컬럼(UploadCols)에 '단위'를 필수로 포함시킵니다.
             const [visibleUploadCols, setVisibleUploadCols] = useState(() => { 
                 const s = localStorage.getItem('merchVisUpload_v870'); 
                 const p = s ? JSON.parse(s) : null; 
                 return p?.estimate ? p : { estimate: ['창고', '구매처', '견적서', '단위', '입고가', '출고가', '입고B', '도매A', '간단설명'] }; 
             });
             
-            // 💡 [추가] 엑셀 키워드 매핑(Mappings) 사전에 '단위'를 기본 내장시킵니다.
             const [mappings, setMappings] = useState(() => { 
                 const s = localStorage.getItem('merchMappings_v870'); 
                 const p = s ? JSON.parse(s) : null; 
@@ -209,7 +206,6 @@
                         if (p?.length > 2) return p.map(r => ({ ...r, whCode: r.whCode || '*', unit: r.unit || '*' })); 
                     } catch(e){} 
                 }
-                // 💡 [수정] 위에서 정의한 시스템 기본 상수를 바라보도록 수정
                 return DEFAULT_MARGIN_RULES;
             });
 
@@ -437,8 +433,16 @@
             const updateMarginRule = (id, field, value) => config.setMarginRules(config.marginRules.map(r => r.id === id ? { ...r, [field]: value } : r));
             const deleteMarginRule = (id) => config.setMarginRules(config.marginRules.filter(r => r.id !== id));
 
+            // 💡 [수정] 부모 창으로 메시지 전송하는 로직 복구
             const saveAll = () => {
                 showToast("💾 설정 저장은 변경 즉시 백그라운드에서 자동 적용되고 있습니다.");
+                
+                // Iframe 내부에서 실행 중인 경우 부모 창으로 닫기 및 갱신 메시지 전송
+                if (!isStandalone) {
+                    setTimeout(() => {
+                        window.parent.postMessage({ type: 'CLOSE_SETTINGS' }, '*');
+                    }, 500);
+                }
             };
 
             const availableUploadHeaders = useMemo(() => {
@@ -585,7 +589,7 @@
                                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                                         <h3 className="text-[16px] font-black text-slate-800 mb-4 pb-2 border-b flex items-center"><SafeIcon name="folder-open" size={18} className="text-indigo-500 mr-2"/> 파서 보관함 (카탈로그) 관리</h3>
                                         <div className="text-[13px] text-slate-500 font-bold mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                            스마트 파서에서 단가 작업 시 생성된 태그 목록입니다. 더 더 이상 사용하지 않는 카탈로그를 깔끔하게 삭제할 수 있습니다.
+                                            스마트 파서에서 단가 작업 시 생성된 태그 목록입니다. 더 이상 사용하지 않는 카탈로그를 깔끔하게 삭제할 수 있습니다.
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             {availableCatalogs.length === 0 ? <div className="col-span-full text-[14px] text-slate-400 font-bold p-8 text-center bg-slate-50 rounded-lg">등록된 카탈로그가 없습니다.</div> : availableCatalogs.map(tag => (
