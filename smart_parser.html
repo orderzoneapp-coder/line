@@ -482,10 +482,12 @@
                                             : <div className="w-full bg-slate-700 text-slate-300 px-4 py-1.5 rounded-md text-[12px] font-bold flex items-center shadow-inner truncate">텍스트 파서를 실행하여 작업을 시작하세요.</div>}
                                         </div>
                                         <nav className="flex gap-1.5 text-[14px] shrink-0 items-center">
+                                            <a href="guide.html" target="_blank" rel="noopener noreferrer" className={`h-8 px-2.5 rounded flex items-center justify-center shadow-sm border text-emerald-400 bg-[#0f172a] border-slate-700 hover:bg-[#1e293b] hover:text-emerald-300 hover:border-emerald-500/50 font-bold text-[11px] tracking-wider uppercase ${isProcessing ? 'opacity-40 pointer-events-none' : ''}`} title="MerchOps 사용 가이드">GUIDE</a>
+                                            <a href="trend_report.html" target="_blank" rel="noopener noreferrer" className={`h-8 px-2.5 rounded flex items-center justify-center shadow-sm border text-blue-400 bg-[#0f172a] border-slate-700 hover:bg-[#1e293b] hover:text-blue-300 hover:border-blue-500/50 font-bold text-[11px] tracking-wider uppercase ${isProcessing ? 'opacity-40 pointer-events-none' : ''}`} title="트렌드 리포트">REPORT</a>
+                                            <div className="w-px h-4 bg-slate-700 mx-0.5"></div>
                                             <button onClick={() => window.open('history_viewer.html', '_blank', 'width=1000,height=700')} className="w-8 h-8 rounded flex items-center justify-center shadow-sm border text-amber-300 bg-[#0f172a] border-slate-700 hover:bg-[#1e293b] hover:text-amber-400" title="작업 히스토리 보기"><i className="fas fa-history text-[13px]"></i></button>
                                             <button onClick={() => window.open('settings.html', '_blank')} className="w-8 h-8 rounded flex items-center justify-center shadow-sm border text-slate-400 bg-[#0f172a] border-slate-700 hover:bg-[#1e293b] hover:text-white" title="환경설정"><i className="fas fa-cogs text-[13px]"></i></button>
                                             <div className="w-px h-4 bg-slate-700 mx-0.5"></div>
-                                            {/* 💡 여기 링크 수정됨 */}
                                             <button onClick={safeGoToMain} className="h-8 px-3 rounded flex items-center justify-center shadow-sm border text-slate-300 bg-[#0f172a] border-slate-700 hover:bg-[#1e293b] hover:text-white font-bold text-[11px]"><i className="fas fa-home mr-1.5 text-indigo-400 text-[12px]"></i> 메인으로</button>
                                         </nav>
                                     </div>
