@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
+    <title>NEXUS Control Tower [System.IO]</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Courier New', Courier, monospace; background-color: #020617; color: #cbd5e1; }
+        .system-font { font-family: 'Pretendard', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .dos-panel { border: 1px solid #334155; background-color: #0f172a; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        .dos-input { background-color: #020617; color: #10b981; border: 1px solid #475569; outline: none; transition: border-color 0.2s; }
+        .dos-input:focus { border-color: #10b981; box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const MASTER_HEADERS = [
+            "창고", "1코드", "1그룹명", "2코드", "2그룹명", "3코드", "3그룹명", "오더즈", "구매처", "브랜드", 
+            "품목코드", "품목명", "규격", "안전재고", "간단설명", "카탈로그", "견적서", "출고가", "입고가", "입고B", "도매A", 
+            "도매B", "상장가", "최종전송", "최종입고", "단가H", "단가I", "시중가", "행사가", 
+            "1종코드", "1종규격", "1종연산", "2종코드", "2종규격", "2종연산", "외주비", "노무비", 
+            "경비", "비과세", "기본", "연동", "싯가", "단위", "준비기간", "마감시간", "검색어등록"
+        ];
+        const requiredCoreFields = ['품목코드', '품목명', '규격'];
+
+        const generateUUID = () => {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        };
+
+        const ControlTowerApp = () => {
+            // 1. 상태 관리 (기존 localStorage 키 사용)
+            const [cloudUrl, setCloudUrl] = useState(() => localStorage.getItem('merchCloudUrl_v870') || '');
+            const [visibleMasterCols, setVisibleMasterCols] = useState(() => JSON.parse(localStorage.getItem('merchVisMaster_v870')) || { estimate: ['카탈로그', '견적서', '입고가', '출고가', '입고B', '도매A'] });
+            const [visibleUploadCols, setVisibleUploadCols] = useState(() => JSON.parse(localStorage.getItem('merchVisUpload_v870')) || { estimate: ['품목명', '규격', '창고', '구매처', '견적서', '입고가', '출고가', '입고B', '도매A', '간단설명'] });
+            const [mappings, setMappings] = useState(() => JSON.parse(localStorage.getItem('merchMappings_v870')) || { master: {}, estimate: {} });
+            const [masterLinks, setMasterLinks] = useState(() => JSON.parse(localStorage.getItem('merchMasterLinks_v870')) || { master: {}, estimate: {} });
+            const [marginRules, setMarginRules] = useState(() => JSON.parse(localStorage.getItem('merchMarginRules_v878')) || [
+                { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' }
+            ]);
+
+            const [customColInput, setCustomColInput] = useState('');
+            const [toast, setToast] = useState('');
+
+            const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+
+            // 데이터 저장
+            const handleSaveAll = () => {
+                localStorage.setItem('merchCloudUrl_v870', cloudUrl);
+                localStorage.setItem('merchVisMaster_v870', JSON.stringify(visibleMasterCols));
+                localStorage.setItem('merchVisUpload_v870', JSON.stringify(visibleUploadCols));
+                localStorage.setItem('merchMappings_v870', JSON.stringify(mappings));
+                localStorage.setItem('merchMasterLinks_v870', JSON.stringify(masterLinks));
+                localStorage.setItem('merchMarginRules_v878', JSON.stringify(marginRules));
+                
+                // 앱 간 즉시 반영을 위한 커스텀 이벤트 또는 Storage 이벤트 트리거용 키
+                localStorage.setItem('merch_settings_update_trigger', Date.now().toString());
+                showToast('SYSTEM.CONFIG_SAVED_SUCCESSFULLY');
+            };
+
+            // 마진 룰 관리
+            const addMarginRule = () => setMarginRules([...marginRules, { id: generateUUID(), whCode: '', unit: '', rate: 10, type: 'divide' }]);
+            const updateRule = (id, field, val) => setMarginRules(marginRules.map(r => r.id === id ? { ...r, [field]: val } : r));
+            const deleteRule = (id) => setMarginRules(marginRules.filter(r => r.id !== id));
+
+            // 항목 추가/토글
+            const toggleMasterCol = (h) => setVisibleMasterCols(p => ({ ...p, estimate: p.estimate.includes(h) ? p.estimate.filter(x => x !== h) : [...p.estimate, h] }));
+            const removeUploadCol = (h) => setVisibleUploadCols(p => ({ ...p, estimate: p.estimate.filter(x => x !== h) }));
+            const addCustomCol = () => {
+                const val = customColInput.trim();
+                if (!val) return;
+                if ((visibleUploadCols.estimate || []).includes(val)) return showToast('ERR: DUPLICATE_ENTRY');
+                setVisibleUploadCols(p => ({ ...p, estimate: [...(p.estimate || []), val] }));
+                setMappings(p => ({ ...p, estimate: { ...p.estimate, [val]: val } }));
+                setMasterLinks(p => ({ ...p, estimate: { ...p.estimate, [val]: '' } }));
+                setCustomColInput('');
+            };
+
+            const selectableMasterHeaders = useMemo(() => Array.from(new Set([...MASTER_HEADERS, ...(visibleMasterCols.estimate || [])])), [visibleMasterCols]);
+
+            return (
+                <div className="min-h-screen p-6 pb-24 flex flex-col items-center">
+                    {/* 상단 헤더 */}
+                    <div className="w-full max-w-4xl flex items-center justify-between mb-8 border-b border-slate-700 pb-4">
+                        <div className="flex items-center gap-3 text-emerald-400">
+                            <i className="fas fa-terminal text-2xl"></i>
+                            <h1 className="text-xl font-bold tracking-widest uppercase">NEXUS Control Tower</h1>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-slate-500 text-sm">v3.0.0</span>
+                            <button onClick={handleSaveAll} className="bg-emerald-600 hover:bg-emerald-500 text-slate-900 font-bold px-6 py-2 uppercase tracking-wide transition-colors">
+                                [F2] Save Config
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 메인 단일 컬럼 컨테이너 */}
+                    <div className="w-full max-w-4xl flex flex-col gap-8">
+                        
+                        {/* 1. Cloud Sync */}
+                        <div className="dos-panel">
+                            <h2 className="text-emerald-500 font-bold mb-4 border-b border-slate-700 pb-2 flex items-center gap-2">
+                                <i className="fas fa-cloud"></i> [01] CLOUD_SYNC_TARGET
+                            </h2>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-slate-400 text-sm">Endpoint URL (Google Apps Script)</label>
+                                <input type="text" value={cloudUrl} onChange={e => setCloudUrl(e.target.value)} 
+                                    className="dos-input p-3 font-mono text-sm w-full" placeholder="https://script.google.com/macros/..." />
+                            </div>
+                        </div>
+
+                        {/* 2. Margin Engine Rules */}
+                        <div className="dos-panel">
+                            <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                                <h2 className="text-emerald-500 font-bold flex items-center gap-2">
+                                    <i className="fas fa-calculator"></i> [02] PRICING_ENGINE_RULES
+                                </h2>
+                                <button onClick={addMarginRule} className="text-emerald-400 hover:text-white text-sm">[+ ADD RULE]</button>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                {marginRules.map(rule => (
+                                    <div key={rule.id} className="flex flex-col sm:flex-row gap-3 bg-slate-900/50 p-3 border border-slate-700">
+                                        <div className="flex-1 flex flex-col gap-1">
+                                            <label className="text-xs text-slate-500 uppercase">WH_Code</label>
+                                            {rule.id === 'default' ? <div className="text-slate-400 p-2">* (ALL)</div> : 
+                                            <input type="text" value={rule.whCode} onChange={e => updateRule(rule.id, 'whCode', e.target.value)} className="dos-input p-2 text-sm" placeholder="e.g. 01, *" />}
+                                        </div>
+                                        <div className="flex-1 flex flex-col gap-1">
+                                            <label className="text-xs text-slate-500 uppercase">Unit</label>
+                                            {rule.id === 'default' ? <div className="text-slate-400 p-2">* (ALL)</div> : 
+                                            <input type="text" value={rule.unit} onChange={e => updateRule(rule.id, 'unit', e.target.value)} className="dos-input p-2 text-sm" placeholder="e.g. ea, box" />}
+                                        </div>
+                                        <div className="w-24 flex flex-col gap-1">
+                                            <label className="text-xs text-slate-500 uppercase">Margin(%)</label>
+                                            <input type="number" value={rule.rate} onChange={e => updateRule(rule.id, 'rate', Number(e.target.value))} className="dos-input p-2 text-sm text-center text-amber-400 font-bold" />
+                                        </div>
+                                        <div className="w-32 flex flex-col gap-1">
+                                            <label className="text-xs text-slate-500 uppercase">Operator</label>
+                                            <select value={rule.type} onChange={e => updateRule(rule.id, 'type', e.target.value)} className="dos-input p-2 text-sm appearance-none cursor-pointer">
+                                                <option value="divide">DIV (÷)</option>
+                                                <option value="multiply">MUL (×)</option>
+                                            </select>
+                                        </div>
+                                        <div className="w-10 flex items-end pb-1 justify-center">
+                                            {rule.id !== 'default' && <button onClick={() => deleteRule(rule.id)} className="text-rose-500 hover:text-rose-400"><i className="fas fa-trash"></i></button>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 3. UI Schema (Master & Upload) */}
+                        <div className="dos-panel">
+                            <h2 className="text-emerald-500 font-bold mb-4 border-b border-slate-700 pb-2 flex items-center gap-2">
+                                <i className="fas fa-desktop"></i> [03] UI_DISPLAY_SCHEMA
+                            </h2>
+                            
+                            <div className="flex flex-col gap-6">
+                                {/* Master Cols */}
+                                <div>
+                                    <div className="text-slate-400 text-sm mb-3"># Master DB Columns (Visible)</div>
+                                    <div className="flex flex-wrap gap-2 system-font">
+                                        {requiredCoreFields.map(h => (
+                                            <div key={`m-req-${h}`} className="px-3 py-1 bg-slate-800 text-slate-500 border border-slate-700 text-xs">
+                                                <i className="fas fa-lock mr-1"></i>{h}
+                                            </div>
+                                        ))}
+                                        {MASTER_HEADERS.filter(h => !requiredCoreFields.includes(h)).map(h => {
+                                            const isActive = (visibleMasterCols.estimate || []).includes(h);
+                                            return (
+                                                <button key={`m-${h}`} onClick={() => toggleMasterCol(h)} 
+                                                    className={`px-3 py-1 border text-xs transition-colors ${isActive ? 'border-emerald-500 text-emerald-400 bg-emerald-900/20' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                                                    {h}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Upload Cols */}
+                                <div className="border-t border-slate-800 pt-4">
+                                    <div className="text-slate-400 text-sm mb-3"># Workspace / Excel Columns</div>
+                                    <div className="flex flex-wrap gap-2 system-font mb-4">
+                                        {(visibleUploadCols.estimate || []).filter(h => h !== '품목코드').map(h => (
+                                            <div key={`u-${h}`} className="flex items-center border border-indigo-500/50 bg-indigo-900/20 text-indigo-300 px-3 py-1 text-xs">
+                                                <span>{h}</span>
+                                                <button onClick={() => removeUploadCol(h)} className="ml-2 text-indigo-500 hover:text-rose-400"><i className="fas fa-times"></i></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center gap-2 max-w-sm">
+                                        <input type="text" value={customColInput} onChange={e => setCustomColInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomCol()}
+                                            className="dos-input p-2 text-xs flex-1" placeholder="e.g. 마감시간" />
+                                        <button onClick={addCustomCol} className="bg-slate-800 border border-slate-600 text-slate-300 px-4 py-2 text-xs hover:bg-slate-700">ADD_COL</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4. Data Mapping Matrix */}
+                        <div className="dos-panel">
+                            <h2 className="text-emerald-500 font-bold mb-4 border-b border-slate-700 pb-2 flex items-center gap-2">
+                                <i className="fas fa-network-wired"></i> [04] DATA_MAPPING_MATRIX
+                            </h2>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm whitespace-nowrap system-font">
+                                    <thead className="text-slate-500 border-b border-slate-700">
+                                        <tr>
+                                            <th className="py-3 px-2 w-40 uppercase font-mono">Workspace_Col</th>
+                                            <th className="py-3 px-2 uppercase font-mono">Parse_Keywords (Comma separated)</th>
+                                            <th className="py-3 px-2 w-48 uppercase font-mono">Bind_To_Master</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/50">
+                                        {requiredCoreFields.map(h => (
+                                            <tr key={`map-req-${h}`}>
+                                                <td className="py-3 px-2 text-slate-400"><i className="fas fa-lock text-xs mr-2"></i>{h}</td>
+                                                <td className="py-3 px-2">
+                                                    <input type="text" value={mappings.estimate?.[h] || ''} onChange={e => setMappings(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="dos-input p-2 text-xs w-full font-mono" />
+                                                </td>
+                                                <td className="py-3 px-2 text-slate-500 font-mono text-xs">[LOCKED_IDENTIFIER]</td>
+                                            </tr>
+                                        ))}
+                                        {(visibleUploadCols.estimate || []).filter(h => !requiredCoreFields.includes(h)).map(h => (
+                                            <tr key={`map-${h}`}>
+                                                <td className="py-3 px-2 text-emerald-300 font-bold">{h}</td>
+                                                <td className="py-3 px-2">
+                                                    <input type="text" value={mappings.estimate?.[h] || ''} onChange={e => setMappings(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="dos-input p-2 text-xs w-full font-mono" />
+                                                </td>
+                                                <td className="py-3 px-2">
+                                                    <select value={masterLinks.estimate?.[h] || ''} onChange={e => setMasterLinks(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="dos-input p-2 text-xs w-full cursor-pointer appearance-none font-mono">
+                                                        <option value="">-- NO_BINDING --</option>
+                                                        {selectableMasterHeaders.map(mh => <option key={mh} value={mh}>{mh}</option>)}
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* 토스트 메시지 */}
+                    {toast && (
+                        <div className="fixed bottom-6 right-6 bg-emerald-900 border border-emerald-500 text-emerald-400 px-6 py-3 shadow-[0_0_15px_rgba(16,185,129,0.3)] font-bold font-mono text-sm z-50">
+                            > {toast} <span className="animate-pulse">_</span>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ControlTowerApp />);
+    </script>
+</body>
+</html>
