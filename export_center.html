@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS Export Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .loader { border: 4px solid #1e293b; border-top: 4px solid #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 w-[400px] text-center">
+        <h2 class="text-xl font-bold text-emerald-400 mb-6"><i class="fas fa-file-export mr-2"></i>NEXUS EXPORT ENGINE</h2>
+        
+        <div id="status-container" class="flex flex-col items-center justify-center">
+            <div class="loader mb-4" id="spinner"></div>
+            <p id="status-text" class="text-slate-300 font-bold mb-2">데이터를 불러오는 중...</p>
+            <div class="w-full bg-slate-700 h-2 rounded-full overflow-hidden mt-2 hidden" id="progress-bg">
+                <div id="progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <button id="close-btn" onclick="window.close()" class="mt-8 px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 font-bold hidden transition-colors">창 닫기</button>
+    </div>
+
+    <script>
+        const MASTER_HEADERS = [ "창고", "1코드", "1그룹명", "2코드", "2그룹명", "3코드", "3그룹명", "오더즈", "구매처", "브랜드", "품목코드", "품목명", "규격", "안전재고", "간단설명", "카탈로그", "견적서", "출고가", "입고가", "입고B", "도매A", "도매B", "상장가", "최종전송", "최종입고", "단가H", "단가I", "시중가", "행사가", "1종코드", "1종규격", "1종연산", "2종코드", "2종규격", "2종연산", "외주비", "노무비", "경비", "비과세", "기본", "연동", "싯가", "단위", "준비기간", "마감시간", "검색어등록" ];
+        const NUMERIC_HEADERS = [ "안전재고", "출고가", "입고가", "입고B", "도매A", "도매B", "상장가", "최종전송", "최종입고", "단가H", "단가I", "시중가", "행사가", "1종연산", "2종연산", "외주비", "노무비", "경비", "1구매", "1출고", "2구매", "2출고", "1입고", "2입고" ];
+        
+        const parseNum = (v) => (!v ? 0 : Number(String(v).replace(/,/g, '').replace(/[^\d.-]/g, '')) || 0);
+        const getFirstValidNum = (objList, keys) => { for (let obj of objList) { if (!obj) continue; for (let k of keys) { if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return parseNum(obj[k]); } } return 0; };
+        const getFirstValidStr = (objList, keys) => { for (let obj of objList) { if (!obj) continue; for (let k of keys) { if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k]; } } return ''; };
+        const isValidSubItemCode = (code) => { if (!code) return false; const s = String(code).trim(); return s !== '' && s !== '0' && s !== '00' && s !== '-' && s.toLowerCase() !== 'undefined' && s.toLowerCase() !== 'null'; };
+
+        const setStatus = (msg, progress) => {
+            document.getElementById('status-text').innerText = msg;
+            if (progress !== undefined) {
+                document.getElementById('progress-bg').classList.remove('hidden');
+                document.getElementById('progress-bar').style.width = `${progress}%`;
+            }
+        };
+
+        const generateExcel = async () => {
+            try {
+                setStatus('IDB에서 데이터 읽는 중...', 10);
+                const db = await new Promise((resolve, reject) => {
+                    const req = indexedDB.open('MerchOpsDB', 2);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+
+                const exportData = await new Promise((resolve, reject) => {
+                    const tx = db.transaction('store', 'readonly');
+                    const req = tx.objectStore('store').get('ONEAPP_EXPORT_DATA');
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(tx.error);
+                });
+
+                if (!exportData || !exportData.rows) throw new Error("전송된 데이터가 없습니다.");
+
+                setStatus('엑셀 시트(ERP/쇼핑몰) 조립 중...', 40);
+                const { rows, masterProducts, config } = exportData;
+
+                const zeroAction = { sale: '0', stock: '999' };
+                const wb = window.XLSX.utils.book_new(); 
+                
+                let erpData = [['품목코드', '입고가', '0', '출고가', '0', '입고B', 'n', '도매A', 'n', '도매B', 'n', '최종(전송)', 'n', '행사', 'n', '1']]; 
+                let shopData = [['상품코드\n코드', '상품명', '규격', '출고가', '도매A', '시중가', '도매B', '도매B', 'C 판매가', 'C 도매가', 'D 판매가', 'D 도매가', '브랜드', '기본설명', '판매여부', '재고수량', '테마1', '테마2', '테마3', '테마4', '테마5', '상품태그']];
+                
+                const createRowArr = (code, inPrice, outPrice, bPrice='', aSale='', bSale='', finalPrice='', instruction='') => { if (!code) return null; const outIn = inPrice > 0 ? inPrice : ''; const outOut = outPrice > 0 ? outPrice : ''; const outFinal = finalPrice > 0 ? finalPrice : outIn; return [ code, outIn, '0', outOut, '0', bPrice||'', 'n', aSale||'', 'n', bSale||'', 'n', outFinal, 'n', instruction||'', 'n', (inPrice > 0 || outPrice > 0) ? '1' : '' ]; };
+                
+                const activeProfile = 'estimate';
+                const uploadCols = config.visibleUploadCols[activeProfile] || [];
+                const masterCols = config.visibleMasterCols['estimate'] || [];
+                const viewHeaders = ['상태/선택', '품목코드', '마스터_품목명', '마스터_규격'];
+                masterCols.forEach(h => viewHeaders.push(`[M]${h}`)); uploadCols.forEach(h => viewHeaders.push(`[작업]${h}`));
+                const viewData = [viewHeaders];
+
+                setStatus('수식 및 단가 연산 중...', 60);
+                
+                // 데이터 처리 로직 (기존 메인앱 로직과 동일)
+                rows.forEach(row => {
+                    const rowCode = row.코드; 
+                    const mItem = masterProducts[rowCode] || {};
+                    const final = row.finalData || {};
+                    const source = row.sources?.['estimate'] || {};
+
+                    const pIn = getFirstValidNum([final, source, mItem], ['입고가', '입고']);
+                    const pOut = getFirstValidNum([final, source, mItem], ['출고가', '출고']);
+                    const pMarketPrice = getFirstValidNum([final, mItem], ['시중가']);
+
+                    const dName = getFirstValidStr([source, mItem], ['품목명']); 
+                    const dSpec = getFirstValidStr([source, mItem], ['규격']); 
+                    const dBrand = getFirstValidStr([source, mItem], ['브랜드']); 
+                    const dInfo = getFirstValidStr([source, mItem], ['상품정보', '기본설명', '간단설명']); 
+                    const dSearch = getFirstValidStr([source, mItem], ['검색어등록', '상품태그']); 
+                    const pBPrice = getFirstValidNum([final, source], ['입고B', 'B단가']); 
+                    const pASale = getFirstValidNum([final, source], ['도매A', 'A판매', 'A판매가']); 
+                    const pBSale = getFirstValidNum([final, source], ['도매B', 'B판매', 'B 도매가']); 
+                    const pInstruction = getFirstValidStr([final, source], ['지시사항', '간단설명']);
+                    
+                    const pRowErp = createRowArr(row.코드, pIn, pOut, pBPrice, pASale, pBSale, pIn, pInstruction); if (pRowErp) erpData.push(pRowErp);
+                    
+                    const priceMarketShop = pMarketPrice > 0 ? pMarketPrice : pOut;
+                    const priceA = getFirstValidNum([final, source, mItem], ['도매A', 'A판매가', 'A판매', '출고가']);
+                    
+                    const isZeroPrice = (pIn === 0 && pOut === 0);
+                    const isForSale = isZeroPrice ? zeroAction.sale : (pIn > 0 || pOut > 0 ? '1' : '0');
+                    const stockQty = isZeroPrice ? zeroAction.stock : '999';
+                    
+                    shopData.push([row.코드, dName, dSpec, pOut, priceA, priceMarketShop, 0, 0, 0, 0, 0, 0, dBrand, dInfo, isForSale, stockQty, '', '', '', '', '', dSearch]);
+
+                    // 소분 상품 처리
+                    [1].forEach(type => { 
+                        const cCodeRaw = getFirstValidStr([mItem, source], [`${type}종코드`]); 
+                        if (isValidSubItemCode(cCodeRaw)) { 
+                            const cCode = String(cCodeRaw).trim();
+                            const cIn = getFirstValidNum([final, source, mItem], [`${type}입고`, `${type}구매`]);
+                            const cOut = getFirstValidNum([final, source, mItem], [`${type}출고`]); 
+                            const cRowErp = createRowArr(cCode, cIn, cOut, '', '', '', cIn, ''); 
+                            if (cRowErp) erpData.push(cRowErp); 
+
+                            const subMaster = masterProducts[cCode] || {};
+                            const cName = subMaster.품목명 || `${dName} (소분)`;
+                            const cSpec = subMaster.규격 || getFirstValidStr([mItem, source], [`${type}종규격`]) || '';
+                            const cBrand = subMaster.브랜드 || dBrand;
+                            const cInfo = subMaster.간단설명 || dInfo;
+                            const cSearch = subMaster.검색어등록 || dSearch;
+                            const cMarketPrice = subMaster.시중가 > 0 ? subMaster.시중가 : cOut;
+                            const cPriceA = subMaster.도매A > 0 ? subMaster.도매A : cOut;
+                            
+                            const cIsZeroPrice = (cIn === 0 && cOut === 0);
+                            const cIsForSale = cIsZeroPrice ? zeroAction.sale : (cIn > 0 || cOut > 0 ? '1' : '0');
+                            const cStockQty = cIsZeroPrice ? zeroAction.stock : '999';
+
+                            shopData.push([cCode, cName, cSpec, cOut, cPriceA, cMarketPrice, 0, 0, 0, 0, 0, 0, cBrand, cInfo, cIsForSale, cStockQty, '', '', '', '', '', cSearch]);
+                        } 
+                    });
+
+                    // 뷰 데이터 조립
+                    const viewRowData = ['', rowCode || '', mItem.품목명 || '', mItem.규격 || ''];
+                    masterCols.forEach(h => { const val = mItem[h] !== undefined ? mItem[h] : ''; viewRowData.push(NUMERIC_HEADERS.includes(h) ? parseNum(val) : val); });
+                    uploadCols.forEach(h => { const val = final[h] !== undefined ? final[h] : (source[h] || ''); const isNum = NUMERIC_HEADERS.includes(h) || NUMERIC_HEADERS.includes(config.masterLinks[activeProfile]?.[h]); viewRowData.push(isNum ? parseNum(val) : val); });
+                    viewData.push(viewRowData);
+                });
+
+                setStatus('파일 생성 중...', 80);
+                window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(shopData), "쇼핑몰업로드"); 
+                window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(erpData), "ERP업데이트"); 
+                window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet(viewData), "화면엑셀변환"); 
+                
+                setStatus('다운로드 시작!', 100);
+                window.XLSX.writeFile(wb, `NEXUS_통합보고서_${new Date().toISOString().slice(0,10)}.xlsx`); 
+
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('status-text').innerHTML = '<span class="text-emerald-400">✅ 엑셀 다운로드가 완료되었습니다.</span>';
+                document.getElementById('close-btn').classList.remove('hidden');
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('status-text').innerHTML = `<span class="text-rose-400">❌ 오류 발생: ${e.message}</span>`;
+            }
+        };
+
+        // 로드 되자마자 실행
+        setTimeout(generateExcel, 500);
+    </script>
+</body>
+</html>
