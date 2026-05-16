@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google" content="notranslate">
-    <title>NEXUS Control Tower [System.IO]</title>
+    <title>NEXUS Control Tower [환경설정]</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -12,27 +12,36 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        body { font-family: 'Courier New', Courier, monospace; background-color: #020617; color: #cbd5e1; margin: 0; }
-        .system-font { font-family: 'Pretendard', sans-serif; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #334155; margin: 0; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-        .dos-panel { border: 1px solid #334155; background-color: #0f172a; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); padding: 1.5rem; border-radius: 0.5rem; }
-        .dos-input { background-color: #020617; color: #10b981; border: 1px solid #475569; outline: none; transition: border-color 0.2s; border-radius: 0.25rem; }
-        .dos-input:focus { border-color: #10b981; box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+        ::-webkit-scrollbar-track { background: #f8fafc; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useCallback } = React;
 
         const MASTER_HEADERS = [ "창고", "1코드", "1그룹명", "2코드", "2그룹명", "3코드", "3그룹명", "오더즈", "구매처", "브랜드", "품목코드", "품목명", "규격", "안전재고", "간단설명", "카탈로그", "견적서", "출고가", "입고가", "입고B", "도매A", "도매B", "상장가", "최종전송", "최종입고", "단가H", "단가I", "시중가", "행사가", "1종코드", "1종규격", "1종연산", "2종코드", "2종규격", "2종연산", "외주비", "노무비", "경비", "비과세", "기본", "연동", "싯가", "단위", "준비기간", "마감시간", "검색어등록" ];
         const requiredCoreFields = ['품목코드', '품목명', '규격'];
 
         const generateUUID = () => { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }); };
+
+        // 🚀 이미지에 기반한 하드코딩된 기본 마진 룰
+        const getDefaultMarginRules = () => [
+            { id: generateUUID(), whCode: '01', unit: 'box, 박스, BOX', rate: 10, type: 'divide' },
+            { id: generateUUID(), whCode: '01', unit: '개, 낱개, 소분, EA, ea,', rate: 15, type: 'divide' },
+            { id: generateUUID(), whCode: '03, 05', unit: 'box, 박스, BOX', rate: 15, type: 'divide' },
+            { id: generateUUID(), whCode: '03, 05', unit: '개, 낱개, 소분, EA, ea,', rate: 20, type: 'divide' },
+            { id: generateUUID(), whCode: '*', unit: 'box, 박스, BOX', rate: 10, type: 'divide' },
+            { id: generateUUID(), whCode: '*', unit: '개, 낱개, 소분, EA, ea,', rate: 15, type: 'divide' },
+            { id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' }
+        ];
 
         const ControlTowerApp = () => {
             const [cloudUrl, setCloudUrl] = useState(() => localStorage.getItem('merchCloudUrl_v870') || '');
@@ -40,26 +49,52 @@
             const [visibleUploadCols, setVisibleUploadCols] = useState(() => JSON.parse(localStorage.getItem('merchVisUpload_v870')) || { estimate: ['품목명', '규격', '창고', '구매처', '견적서', '입고가', '출고가', '입고B', '도매A', '간단설명'] });
             const [mappings, setMappings] = useState(() => JSON.parse(localStorage.getItem('merchMappings_v870')) || { master: {}, estimate: {} });
             const [masterLinks, setMasterLinks] = useState(() => JSON.parse(localStorage.getItem('merchMasterLinks_v870')) || { master: {}, estimate: {} });
-            const [marginRules, setMarginRules] = useState(() => JSON.parse(localStorage.getItem('merchMarginRules_v878')) || [{ id: 'default', whCode: '*', unit: '*', rate: 20, type: 'divide' }]);
+            
+            // 💡 마진 룰 초기화 로직: 저장된 값이 없거나 너무 적으면 하드코딩된 기본값 덮어쓰기
+            const [marginRules, setMarginRules] = useState(() => {
+                const stored = JSON.parse(localStorage.getItem('merchMarginRules_v878'));
+                if (stored && stored.length > 2) return stored; 
+                return getDefaultMarginRules();
+            });
+
+            // 💡 이상 급등락 경고 기준 설정
+            const [warningThreshold, setWarningThreshold] = useState(() => Number(localStorage.getItem('merchWarningThreshold_v870')) || 30);
+            const [warningAmount, setWarningAmount] = useState(() => Number(localStorage.getItem('merchWarningAmount_v870')) || 1000);
 
             const [customColInput, setCustomColInput] = useState('');
             const [toast, setToast] = useState('');
 
-            const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+            const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); }, []);
 
-            const handleSaveAll = () => {
+            const handleSaveAll = useCallback(() => {
                 localStorage.setItem('merchCloudUrl_v870', cloudUrl);
                 localStorage.setItem('merchVisMaster_v870', JSON.stringify(visibleMasterCols));
                 localStorage.setItem('merchVisUpload_v870', JSON.stringify(visibleUploadCols));
                 localStorage.setItem('merchMappings_v870', JSON.stringify(mappings));
                 localStorage.setItem('merchMasterLinks_v870', JSON.stringify(masterLinks));
                 localStorage.setItem('merchMarginRules_v878', JSON.stringify(marginRules));
+                localStorage.setItem('merchWarningThreshold_v870', warningThreshold);
+                localStorage.setItem('merchWarningAmount_v870', warningAmount);
                 
                 localStorage.setItem('merch_settings_update_trigger', Date.now().toString());
-                showToast('SYSTEM.CONFIG_SAVED_SUCCESSFULLY');
+                showToast('✅ 환경설정이 성공적으로 저장되었습니다!');
+            }, [cloudUrl, visibleMasterCols, visibleUploadCols, mappings, masterLinks, marginRules, warningThreshold, warningAmount, showToast]);
+
+            useEffect(() => {
+                const handleKeyDown = (e) => { if (e.key === 'F2') { e.preventDefault(); handleSaveAll(); } };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [handleSaveAll]);
+
+            const addMarginRule = () => {
+                const newRules = [...marginRules];
+                const defaultIdx = newRules.findIndex(r => r.id === 'default');
+                const newRule = { id: generateUUID(), whCode: '', unit: '', rate: 10, type: 'divide' };
+                if (defaultIdx > -1) newRules.splice(defaultIdx, 0, newRule);
+                else newRules.push(newRule);
+                setMarginRules(newRules);
             };
 
-            const addMarginRule = () => setMarginRules([...marginRules, { id: generateUUID(), whCode: '', unit: '', rate: 10, type: 'divide' }]);
             const updateRule = (id, field, val) => setMarginRules(marginRules.map(r => r.id === id ? { ...r, [field]: val } : r));
             const deleteRule = (id) => setMarginRules(marginRules.filter(r => r.id !== id));
 
@@ -67,7 +102,7 @@
             const removeUploadCol = (h) => setVisibleUploadCols(p => ({ ...p, estimate: p.estimate.filter(x => x !== h) }));
             const addCustomCol = () => {
                 const val = customColInput.trim(); if (!val) return;
-                if ((visibleUploadCols.estimate || []).includes(val)) return showToast('ERR: DUPLICATE_ENTRY');
+                if ((visibleUploadCols.estimate || []).includes(val)) return showToast('⚠️ 이미 존재하는 컬럼입니다.');
                 setVisibleUploadCols(p => ({ ...p, estimate: [...(p.estimate || []), val] }));
                 setMappings(p => ({ ...p, estimate: { ...p.estimate, [val]: val } }));
                 setMasterLinks(p => ({ ...p, estimate: { ...p.estimate, [val]: '' } }));
@@ -78,101 +113,206 @@
 
             return (
                 <div className="min-h-screen p-6 pb-24 flex flex-col items-center">
-                    <div className="w-full max-w-4xl flex items-center justify-between mb-8 border-b border-slate-700 pb-4">
-                        <div className="flex items-center gap-3 text-emerald-400">
-                            <i className="fas fa-terminal text-2xl"></i>
-                            <h1 className="text-xl font-bold tracking-widest uppercase">NEXUS Control Tower</h1>
+                    <div className="w-full max-w-[1200px] flex flex-col md:flex-row items-center justify-between mb-8 border-b border-slate-300 pb-4">
+                        <div className="flex items-center gap-3 text-slate-800">
+                            <i className="fas fa-sliders-h text-2xl text-indigo-500"></i>
+                            <h1 className="text-xl font-black tracking-wide">NEXUS 콘트롤 타워</h1>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <button onClick={() => window.location.href = 'MerchOps.html'} className="text-slate-400 hover:text-white transition-colors text-sm border border-slate-700 px-4 py-2 rounded">
-                                <i className="fas fa-home mr-2"></i>메인으로
+                        <div className="flex items-center gap-4 mt-4 md:mt-0">
+                            <button onClick={() => window.location.href = 'MerchOps.html'} className="text-slate-500 hover:text-slate-800 transition-colors text-sm font-bold bg-white border border-slate-300 shadow-sm px-4 py-2 rounded-lg">
+                                <i className="fas fa-home mr-2 text-indigo-400"></i>메인으로 돌아가기
                             </button>
-                            <button onClick={handleSaveAll} className="bg-emerald-600 hover:bg-emerald-500 text-slate-900 font-bold px-6 py-2 uppercase tracking-wide transition-colors rounded">
-                                [F2] Save Config
+                            <button onClick={handleSaveAll} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-6 py-2 transition-all rounded-lg shadow-md flex items-center gap-2">
+                                <i className="fas fa-save"></i> 설정 저장 <span className="text-[10px] text-indigo-200 ml-1 font-mono">[F2]</span>
                             </button>
                         </div>
                     </div>
 
-                    <div className="w-full max-w-4xl flex flex-col gap-8">
-                        <div className="dos-panel">
-                            <h2 className="text-emerald-500 font-bold mb-4 border-b border-slate-700 pb-2 flex items-center gap-2"><i className="fas fa-cloud"></i> [01] CLOUD_SYNC_TARGET</h2>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-slate-400 text-sm">Endpoint URL (Google Apps Script)</label>
-                                <input type="text" value={cloudUrl} onChange={e => setCloudUrl(e.target.value)} className="dos-input p-3 font-mono text-sm w-full" placeholder="https://script.google.com/macros/..." />
+                    <div className="w-full max-w-[1200px] flex flex-col gap-6 fade-in">
+                        
+                        {/* 1. 단가 자동계산 마진 룰 */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-3">
+                                <div>
+                                    <h2 className="text-lg font-black text-slate-800 flex items-center gap-2"><i className="fas fa-calculator text-indigo-500"></i> 단가 자동계산 마진 룰 (Pricing Rules)</h2>
+                                    <p className="text-[12px] text-slate-500 mt-1 font-bold">조건(창고, 단위)에 따라 매입가 바탕으로 출고가(시중가)를 자동 연산합니다. 위에서부터 아래로 순차 적용됩니다.</p>
+                                </div>
+                                <button onClick={addMarginRule} className="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 font-bold text-sm px-4 py-2 rounded-lg shadow-sm border border-indigo-200 transition-colors"><i className="fas fa-plus mr-1"></i> 새 조건 추가</button>
+                            </div>
+
+                            <div className="flex flex-col">
+                                {/* Table Header */}
+                                <div className="hidden sm:grid grid-cols-[minmax(120px,1.5fr)_minmax(150px,2fr)_100px_130px_180px_60px] gap-3 mb-2 px-3 text-[13px] font-black text-slate-400">
+                                    <div>조건1. 창고코드 (그룹)</div>
+                                    <div>조건2. 단위/규격 (ea, kg 등)</div>
+                                    <div className="text-center">마진율 (%)</div>
+                                    <div className="text-center">연산 방식</div>
+                                    <div className="text-center">동작 예시 (1만원 기준)</div>
+                                    <div className="text-center">삭제</div>
+                                </div>
+
+                                {/* Table Body */}
+                                <div className="flex flex-col gap-3">
+                                    {marginRules.map(rule => (
+                                        <div key={rule.id} className={`grid grid-cols-1 sm:grid-cols-[minmax(120px,1.5fr)_minmax(150px,2fr)_100px_130px_180px_60px] gap-3 items-center p-3 border rounded-xl transition-shadow ${rule.id === 'default' ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200 hover:shadow-md'}`}>
+                                            
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs text-slate-400 sm:hidden">조건1. 창고코드</label>
+                                                {rule.id === 'default' ? <div className="text-slate-400 px-3 py-2 text-[13px] font-bold border border-transparent">* (모든 창고 적용)</div> : <input type="text" value={rule.whCode} onChange={e => updateRule(rule.id, 'whCode', e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-[13px] font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200" placeholder="예: 01, 03" />}
+                                            </div>
+                                            
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs text-slate-400 sm:hidden">조건2. 단위/규격</label>
+                                                {rule.id === 'default' ? <div className="text-slate-400 px-3 py-2 text-[13px] font-bold border border-transparent">* (모든 단위 적용)</div> : <input type="text" value={rule.unit} onChange={e => updateRule(rule.id, 'unit', e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-[13px] font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200" placeholder="예: box, 박스" />}
+                                            </div>
+
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs text-slate-400 sm:hidden">마진율(%)</label>
+                                                <input type="number" value={rule.rate} onChange={e => updateRule(rule.id, 'rate', Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-[14px] text-center text-rose-500 font-black outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-200" />
+                                            </div>
+
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs text-slate-400 sm:hidden">연산 방식</label>
+                                                <div className="relative">
+                                                    <select value={rule.type} onChange={e => updateRule(rule.id, 'type', e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-[13px] font-bold text-slate-700 appearance-none outline-none cursor-pointer focus:border-indigo-500 bg-white">
+                                                        <option value="divide">나누기(÷)</option>
+                                                        <option value="multiply">곱하기(×)</option>
+                                                    </select>
+                                                    <i className="fas fa-chevron-down absolute right-3 top-2.5 text-slate-400 text-[10px] pointer-events-none"></i>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs text-slate-400 sm:hidden">동작 예시</label>
+                                                <div className="text-[11px] font-mono font-bold text-slate-500 text-center bg-slate-100 py-2.5 rounded-lg border border-slate-200">
+                                                    {rule.type === 'divide' ? `10k ÷ ${(1 - rule.rate/100).toFixed(2)} ➔ ${(Math.round(10000 / (1 - rule.rate/100) / 100) * 100).toLocaleString()}원` : `10k × ${(1 + rule.rate/100).toFixed(2)} ➔ ${(Math.round(10000 * (1 + rule.rate/100) / 100) * 100).toLocaleString()}원`}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-center items-center h-full">
+                                                {rule.id !== 'default' && <button onClick={() => deleteRule(rule.id)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 rounded-lg shadow-sm transition-colors" title="삭제"><i className="fas fa-trash-alt text-[13px]"></i></button>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="dos-panel">
-                            <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
-                                <h2 className="text-emerald-500 font-bold flex items-center gap-2"><i className="fas fa-calculator"></i> [02] PRICING_ENGINE_RULES</h2>
-                                <button onClick={addMarginRule} className="text-emerald-400 hover:text-white text-sm">[+ ADD RULE]</button>
+                        {/* 2. 클라우드 및 이상 경고 설정 (2단 그리드) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                <h2 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2"><i className="fas fa-cloud-upload-alt text-blue-500"></i> 클라우드 동기화 (GAS)</h2>
+                                <p className="text-[12px] text-slate-500 mb-4 font-bold">마스터 DB 및 히스토리를 구글 시트로 백업하기 위한 엔드포인트 URL입니다.</p>
+                                <div className="flex flex-col gap-2">
+                                    <input type="text" value={cloudUrl} onChange={e => setCloudUrl(e.target.value)} className="w-full border border-slate-300 rounded-lg p-3 font-mono text-[12px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200" placeholder="https://script.google.com/macros/s/.../exec" />
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-3">
-                                {marginRules.map(rule => (
-                                    <div key={rule.id} className="flex flex-col sm:flex-row gap-3 bg-slate-900/50 p-3 border border-slate-700 rounded">
-                                        <div className="flex-1 flex flex-col gap-1">
-                                            <label className="text-xs text-slate-500 uppercase">WH_Code</label>
-                                            {rule.id === 'default' ? <div className="text-slate-400 p-2">* (ALL)</div> : <input type="text" value={rule.whCode} onChange={e => updateRule(rule.id, 'whCode', e.target.value)} className="dos-input p-2 text-sm" placeholder="e.g. 01, *" />}
+
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-amber-400">
+                                <h2 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2"><i className="fas fa-exclamation-triangle text-amber-500"></i> 이상 급등락 경고 기준 (오타 방지)</h2>
+                                <p className="text-[12px] text-slate-500 mb-4 font-bold">단가 변동 시 붉은색 ⚠️ 경고등을 띄우는 이중 조건(비율+금액)을 설정합니다.</p>
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                        <span className="text-[13px] font-bold text-slate-600">변동률 한계 (Threshold)</span>
+                                        <div className="flex items-center gap-1">
+                                            <input type="number" value={warningThreshold} onChange={e => setWarningThreshold(Number(e.target.value))} className="w-16 border border-slate-300 rounded px-2 py-1 text-[13px] text-center text-rose-500 font-black outline-none focus:border-amber-400" />
+                                            <span className="text-[13px] font-bold text-slate-500">% 이상</span>
                                         </div>
-                                        <div className="flex-1 flex flex-col gap-1">
-                                            <label className="text-xs text-slate-500 uppercase">Unit</label>
-                                            {rule.id === 'default' ? <div className="text-slate-400 p-2">* (ALL)</div> : <input type="text" value={rule.unit} onChange={e => updateRule(rule.id, 'unit', e.target.value)} className="dos-input p-2 text-sm" placeholder="e.g. ea, box" />}
-                                        </div>
-                                        <div className="w-24 flex flex-col gap-1">
-                                            <label className="text-xs text-slate-500 uppercase">Margin(%)</label>
-                                            <input type="number" value={rule.rate} onChange={e => updateRule(rule.id, 'rate', Number(e.target.value))} className="dos-input p-2 text-sm text-center text-amber-400 font-bold" />
-                                        </div>
-                                        <div className="w-32 flex flex-col gap-1">
-                                            <label className="text-xs text-slate-500 uppercase">Operator</label>
-                                            <select value={rule.type} onChange={e => updateRule(rule.id, 'type', e.target.value)} className="dos-input p-2 text-sm appearance-none cursor-pointer"><option value="divide">DIV (÷)</option><option value="multiply">MUL (×)</option></select>
-                                        </div>
-                                        <div className="w-10 flex items-end pb-1 justify-center">{rule.id !== 'default' && <button onClick={() => deleteRule(rule.id)} className="text-rose-500 hover:text-rose-400"><i className="fas fa-trash"></i></button>}</div>
                                     </div>
-                                ))}
+                                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                        <span className="text-[13px] font-bold text-slate-600">최소 차액 한계 (Amount)</span>
+                                        <div className="flex items-center gap-1">
+                                            <input type="number" value={warningAmount} step="100" onChange={e => setWarningAmount(Number(e.target.value))} className="w-24 border border-slate-300 rounded px-2 py-1 text-[13px] text-right text-rose-500 font-black outline-none focus:border-amber-400" />
+                                            <span className="text-[13px] font-bold text-slate-500">원 이상</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="dos-panel">
-                            <h2 className="text-emerald-500 font-bold mb-4 border-b border-slate-700 pb-2 flex items-center gap-2"><i className="fas fa-desktop"></i> [03] UI_DISPLAY_SCHEMA</h2>
+                        {/* 3. 화면 표시 스키마 */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <h2 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2"><i className="fas fa-desktop text-emerald-500"></i> 화면 표시 옵션 (UI Schema)</h2>
+                            
                             <div className="flex flex-col gap-6">
                                 <div>
-                                    <div className="text-slate-400 text-sm mb-3"># Master DB Columns (Visible)</div>
-                                    <div className="flex flex-wrap gap-2 system-font">
-                                        {requiredCoreFields.map(h => <div key={`m-req-${h}`} className="px-3 py-1 bg-slate-800 text-slate-500 border border-slate-700 text-xs rounded"><i className="fas fa-lock mr-1"></i>{h}</div>)}
+                                    <div className="text-slate-600 text-[13px] font-bold mb-3 border-l-2 border-emerald-400 pl-2">마스터 DB 뷰어 컬럼 (선택 시 활성화)</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {requiredCoreFields.map(h => <div key={`m-req-${h}`} className="px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 text-[12px] font-bold rounded-lg cursor-not-allowed"><i className="fas fa-lock mr-1.5 text-[10px]"></i>{h}</div>)}
                                         {MASTER_HEADERS.filter(h => !requiredCoreFields.includes(h)).map(h => {
                                             const isActive = (visibleMasterCols.estimate || []).includes(h);
-                                            return <button key={`m-${h}`} onClick={() => toggleMasterCol(h)} className={`px-3 py-1 border text-xs transition-colors rounded ${isActive ? 'border-emerald-500 text-emerald-400 bg-emerald-900/20' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>{h}</button>
+                                            return <button key={`m-${h}`} onClick={() => toggleMasterCol(h)} className={`px-3 py-1.5 border text-[12px] font-bold transition-colors rounded-lg shadow-sm ${isActive ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : 'border-slate-200 text-slate-500 bg-white hover:border-emerald-300'}`}>{h}</button>
                                         })}
                                     </div>
                                 </div>
-                                <div className="border-t border-slate-800 pt-4">
-                                    <div className="text-slate-400 text-sm mb-3"># Workspace / Excel Columns</div>
-                                    <div className="flex flex-wrap gap-2 system-font mb-4">
-                                        {(visibleUploadCols.estimate || []).filter(h => h !== '품목코드').map(h => <div key={`u-${h}`} className="flex items-center border border-indigo-500/50 bg-indigo-900/20 text-indigo-300 px-3 py-1 text-xs rounded"><span>{h}</span><button onClick={() => removeUploadCol(h)} className="ml-2 text-indigo-500 hover:text-rose-400"><i className="fas fa-times"></i></button></div>)}
+
+                                <div className="border-t border-slate-100 pt-6">
+                                    <div className="text-slate-600 text-[13px] font-bold mb-3 border-l-2 border-indigo-400 pl-2">작업대 및 엑셀 출력 컬럼 (직접 추가 가능)</div>
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        {(visibleUploadCols.estimate || []).filter(h => h !== '품목코드').map(h => (
+                                            <div key={`u-${h}`} className="flex items-center border border-indigo-200 bg-indigo-50 text-indigo-700 px-3 py-1.5 text-[12px] font-bold rounded-lg shadow-sm">
+                                                <span>{h}</span><button onClick={() => removeUploadCol(h)} className="ml-2.5 text-indigo-300 hover:text-rose-500"><i className="fas fa-times"></i></button>
+                                            </div>
+                                        ))}
                                     </div>
                                     <div className="flex items-center gap-2 max-w-sm">
-                                        <input type="text" value={customColInput} onChange={e => setCustomColInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomCol()} className="dos-input p-2 text-xs flex-1" placeholder="e.g. 마감시간" />
-                                        <button onClick={addCustomCol} className="bg-slate-800 border border-slate-600 text-slate-300 px-4 py-2 text-xs hover:bg-slate-700 rounded">ADD_COL</button>
+                                        <input type="text" value={customColInput} onChange={e => setCustomColInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomCol()} className="border border-slate-300 rounded-lg px-3 py-2 text-[13px] font-bold flex-1 outline-none focus:border-indigo-500" placeholder="예: 마감시간, 지시사항" />
+                                        <button onClick={addCustomCol} className="bg-white border border-slate-300 shadow-sm text-slate-600 px-4 py-2 text-[13px] font-bold hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors">컬럼 추가</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="dos-panel">
-                            <h2 className="text-emerald-500 font-bold mb-4 border-b border-slate-700 pb-2 flex items-center gap-2"><i className="fas fa-network-wired"></i> [04] DATA_MAPPING_MATRIX</h2>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm whitespace-nowrap system-font">
-                                    <thead className="text-slate-500 border-b border-slate-700"><tr><th className="py-3 px-2 w-40 uppercase font-mono">Workspace_Col</th><th className="py-3 px-2 uppercase font-mono">Parse_Keywords (Comma separated)</th><th className="py-3 px-2 w-48 uppercase font-mono">Bind_To_Master</th></tr></thead>
-                                    <tbody className="divide-y divide-slate-800/50">
-                                        {requiredCoreFields.map(h => <tr key={`map-req-${h}`}><td className="py-3 px-2 text-slate-400"><i className="fas fa-lock text-xs mr-2"></i>{h}</td><td className="py-3 px-2"><input type="text" value={mappings.estimate?.[h] || ''} onChange={e => setMappings(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="dos-input p-2 text-xs w-full font-mono" /></td><td className="py-3 px-2 text-slate-500 font-mono text-xs">[LOCKED]</td></tr>)}
-                                        {(visibleUploadCols.estimate || []).filter(h => !requiredCoreFields.includes(h)).map(h => <tr key={`map-${h}`}><td className="py-3 px-2 text-emerald-300 font-bold">{h}</td><td className="py-3 px-2"><input type="text" value={mappings.estimate?.[h] || ''} onChange={e => setMappings(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="dos-input p-2 text-xs w-full font-mono" /></td><td className="py-3 px-2"><select value={masterLinks.estimate?.[h] || ''} onChange={e => setMasterLinks(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="dos-input p-2 text-xs w-full cursor-pointer appearance-none font-mono"><option value="">-- NO_BINDING --</option>{selectableMasterHeaders.map(mh => <option key={mh} value={mh}>{mh}</option>)}</select></td></tr>)}
+                        {/* 4. 데이터 매핑 매트릭스 */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                            <h2 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2"><i className="fas fa-network-wired text-purple-500"></i> 데이터 매핑 매트릭스 (Mapping)</h2>
+                            <p className="text-[12px] text-slate-500 mb-6 font-bold">외부 엑셀 파일 업로드 시, 헤더 이름을 자동으로 파악하여 마스터 DB의 어떤 필드와 연결할지 정의합니다.</p>
+                            
+                            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                <table className="w-full text-left text-[13px] whitespace-nowrap">
+                                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                                        <tr>
+                                            <th className="py-3 px-4 w-40 font-black">작업대(목표) 컬럼</th>
+                                            <th className="py-3 px-4 font-black">엑셀 파싱 키워드 (쉼표 구분)</th>
+                                            <th className="py-3 px-4 w-56 font-black border-l border-slate-200">마스터 DB 자동 동기화 연결</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
+                                        {requiredCoreFields.map(h => (
+                                            <tr key={`map-req-${h}`}>
+                                                <td className="py-3 px-4 font-bold text-slate-400 bg-slate-50/50"><i className="fas fa-lock text-[10px] mr-1.5"></i>{h}</td>
+                                                <td className="py-2 px-4"><input type="text" value={mappings.estimate?.[h] || ''} onChange={e => setMappings(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="border border-slate-300 rounded px-3 py-1.5 text-[12px] font-bold w-full outline-none focus:border-indigo-400" /></td>
+                                                <td className="py-3 px-4 text-slate-400 font-bold text-[11px] bg-slate-50/50 border-l border-slate-200">[필수 고정 항목]</td>
+                                            </tr>
+                                        ))}
+                                        {(visibleUploadCols.estimate || []).filter(h => !requiredCoreFields.includes(h)).map(h => (
+                                            <tr key={`map-${h}`} className="hover:bg-slate-50 transition-colors">
+                                                <td className="py-3 px-4 font-black text-indigo-600">{h}</td>
+                                                <td className="py-2 px-4"><input type="text" value={mappings.estimate?.[h] || ''} onChange={e => setMappings(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="border border-slate-300 rounded px-3 py-1.5 text-[12px] font-bold w-full outline-none focus:border-indigo-400" /></td>
+                                                <td className="py-2 px-4 border-l border-slate-100">
+                                                    <div className="relative">
+                                                        <select value={masterLinks.estimate?.[h] || ''} onChange={e => setMasterLinks(p => ({ ...p, estimate: { ...p.estimate, [h]: e.target.value } }))} className="border border-slate-300 rounded px-3 py-1.5 text-[12px] font-bold w-full cursor-pointer appearance-none outline-none focus:border-indigo-400 bg-white">
+                                                            <option value="" className="text-slate-400">-- 연결 안함 (단순 메모용) --</option>
+                                                            {selectableMasterHeaders.map(mh => <option key={mh} value={mh}>{mh}</option>)}
+                                                        </select>
+                                                        <i className="fas fa-chevron-down absolute right-3 top-2.5 text-slate-400 text-[10px] pointer-events-none"></i>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
 
-                    {toast && <div className="fixed bottom-6 right-6 bg-emerald-900 border border-emerald-500 text-emerald-400 px-6 py-3 rounded shadow-[0_0_15px_rgba(16,185,129,0.3)] font-bold font-mono text-sm z-50">> {toast} <span className="animate-pulse">_</span></div>}
+                    {/* Toast Message */}
+                    {toast && (
+                        <div className="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-white px-6 py-4 rounded-xl shadow-2xl font-bold text-[14px] z-50 flex items-center gap-3 fade-in">
+                            <i className="fas fa-check-circle text-emerald-400 text-lg"></i>
+                            {toast}
+                        </div>
+                    )}
                 </div>
             );
         };
