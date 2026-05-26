@@ -13,105 +13,133 @@
     <style>
         body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
         .drag-active { border-color: #3b82f6; background-color: #eff6ff; }
+        .highlight-row { animation: flash 1s ease-out; }
+        @keyframes flash { 0% { background-color: #fef08a; } 100% { background-color: transparent; } }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
     <!-- 사이드바 -->
-    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col">
+    <aside class="w-72 bg-slate-900 text-slate-300 flex flex-col">
         <div class="h-16 flex items-center px-6 border-b border-slate-800 text-white font-bold text-xl">
-            <i class="ph ph-database mr-2 text-blue-400"></i> Orders DataOps
+            <i class="ph ph-database mr-2 text-blue-400"></i> Orders DataOps <span class="ml-2 text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">v2.0</span>
         </div>
-        <nav class="flex-1 px-4 py-6 space-y-2">
-            <a href="#" class="flex items-center px-4 py-3 bg-blue-600 text-white rounded-lg">
-                <i class="ph ph-arrows-left-right mr-3 text-lg"></i> 데이터 변환/검증
-            </a>
-            <a href="#" class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition">
-                <i class="ph ph-clock-counter-clockwise mr-3 text-lg"></i> 작업 이력
-            </a>
-            <a href="#" class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition">
-                <i class="ph ph-gear mr-3 text-lg"></i> 설정
-            </a>
-        </nav>
+        <div class="p-6 overflow-y-auto flex-1">
+            <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">적용된 자동화 규칙</h3>
+            <ul class="space-y-4 text-sm">
+                <li class="flex items-start">
+                    <i class="ph ph-check-circle text-emerald-400 mt-0.5 mr-2"></i>
+                    <div>
+                        <span class="text-white font-medium">1. 거래처 분리 (Rule 1)</span>
+                        <p class="text-slate-500 mt-1 text-xs">9부산 등 특정 그룹 소속시 '청과' 명칭으로 거래처명을 자동 대체합니다.</p>
+                    </div>
+                </li>
+                <li class="flex items-start">
+                    <i class="ph ph-check-circle text-emerald-400 mt-0.5 mr-2"></i>
+                    <div>
+                        <span class="text-white font-medium">2. 데이터 매칭 (Rule 2)</span>
+                        <p class="text-slate-500 mt-1 text-xs">거래처명 + 품목코드 + 청과(NO) 3중 Key로 판매건을 매칭합니다.</p>
+                    </div>
+                </li>
+                <li class="flex items-start">
+                    <i class="ph ph-check-circle text-emerald-400 mt-0.5 mr-2"></i>
+                    <div>
+                        <span class="text-white font-medium">3. 우선순위 단가 (Rule 3)</span>
+                        <p class="text-slate-500 mt-1 text-xs">매칭시 판매현황 단가, 미매칭시 구매현황 상장가를 적용 및 계산합니다.</p>
+                    </div>
+                </li>
+                <li class="flex items-start">
+                    <i class="ph ph-check-circle text-emerald-400 mt-0.5 mr-2"></i>
+                    <div>
+                        <span class="text-white font-medium">4. 그룹 식별 (Rule 4)</span>
+                        <p class="text-slate-500 mt-1 text-xs">직영/일반/분리 거래처 여부에 따라 구분열(1,2)을 자동 부여합니다.</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
     </aside>
 
     <!-- 메인 컨텐츠 -->
     <main class="flex-1 flex flex-col h-full overflow-hidden">
         <!-- 상단 헤더 -->
-        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
-            <h1 class="font-semibold text-lg text-slate-700">판매가 업로드 자동 생성기</h1>
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
+            <h1 class="font-semibold text-lg text-slate-700">판매가 업로드 파일 생성</h1>
             <div class="flex space-x-3">
-                <button onclick="processData()" class="flex items-center px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 transition">
-                    <i class="ph ph-play mr-2"></i> 변환 및 검증 실행
+                <button onclick="processData()" class="flex items-center px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 transition font-medium shadow-sm">
+                    <i class="ph ph-magic-wand mr-2"></i> 데이터 병합 및 생성
                 </button>
-                <button onclick="downloadCSV()" id="downloadBtn" class="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition opacity-50 cursor-not-allowed" disabled>
-                    <i class="ph ph-download-simple mr-2"></i> 결과 다운로드
+                <button onclick="downloadCSV()" id="downloadBtn" class="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium shadow-sm opacity-50 cursor-not-allowed" disabled>
+                    <i class="ph ph-download-simple mr-2"></i> 엑셀용 CSV 다운로드
                 </button>
             </div>
         </header>
 
         <!-- 작업 영역 -->
-        <div class="flex-1 overflow-auto p-8">
+        <div class="flex-1 overflow-auto p-8 flex flex-col">
             
-            <!-- 상태 카드 -->
-            <div class="grid grid-cols-3 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <!-- 상태 요약 -->
+            <div class="grid grid-cols-4 gap-4 mb-6 shrink-0">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-slate-500 mb-1">구매현황 데이터</p>
-                        <p class="text-2xl font-bold text-slate-800" id="purchaseCount">대기중</p>
+                        <p class="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">업로드: 구매현황</p>
+                        <p class="text-xl font-bold text-slate-800" id="purchaseCount">-</p>
                     </div>
-                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl">
-                        <i class="ph ph-file-csv"></i>
-                    </div>
+                    <i class="ph ph-file-csv text-3xl text-blue-500"></i>
                 </div>
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-slate-500 mb-1">판매현황 데이터</p>
-                        <p class="text-2xl font-bold text-slate-800" id="salesCount">대기중</p>
+                        <p class="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">업로드: 판매현황</p>
+                        <p class="text-xl font-bold text-slate-800" id="salesCount">-</p>
                     </div>
-                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-2xl">
-                        <i class="ph ph-file-csv"></i>
-                    </div>
+                    <i class="ph ph-file-csv text-3xl text-indigo-500"></i>
                 </div>
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-slate-500 mb-1">검증 이슈 (단가 불일치 등)</p>
-                        <p class="text-2xl font-bold text-rose-600" id="issueCount">0건</p>
+                        <p class="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">처리: 제외된 행</p>
+                        <p class="text-xl font-bold text-slate-600" id="skippedCount">0건</p>
                     </div>
-                    <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-2xl">
-                        <i class="ph ph-warning-circle"></i>
+                    <i class="ph ph-funnel text-3xl text-slate-400"></i>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-rose-200 shadow-sm flex items-center justify-between bg-rose-50">
+                    <div>
+                        <p class="text-xs font-semibold text-rose-500 mb-1 uppercase tracking-wider">경고: 매칭 실패</p>
+                        <p class="text-xl font-bold text-rose-700" id="unmatchedCount">0건</p>
                     </div>
+                    <i class="ph ph-warning-circle text-3xl text-rose-500"></i>
                 </div>
             </div>
 
-            <!-- 파일 업로드 영역 -->
-            <div class="grid grid-cols-2 gap-6 mb-8">
+            <!-- 파일 업로드 구역 -->
+            <div class="grid grid-cols-2 gap-6 mb-6 shrink-0">
                 <!-- 구매현황 업로드 -->
-                <div id="dropZone1" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-white hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('filePurchase').click()">
-                    <i class="ph ph-upload-simple text-4xl text-slate-400 mb-3"></i>
-                    <p class="font-medium text-slate-700">구매현황.csv 업로드</p>
-                    <p class="text-sm text-slate-500 mt-1" id="purchaseFileName">클릭하거나 파일을 드래그 하세요</p>
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center bg-white hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('filePurchase').click()">
+                    <i class="ph ph-upload-simple text-3xl text-blue-500 mb-2"></i>
+                    <p class="font-bold text-slate-700">1. 구매현황.csv 업로드</p>
+                    <p class="text-xs text-slate-500 mt-1" id="purchaseFileName">클릭하여 원본 구매 데이터 선택</p>
                     <input type="file" id="filePurchase" class="hidden" accept=".csv, .xlsx" onchange="handleFile(event, 'purchase')">
                 </div>
                 <!-- 판매현황 업로드 -->
-                <div id="dropZone2" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-white hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('fileSales').click()">
-                    <i class="ph ph-upload-simple text-4xl text-slate-400 mb-3"></i>
-                    <p class="font-medium text-slate-700">판매현황.csv 업로드 (검증용)</p>
-                    <p class="text-sm text-slate-500 mt-1" id="salesFileName">클릭하거나 파일을 드래그 하세요</p>
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center bg-white hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('fileSales').click()">
+                    <i class="ph ph-upload-simple text-3xl text-indigo-500 mb-2"></i>
+                    <p class="font-bold text-slate-700">2. 판매현황.csv 업로드</p>
+                    <p class="text-xs text-slate-500 mt-1" id="salesFileName">클릭하여 매칭용 판매 데이터 선택</p>
                     <input type="file" id="fileSales" class="hidden" accept=".csv, .xlsx" onchange="handleFile(event, 'sales')">
                 </div>
             </div>
 
-            <!-- 결과 미리보기 (데이터 그리드) -->
-            <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col" style="min-height: 400px;">
-                <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                    <h2 class="font-semibold text-slate-700">결과 및 검증 미리보기</h2>
-                    <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">오류 항목은 붉은색으로 표시됩니다.</span>
+            <!-- 결과 그리드 -->
+            <div class="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col min-h-0">
+                <div class="px-5 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0 rounded-t-xl">
+                    <h2 class="font-semibold text-slate-700 text-sm">변환 결과 미리보기 (상위 100건)</h2>
+                    <div class="flex space-x-4 text-xs font-medium">
+                        <span class="flex items-center text-slate-500"><span class="w-2 h-2 rounded-full bg-yellow-400 mr-1.5"></span>매칭 실패 (상장가 대체)</span>
+                        <span class="flex items-center text-slate-500"><span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5"></span>분리 거래처</span>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-sm whitespace-nowrap">
-                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-200" id="tableHead">
-                            <tr><th class="px-6 py-3 font-medium">데이터를 변환하면 여기에 표시됩니다.</th></tr>
+                <div class="overflow-auto flex-1">
+                    <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                        <thead class="bg-slate-50 text-slate-500 sticky top-0 z-10 shadow-sm" id="tableHead">
+                            <tr><th class="px-5 py-4 font-medium text-center">파일을 업로드하고 변환을 실행해주세요.</th></tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100" id="tableBody">
                             <!-- 데이터 행 렌더링 -->
@@ -124,59 +152,65 @@
     </main>
 
     <script>
-        // 내부 데이터 저장용 변수
+        // Data State
         let rawPurchaseData = [];
         let rawSalesData = [];
         let finalOutputData = [];
 
-        // 출력할 판매가업로드 양식 헤더 (요청된 구조)
-        const outputHeaders = ["", "", "", "3거래", "창고", "", "", "2전달", "코드", "품목명(규격)", "청과", "수량", "출고가 (공지)", "공지a7", "출고(외노)", "적요", "출고지시", "출고가 (공지)", "no", "일자", "단가", "구분", "식자재", "도매A", "상장가"];
+        // 비즈니스 룰 기반 설정값
+        const SPECIAL_PARTNERS = ['상남식자재', '농협44번', '농협666', '삼진', '진영상회', '창원59번'];
+        const DIRECT_BRANCHES = ['1마산', '2중앙'];
+        
+        // 최종 엑셀 양식 헤더 구조 (25열)
+        const OUTPUT_HEADERS = [
+            "", "", "", "3거래", "창고", "", "", "2전달", "코드", "품목명(규격)", 
+            "청과", "수량", "출고가 (공지)", "공지a7", "출고(외노)", "적요", "출고지시", 
+            "출고가 (공지)", "no", "일자", "단가", "구분", "식자재", "도매A", "상장가"
+        ];
 
-        // 파일 처리 함수
+        // 파일 처리 핸들러
         function handleFile(event, type) {
             const file = event.target.files[0];
             if (!file) return;
 
-            if (type === 'purchase') {
-                document.getElementById('purchaseFileName').textContent = file.name;
-            } else {
-                document.getElementById('salesFileName').textContent = file.name;
-            }
+            const nameEl = document.getElementById(type === 'purchase' ? 'purchaseFileName' : 'salesFileName');
+            nameEl.textContent = file.name;
+            nameEl.classList.replace('text-slate-500', 'text-blue-600');
+            nameEl.classList.add('font-medium');
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                // CSV/엑셀 데이터를 2차원 배열로 변환
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                 const json = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
                 
                 if (type === 'purchase') {
                     rawPurchaseData = json;
-                    document.getElementById('purchaseCount').textContent = `${json.length}행`;
+                    document.getElementById('purchaseCount').textContent = `${json.length.toLocaleString()}행`;
                 } else {
                     rawSalesData = json;
-                    document.getElementById('salesCount').textContent = `${json.length}행`;
+                    document.getElementById('salesCount').textContent = `${json.length.toLocaleString()}행`;
                 }
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // 실제 데이터가 시작되는 헤더 행 찾기 (설명글 제외)
+        // 헤더 행 찾기 (정확한 매핑을 위해)
         function findHeaderRowIndex(data, keyword) {
-            for (let i = 0; i < Math.min(10, data.length); i++) {
-                if (data[i].some(cell => String(cell).includes(keyword))) {
-                    return i;
-                }
+            for (let i = 0; i < Math.min(15, data.length); i++) {
+                if (data[i] && data[i].some(cell => String(cell).includes(keyword))) return i;
             }
             return -1;
         }
 
-        // 데이터 변환 및 검증 실행
+        // 텍스트 정제 헬퍼
+        const cleanStr = (str) => String(str || "").trim();
+
+        // 메인 데이터 변환 알고리즘 실행
         function processData() {
             if (rawPurchaseData.length === 0) {
-                alert("구매현황 파일을 업로드해주세요.");
+                alert("구매현황 데이터를 먼저 업로드 해주세요.");
                 return;
             }
 
@@ -184,83 +218,162 @@
             const salHeaderIdx = rawSalesData.length > 0 ? findHeaderRowIndex(rawSalesData, "거래처명") : -1;
 
             if (purHeaderIdx === -1) {
-                alert("구매현황에서 '3거래' 헤더를 찾을 수 없습니다. 양식을 확인해주세요.");
+                alert("구매현황 데이터에서 '3거래' 열을 찾을 수 없습니다. 양식을 확인해주세요.");
                 return;
             }
 
             const purHeaders = rawPurchaseData[purHeaderIdx];
             const salHeaders = salHeaderIdx !== -1 ? rawSalesData[salHeaderIdx] : [];
 
-            finalOutputData = [];
-            finalOutputData.push(outputHeaders); // 헤더 삽입
+            // 열 인덱스 추출기
+            const getPurIdx = (name) => purHeaders.indexOf(name);
+            const getSalIdx = (name) => salHeaders.indexOf(name);
 
-            let issueCount = 0;
+            // 초기화
+            finalOutputData = [];
+            finalOutputData.push(OUTPUT_HEADERS); // 1행에 헤더 고정
+
+            let unmatchedCount = 0;
+            let skippedCount = 0;
             const tbody = document.getElementById('tableBody');
             const thead = document.getElementById('tableHead');
             
             tbody.innerHTML = "";
-            thead.innerHTML = `<tr>${outputHeaders.map(h => `<th class="px-4 py-3 font-medium bg-slate-100 border-r border-slate-200">${h || '-'}</th>`).join('')}</tr>`;
+            thead.innerHTML = `<tr>${OUTPUT_HEADERS.map(h => `<th class="px-4 py-3 font-semibold bg-slate-100 border-b border-r border-slate-200 text-slate-600">${h || '-'}</th>`).join('')}</tr>`;
 
-            // 구매현황 데이터를 루프 돌며 변환
+            // 구매현황 순회하며 Rule 적용
             for (let i = purHeaderIdx + 1; i < rawPurchaseData.length; i++) {
                 const row = rawPurchaseData[i];
-                if (!row || row.length === 0 || !row[0]) continue; // 빈 줄 무시
+                if (!row || row.length === 0 || !cleanStr(row[0])) continue;
 
-                // 구매현황 컬럼 인덱스 매핑
-                const col = (name) => row[purHeaders.indexOf(name)] || "";
-
-                // 새 양식에 맞춰 데이터 조립
-                const newRow = Array(outputHeaders.length).fill("");
-                newRow[3] = col("3거래");
-                newRow[4] = col("창고");
-                newRow[7] = col("2전달");
-                newRow[8] = col("코드");
-                newRow[9] = col("품목명(규격)");
-                newRow[10] = col("청과");
-                newRow[11] = col("수량");
-                // 요청 양식에 맞춰 출고가/단가 등 재배치
-                newRow[12] = col("출고가 (공지)"); 
-                newRow[15] = col("적요");
-                newRow[19] = col("일자");
-                newRow[20] = col("단가");
-
-                let hasError = false;
-
-                // [검증 로직] 판매현황 파일이 존재할 경우 교차 검증
-                if (salHeaderIdx !== -1) {
-                    const matchSale = rawSalesData.find((sRow, sIdx) => {
-                        if (sIdx <= salHeaderIdx) return false;
-                        return sRow[salHeaders.indexOf("거래처명")] === newRow[3] && 
-                               String(sRow[salHeaders.indexOf("품목코드")]) === String(newRow[8]);
-                    });
-
-                    // 예시 검증: 단가가 0원이거나 비정상적인 경우
-                    if (matchSale) {
-                        const salePrice = matchSale[salHeaders.indexOf("단가")];
-                        // 출고가나 단가가 비어있거나 불일치 하는 이슈 체크
-                        if (salePrice == 0 || newRow[12] == "") {
-                            hasError = true;
-                            issueCount++;
-                        }
-                    }
+                // 하단 합계/요약 행 제외
+                if (cleanStr(row[0]).includes("총합계") || cleanStr(row[0]).includes("/")) {
+                    skippedCount++;
+                    continue;
                 }
 
-                // 결과 배열에 추가
+                // Rule 5: 수량 0인 항목 제외
+                const qtyStr = cleanStr(row[getPurIdx("수량")]);
+                const qty = parseFloat(qtyStr);
+                if (isNaN(qty) || qty === 0) {
+                    skippedCount++;
+                    continue;
+                }
+
+                const originalPartner = cleanStr(row[getPurIdx("3거래")]);
+                const itemCode = cleanStr(row[getPurIdx("코드")]);
+                const subPartner = cleanStr(row[getPurIdx("청과")]);
+
+                // ----------------------------------------------------
+                // Rule 1. 거래처 분리 및 독립 규칙
+                // ----------------------------------------------------
+                let finalPartner = originalPartner;
+                let isSeparated = false;
+                
+                if (originalPartner.includes("9부산") && SPECIAL_PARTNERS.includes(subPartner)) {
+                    finalPartner = subPartner;
+                    isSeparated = true;
+                }
+
+                // ----------------------------------------------------
+                // Rule 2. 판매현황 데이터 매칭 (Key 매칭)
+                // ----------------------------------------------------
+                let matchedSaleRow = null;
+                if (salHeaderIdx !== -1) {
+                    matchedSaleRow = rawSalesData.find((sRow, sIdx) => {
+                        if (sIdx <= salHeaderIdx) return false;
+                        return cleanStr(sRow[getSalIdx("거래처명")]) === finalPartner && 
+                               cleanStr(sRow[getSalIdx("품목코드")]) === itemCode && 
+                               cleanStr(sRow[getSalIdx("NO.")]) === subPartner;
+                    });
+                }
+
+                // ----------------------------------------------------
+                // Rule 3. 핵심 단가 및 총금액 산출
+                // ----------------------------------------------------
+                let outputPrice1 = ""; // 13번째 열 (출고가 공지)
+                let outputAmount = ""; // 15번째 열 (출고 외노)
+                let outputPrice2 = ""; // 18번째 열 (출고가 공지)
+                
+                const purSangjangga = row[getPurIdx("상장가")];
+                const purChulgoga = row[getPurIdx("출고가 (공지)")];
+
+                if (matchedSaleRow) {
+                    // 매칭 성공: 판매현황의 출고가(공지) 적용
+                    outputPrice1 = matchedSaleRow[getSalIdx("출고가 (공지)")] || "";
+                    outputPrice2 = matchedSaleRow[getSalIdx("출고가 (공지)")] || "";
+                } else {
+                    // 매칭 실패: 구매현황의 상장가 및 기본 출고가 적용
+                    outputPrice1 = purSangjangga || "";
+                    outputPrice2 = purChulgoga || "";
+                    unmatchedCount++;
+                }
+
+                // 총 금액 계산 (수량 * 첫번째 출고가)
+                const parsedPrice1 = parseFloat(outputPrice1);
+                if (!isNaN(parsedPrice1)) {
+                    outputAmount = qty * parsedPrice1;
+                }
+
+                // ----------------------------------------------------
+                // Rule 4. 숨겨진 그룹 번호 부여 ('구분' 열)
+                // ----------------------------------------------------
+                let groupID = "1"; // 기본 일반 거래처
+                if (DIRECT_BRANCHES.includes(finalPartner)) {
+                    groupID = ""; // 직영/본장
+                } else if (SPECIAL_PARTNERS.includes(finalPartner)) {
+                    groupID = "2"; // 분리된 특수 거래처
+                }
+
+                // ----------------------------------------------------
+                // 최종 배열 조립
+                // ----------------------------------------------------
+                const newRow = Array(OUTPUT_HEADERS.length).fill("");
+                newRow[3]  = finalPartner;                              // 3거래
+                newRow[4]  = row[getPurIdx("창고")];                   // 창고
+                newRow[7]  = row[getPurIdx("2전달")];                  // 2전달
+                newRow[8]  = itemCode;                                 // 코드
+                newRow[9]  = row[getPurIdx("품목명(규격)")];           // 품목명
+                newRow[10] = subPartner;                               // 청과
+                newRow[11] = qty;                                      // 수량
+                newRow[12] = outputPrice1;                             // 출고가 (공지) - 1
+                newRow[13] = row[getPurIdx("공지a7")];                 // 공지a7
+                newRow[14] = outputAmount;                             // 출고(외노) 금액
+                newRow[15] = row[getPurIdx("적요")];                   // 적요
+                newRow[16] = row[getPurIdx("출고지시")];               // 출고지시
+                newRow[17] = outputPrice2;                             // 출고가 (공지) - 2
+                newRow[18] = row[getPurIdx("no")];                     // no
+                newRow[19] = row[getPurIdx("일자")];                   // 일자
+                newRow[20] = row[getPurIdx("단가")];                   // 기존 단가 열 유지
+                newRow[21] = groupID;                                  // 식별 구분 번호
+                newRow[22] = row[getPurIdx("식자재")];                 // 식자재
+                newRow[23] = row[getPurIdx("도매A")];                  // 도매A
+                newRow[24] = purSangjangga;                            // 상장가
+
                 finalOutputData.push(newRow);
 
-                // UI 테이블에 그리기 (최대 100줄만 미리보기로 렌더링)
-                if (i < purHeaderIdx + 101) {
+                // UI 테이블 미리보기 렌더링 (너무 많으면 브라우저가 느려지므로 100개까지만 노출)
+                if (finalOutputData.length <= 101) {
                     const tr = document.createElement('tr');
-                    if (hasError) tr.className = "bg-rose-50 text-rose-700 font-medium";
                     
-                    tr.innerHTML = newRow.map((cell, idx) => 
-                        `<td class="px-4 py-2 border-b border-r border-slate-200 ${hasError && (idx===12 || idx===20) ? 'bg-rose-100' : ''}">${cell}</td>`
-                    ).join('');
+                    // 스타일 적용 (매칭 실패시 노란색, 분리된 거래처명 표시)
+                    let trClass = "hover:bg-slate-50 transition";
+                    if (!matchedSaleRow) trClass += " bg-yellow-50/50 text-amber-800";
+                    tr.className = trClass;
+                    
+                    tr.innerHTML = newRow.map((cell, idx) => {
+                        let tdClass = "px-4 py-2 border-b border-r border-slate-200";
+                        if (idx === 3 && isSeparated) tdClass += " text-emerald-600 font-bold bg-emerald-50/30"; // 분리 거래처 강조
+                        if (!matchedSaleRow && (idx === 12 || idx === 14)) tdClass += " font-semibold text-amber-600"; // 대체값 강조
+                        return `<td class="${tdClass}">${cell}</td>`;
+                    }).join('');
                     tbody.appendChild(tr);
                 }
             }
 
-            document.getElementById('issueCount').textContent = `${issueCount}건`;
+            // 통계 업데이트
+            document.getElementById('skippedCount').textContent = `${skippedCount}건`;
+            document.getElementById('unmatchedCount').textContent = `${unmatchedCount}건`;
             
             // 다운로드 버튼 활성화
             const btn = document.getElementById('downloadBtn');
@@ -268,15 +381,15 @@
             btn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
 
-        // CSV 다운로드 로직 (BOM을 추가하여 엑셀 한글 깨짐 방지)
+        // CSV 파일 내보내기 (한글 깨짐 방지 BOM 추가)
         function downloadCSV() {
             if (finalOutputData.length === 0) return;
 
-            let csvContent = "\uFEFF"; // 한글 인코딩용 BOM
+            let csvContent = "\uFEFF"; // 한글 인코딩 BOM
             finalOutputData.forEach(row => {
                 let formattedRow = row.map(cell => {
                     let c = String(cell).replace(/"/g, '""');
-                    if (c.search(/("|,|\n)/g) >= 0) c = `"${c}"`;
+                    if (c.search(/("|,|\n)/g) >= 0) c = `"${c}"`; // CSV 쉼표, 줄바꿈 처리
                     return c;
                 }).join(",");
                 csvContent += formattedRow + "\r\n";
@@ -286,7 +399,7 @@
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
             link.setAttribute("href", url);
-            link.setAttribute("download", `판매가업로드_${new Date().toISOString().slice(0,10)}.csv`);
+            link.setAttribute("download", `판매가업로드_DataOps_${new Date().toISOString().slice(0,10)}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
