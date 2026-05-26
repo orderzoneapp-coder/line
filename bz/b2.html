@@ -3,43 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orders DataOps - 단가 산출 엔진 v4</title>
+    <title>Orders DataOps - 단가 산출 엔진 v12</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
         body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
     <!-- 사이드바 -->
-    <aside class="w-72 bg-slate-900 text-slate-300 flex flex-col">
+    <aside class="w-72 bg-slate-900 text-slate-300 flex flex-col z-10 shadow-xl">
         <div class="h-16 flex items-center px-6 border-b border-slate-800 text-white font-bold text-xl shrink-0">
-            <i class="ph ph-database mr-2 text-blue-400"></i> DataOps <span class="ml-2 text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">v4.0</span>
+            <i class="ph ph-database mr-2 text-blue-400"></i> DataOps <span class="ml-2 text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">v12.0</span>
         </div>
         <div class="p-6 overflow-y-auto flex-1">
-            <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">내부 단가 산출 규칙</h3>
+            <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">최종 확정: Main-Sub 체계</h3>
             <ul class="space-y-4 text-sm">
                 <li class="flex items-start">
-                    <i class="ph ph-number-circle-one text-emerald-400 text-lg mt-0.5 mr-2"></i>
+                    <i class="ph ph-check-circle text-emerald-400 text-lg mt-0.5 mr-2"></i>
                     <div>
-                        <span class="text-white font-medium">1순위: 지정 단가</span>
-                        <p class="text-slate-500 mt-1 text-xs">구매현황의 <b>[출고가(공지)]</b>에 값이 있으면 최우선 적용합니다.</p>
+                        <span class="text-white font-medium">본부 기준 단가 책정</span>
+                        <p class="text-slate-500 mt-1 text-xs">단가 그룹(1,2,3)은 오직 <b>'3거래(구매처명)'</b> 기준으로만 판별하여 일괄 적용합니다.</p>
                     </div>
                 </li>
                 <li class="flex items-start">
-                    <i class="ph ph-number-circle-two text-emerald-400 text-lg mt-0.5 mr-2"></i>
+                    <i class="ph ph-push-pin text-rose-400 text-lg mt-0.5 mr-2"></i>
                     <div>
-                        <span class="text-white font-medium">2순위: 구분별 단가</span>
-                        <p class="text-slate-500 mt-1 text-xs">구분 1 = <b>[식자재]</b> 적용<br>구분 2 = <b>[도매A]</b> 적용<br><span class="text-slate-400">(값 없으면 출고(외노) 단가 적용)</span></p>
-                    </div>
-                </li>
-                <li class="flex items-start">
-                    <i class="ph ph-number-circle-three text-emerald-400 text-lg mt-0.5 mr-2"></i>
-                    <div>
-                        <span class="text-white font-medium">합계 및 마무리</span>
-                        <p class="text-slate-500 mt-1 text-xs">공지a7 열은 공백 처리하며, <b>[수량 × 확정단가]</b>를 계산하여 공급가를 생성합니다.</p>
+                        <span class="text-white font-medium">9부산 한정 분리 출력</span>
+                        <p class="text-slate-500 mt-1 text-xs">하위업체 출력 분리는 오직 <b>'9부산'</b> 소속일 때만 발동합니다. 1마산, 2중앙 등 그 외는 모두 원본 명칭을 유지합니다.</p>
                     </div>
                 </li>
             </ul>
@@ -47,35 +44,35 @@
     </aside>
 
     <!-- 메인 컨텐츠 -->
-    <main class="flex-1 flex flex-col h-full overflow-hidden">
-        <!-- 상단 헤더 -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
         <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-            <h1 class="font-semibold text-lg text-slate-700">ERP 판매가업로드 파일 생성기</h1>
+            <h1 class="font-semibold text-lg text-slate-700">ERP 판매가업로드 자동 생성</h1>
             <div class="flex space-x-3">
+                <button onclick="openSettings()" class="flex items-center px-4 py-2 bg-rose-50 text-rose-700 rounded-md hover:bg-rose-100 transition font-medium border border-rose-200 shadow-sm">
+                    <i class="ph ph-gear mr-2 text-lg"></i> 거래처 및 출력 설정
+                </button>
+                <div class="w-px h-6 bg-slate-300 my-auto mx-2"></div>
                 <button onclick="processData()" class="flex items-center px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 transition font-medium shadow-sm">
-                    <i class="ph ph-magic-wand mr-2"></i> 엑셀 변환 실행
+                    <i class="ph ph-magic-wand mr-2 text-lg"></i> 엑셀 변환 실행
                 </button>
                 <button onclick="downloadCSV()" id="downloadBtn" class="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium shadow-sm opacity-50 cursor-not-allowed" disabled>
-                    <i class="ph ph-download-simple mr-2"></i> 파일 다운로드
+                    <i class="ph ph-download-simple mr-2 text-lg"></i> 결과 다운로드
                 </button>
             </div>
         </header>
 
-        <!-- 작업 영역 -->
-        <div class="flex-1 overflow-auto p-8 flex flex-col">
-            <!-- 파일 업로드 구역 -->
+        <div class="flex-1 overflow-auto p-8 flex flex-col bg-slate-50">
             <div class="mb-6 shrink-0">
-                <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-white hover:bg-slate-50 transition cursor-pointer max-w-2xl mx-auto" onclick="document.getElementById('filePurchase').click()">
+                <div class="border-2 border-dashed border-blue-300 rounded-xl p-8 text-center bg-white hover:bg-blue-50 transition cursor-pointer max-w-2xl mx-auto shadow-sm" onclick="document.getElementById('filePurchase').click()">
                     <i class="ph ph-file-csv text-5xl text-blue-500 mb-3"></i>
-                    <p class="font-bold text-lg text-slate-700">구매현황.csv 업로드</p>
-                    <p class="text-sm text-slate-500 mt-2" id="purchaseFileName">클릭하여 원본 데이터를 선택하세요 (판매현황 파일은 필요 없습니다)</p>
+                    <p class="font-bold text-lg text-slate-700">구매현황 엑셀/CSV 업로드</p>
+                    <p class="text-sm text-slate-500 mt-2" id="purchaseFileName">클릭하여 매일 다운받는 원본 데이터를 선택하세요.</p>
                     <input type="file" id="filePurchase" class="hidden" accept=".csv, .xlsx" onchange="handleFile(event)">
                 </div>
             </div>
 
-            <!-- 결과 그리드 -->
             <div class="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col min-h-0">
-                <div class="px-5 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0 rounded-t-xl">
+                <div class="px-5 py-3 border-b border-slate-200 bg-slate-100 flex justify-between items-center shrink-0 rounded-t-xl">
                     <h2 class="font-semibold text-slate-700 text-sm">변환 결과 미리보기 (상위 100건)</h2>
                 </div>
                 <div class="overflow-auto flex-1">
@@ -88,16 +85,102 @@
                 </div>
             </div>
         </div>
+
+        <!-- 환경설정 모달 -->
+        <div id="settingsModal" class="hidden absolute inset-0 bg-slate-900/60 z-50 flex items-center justify-center backdrop-blur-sm">
+            <div class="bg-white rounded-2xl shadow-2xl w-[650px] flex flex-col overflow-hidden max-h-[90vh]">
+                <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
+                    <h2 class="font-bold text-lg text-slate-800 flex items-center"><i class="ph ph-gear text-blue-500 mr-2"></i> 거래처 단가 그룹 및 출력 설정</h2>
+                    <button onclick="closeSettings()" class="text-slate-400 hover:text-rose-500"><i class="ph ph-x text-xl"></i></button>
+                </div>
+                <div class="p-6 space-y-5 overflow-y-auto flex-1">
+                    <div class="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm leading-relaxed border border-blue-100 font-medium">
+                        단가 계산은 오직 '구매처명(3거래)' 기준으로만 판별합니다.
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">■ 그룹 1 (식자재 단가 우선)</label>
+                        <textarea id="settingGroup1" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows="2">4연산, 5온산, 6진주, 7남해, 7초전, 8통영, 9구미</textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">■ 그룹 2 (도매A 단가 우선)</label>
+                        <textarea id="settingGroup2" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows="2">3우리, 9부산</textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">■ 그룹 3 (기존가 유지 / 약속단가 비움)</label>
+                        <textarea id="settingGroup3" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" rows="2">1마산, 2중앙</textarea>
+                    </div>
+
+                    <hr class="border-slate-200">
+
+                    <div class="bg-rose-50 p-3 rounded-lg border border-rose-200">
+                        <label class="block text-sm font-bold text-rose-900 mb-1">■ [출력 분리] 업로드 시 독립시킬 하위업체(청과)</label>
+                        <p class="text-xs text-rose-700 mb-2"><b>※ 주의: 이 분리 기능은 본부가 [9부산]일 때만 발동합니다. 1마산, 2중앙 등은 설정과 무관하게 원본명을 유지합니다.</b></p>
+                        <textarea id="settingSeparate" class="w-full border border-rose-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500 outline-none" rows="2">상남식자재, 농협44번, 농협666, 삼진, 진영상회, 창원59번</textarea>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3 shrink-0">
+                    <button onclick="closeSettings()" class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-md transition">취소</button>
+                    <button onclick="saveSettings()" class="px-4 py-2 bg-blue-600 text-white font-medium hover:bg-blue-700 rounded-md transition shadow-sm">저장하기</button>
+                </div>
+            </div>
+        </div>
     </main>
 
     <script>
         let rawPurchaseData = [];
         let finalOutputData = [];
 
-        // 비즈니스 룰 기반 설정값
-        const SPECIAL_PARTNERS = ['상남식자재', '농협44번', '농협666', '삼진', '진영상회', '창원59번'];
-        const DIRECT_BRANCHES = ['1마산', '2중앙'];
-        
+        // 로컬 스토리지 키
+        const KEY_GROUP1 = "dataops_group1_partners";
+        const KEY_GROUP2 = "dataops_group2_partners";
+        const KEY_GROUP3 = "dataops_group3_partners";
+        const KEY_SEPARATE = "dataops_separate_partners";
+
+        let group1Partners = [];
+        let group2Partners = [];
+        let group3Partners = [];
+        let separatePartners = [];
+
+        window.onload = () => {
+            if (localStorage.getItem(KEY_GROUP1) === null) localStorage.setItem(KEY_GROUP1, "4연산, 5온산, 6진주, 7남해, 7초전, 8통영, 9구미");
+            if (localStorage.getItem(KEY_GROUP2) === null) localStorage.setItem(KEY_GROUP2, "3우리, 9부산");
+            if (localStorage.getItem(KEY_GROUP3) === null) localStorage.setItem(KEY_GROUP3, "1마산, 2중앙");
+            if (localStorage.getItem(KEY_SEPARATE) === null) localStorage.setItem(KEY_SEPARATE, "상남식자재, 농협44번, 농협666, 삼진, 진영상회, 창원59번");
+            loadSettingsToMemory();
+        };
+
+        function loadSettingsToMemory() {
+            group1Partners = (localStorage.getItem(KEY_GROUP1) || "").split(',').map(s => s.trim()).filter(Boolean);
+            group2Partners = (localStorage.getItem(KEY_GROUP2) || "").split(',').map(s => s.trim()).filter(Boolean);
+            group3Partners = (localStorage.getItem(KEY_GROUP3) || "").split(',').map(s => s.trim()).filter(Boolean);
+            separatePartners = (localStorage.getItem(KEY_SEPARATE) || "").split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        function openSettings() {
+            document.getElementById('settingGroup1').value = localStorage.getItem(KEY_GROUP1) || "";
+            document.getElementById('settingGroup2').value = localStorage.getItem(KEY_GROUP2) || "";
+            document.getElementById('settingGroup3').value = localStorage.getItem(KEY_GROUP3) || "";
+            document.getElementById('settingSeparate').value = localStorage.getItem(KEY_SEPARATE) || "";
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            localStorage.setItem(KEY_GROUP1, document.getElementById('settingGroup1').value);
+            localStorage.setItem(KEY_GROUP2, document.getElementById('settingGroup2').value);
+            localStorage.setItem(KEY_GROUP3, document.getElementById('settingGroup3').value);
+            localStorage.setItem(KEY_SEPARATE, document.getElementById('settingSeparate').value);
+            loadSettingsToMemory();
+            closeSettings();
+            alert("저장되었습니다. 지금부터 변환 시 새로운 설정이 적용됩니다.");
+        }
+
         const OUTPUT_HEADERS = [
             "", "", "", "3거래", "창고", "", "", "2전달", "코드", "품목명(규격)", 
             "청과", "수량", "출고가 (공지)", "공지a7", "출고(외노)", "적요", "출고지시", 
@@ -109,7 +192,7 @@
             if (!file) return;
 
             const nameEl = document.getElementById('purchaseFileName');
-            nameEl.textContent = file.name + " (업로드 완료)";
+            nameEl.textContent = file.name + " (업로드 준비됨)";
             nameEl.classList.replace('text-slate-500', 'text-blue-600');
             nameEl.classList.add('font-semibold');
 
@@ -118,8 +201,6 @@
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // 원본 텍스트 서식 유지 (날짜, 창고번호 변형 방지)
                 rawPurchaseData = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: "", raw: false});
             };
             reader.readAsArrayBuffer(file);
@@ -133,6 +214,7 @@
         }
 
         const cleanStr = (str) => String(str || "").trim();
+        const parseNum = (str) => parseFloat(cleanStr(str).replace(/,/g, ''));
 
         function processData() {
             if (rawPurchaseData.length === 0) return alert("구매현황 데이터를 먼저 업로드 해주세요.");
@@ -145,7 +227,6 @@
 
             finalOutputData = [OUTPUT_HEADERS];
             const tbody = document.getElementById('tableBody');
-            
             tbody.innerHTML = "";
             document.getElementById('tableHead').innerHTML = `<tr>${OUTPUT_HEADERS.map(h => `<th class="px-4 py-3 font-semibold bg-slate-100 border-b border-r border-slate-200 text-slate-600">${h || '-'}</th>`).join('')}</tr>`;
 
@@ -155,29 +236,41 @@
                 if (cleanStr(row[0]).includes("총합계") || cleanStr(row[0]).includes("/")) continue;
 
                 const qtyStr = cleanStr(row[getPurIdx("수량")]);
-                const qty = parseFloat(qtyStr);
+                const qty = parseNum(qtyStr); 
                 if (isNaN(qty) || qty === 0) continue;
 
-                const originalPartner = cleanStr(row[getPurIdx("3거래")]);
+                const originalPartner = cleanStr(row[getPurIdx("3거래")]); // 예: 9부산, 1마산
                 const itemCode = cleanStr(row[getPurIdx("코드")]);
-                const subPartner = cleanStr(row[getPurIdx("청과")]);
+                const subPartner = cleanStr(row[getPurIdx("청과")]); // 예: 농협44번
 
-                // 1. 거래처 분리 룰
+                // 1. 단가 적용 그룹(1, 2, 3) 판별 로직
+                let rawGroupID = cleanStr(row[getPurIdx("구분")]);
+                let groupID = rawGroupID;
+
+                if (!["1", "2", "3"].includes(groupID)) {
+                    if (group1Partners.includes(originalPartner)) {
+                        groupID = "1"; 
+                    } else if (group2Partners.includes(originalPartner)) {
+                        groupID = "2"; 
+                    } else if (group3Partners.includes(originalPartner)) {
+                        groupID = "3"; 
+                    } else {
+                        groupID = "3"; // 방어코드
+                    }
+                }
+
+                // 2. 엑셀 출력 시 독립 표기할 이름 분리 (요청사항 100% 반영)
+                // 조건: 오직 originalPartner가 '9부산'을 포함할 때만 하위업체(청과) 이름으로 덮어씀.
+                // 1마산, 2중앙, 3우리 등 다른 업체는 분리 목록에 있더라도 절대 분리되지 않고 원본 이름 유지.
                 let finalPartner = originalPartner;
-                if (originalPartner.includes("9부산") && SPECIAL_PARTNERS.includes(subPartner)) {
+                if (originalPartner.includes("9부산") && separatePartners.includes(subPartner)) {
                     finalPartner = subPartner;
                 }
 
-                // 2. 구분(Group) 식별자 확인 및 자동 배정
-                let groupID = cleanStr(row[getPurIdx("구분")]);
-                if (!groupID) {
-                    if (DIRECT_BRANCHES.includes(finalPartner)) groupID = "";
-                    else if (SPECIAL_PARTNERS.includes(finalPartner)) groupID = "2";
-                    else groupID = "1";
-                }
+                // 3. 단가 및 약속단가(R열) 산출
+                let finalPrice = "";    
+                let promisePrice = "";  
 
-                // 3. 핵심: 단가 산출 로직 (1,2순위 규칙 적용)
-                let finalPrice = "";
                 const p_gongji = cleanStr(row[getPurIdx("출고가 (공지)")]);
                 const p_sikjajae = cleanStr(row[getPurIdx("식자재")]);
                 const p_domeA = cleanStr(row[getPurIdx("도매A")]);
@@ -185,57 +278,71 @@
                 const p_sangjang = cleanStr(row[getPurIdx("상장가")]);
 
                 if (p_gongji !== "") {
-                    // 1순위: 지정된 출고가(공지)가 있다면 무조건 반영
                     finalPrice = p_gongji;
+                    promisePrice = p_gongji;
                 } else {
-                    // 2순위: 구분별 단가 적용
                     if (groupID === "1") {
                         finalPrice = p_sikjajae !== "" ? p_sikjajae : p_oeno_unit;
+                        promisePrice = finalPrice;
                     } else if (groupID === "2") {
                         finalPrice = p_domeA !== "" ? p_domeA : p_oeno_unit;
-                    } else {
-                        // 구분 1,2가 없는 업체: 기존 가격 그대로 적용 (상장가 또는 출고외노단가)
+                        promisePrice = finalPrice;
+                    } else if (groupID === "3") {
                         finalPrice = p_sangjang !== "" ? p_sangjang : p_oeno_unit;
+                        promisePrice = ""; 
                     }
                 }
 
-                // 4. 합계 금액 산출 (수량 * 최종단가)
+                // 4. 합계 계산
                 let outputAmount = "";
-                const parsedPrice = parseFloat(finalPrice);
+                const parsedPrice = parseNum(finalPrice);
                 if (!isNaN(qty) && !isNaN(parsedPrice)) {
                     outputAmount = qty * parsedPrice;
                 }
 
-                // 5. 최종 데이터 배열 조립
+                // 5. 엑셀 조립
                 const newRow = Array(OUTPUT_HEADERS.length).fill("");
-                newRow[3]  = finalPartner;
+                newRow[3]  = finalPartner; 
                 newRow[4]  = row[getPurIdx("창고")];
                 newRow[7]  = row[getPurIdx("2전달")];
                 newRow[8]  = itemCode;
                 newRow[9]  = row[getPurIdx("품목명(규격)")];
                 newRow[10] = subPartner;
                 newRow[11] = qty;
-                newRow[12] = finalPrice;          // M열: 결정된 단가 입력
-                newRow[13] = "";                  // N열: 공지a7 부가세열 비움
-                newRow[14] = outputAmount;        // O열: 수량 * 단가 (합계)
+                newRow[12] = finalPrice;          
+                newRow[13] = "";                  
+                newRow[14] = outputAmount;        
                 newRow[15] = row[getPurIdx("적요")];
                 newRow[16] = row[getPurIdx("출고지시")];
-                newRow[17] = finalPrice;          // R열: M열과 동일하게 단가 재입력
+                newRow[17] = promisePrice;        
                 newRow[18] = row[getPurIdx("no")];
                 newRow[19] = row[getPurIdx("일자")];
                 newRow[20] = row[getPurIdx("단가")];
-                newRow[21] = groupID;
+                newRow[21] = groupID;             
                 newRow[22] = row[getPurIdx("식자재")];
                 newRow[23] = row[getPurIdx("도매A")];
-                newRow[24] = "";                  // Z열 상장가 비움
+                newRow[24] = "";                  
 
                 finalOutputData.push(newRow);
 
                 // UI 렌더링
                 if (finalOutputData.length <= 101) {
                     const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 border-b border-slate-100";
-                    tr.innerHTML = newRow.map(cell => `<td class="px-4 py-2 border-r border-slate-200">${cell}</td>`).join('');
+                    tr.className = "hover:bg-blue-50 border-b border-slate-100 transition";
+                    tr.innerHTML = newRow.map((cell, idx) => {
+                        let classStr = "px-4 py-2 border-r border-slate-200";
+                        if(idx === 21) {
+                            if (cell === "1") classStr += " font-bold text-emerald-600 bg-emerald-50/50";
+                            else if (cell === "2") classStr += " font-bold text-indigo-600 bg-indigo-50/50";
+                            else if (cell === "3") classStr += " font-bold text-amber-600 bg-amber-50/50";
+                            else classStr += " text-slate-400";
+                        }
+                        // 분리된 9부산 하위 업체만 시각적 표시
+                        if(idx === 3 && originalPartner.includes("9부산") && cell !== originalPartner) {
+                             classStr += " text-rose-600 font-bold bg-rose-50/30";
+                        }
+                        return `<td class="${classStr}">${cell}</td>`;
+                    }).join('');
                     tbody.appendChild(tr);
                 }
             }
@@ -260,7 +367,7 @@
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `ERP_판매가업로드_${new Date().toISOString().slice(0,10)}.csv`;
+            link.download = `ERP_판매가업로드_최종완성_${new Date().toISOString().slice(0,10)}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
