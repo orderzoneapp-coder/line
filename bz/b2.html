@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders DataOps - 자동화 대시보드</title>
+    <!-- 꼬리바람 CSS (Tailwind) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 엑셀/CSV 파싱 라이브러리 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- 아이콘 라이브러리 -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
+        .drag-active { border-color: #3b82f6; background-color: #eff6ff; }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex overflow-hidden">
+
+    <!-- 사이드바 -->
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 text-white font-bold text-xl">
+            <i class="ph ph-database mr-2 text-blue-400"></i> Orders DataOps
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <a href="#" class="flex items-center px-4 py-3 bg-blue-600 text-white rounded-lg">
+                <i class="ph ph-arrows-left-right mr-3 text-lg"></i> 데이터 변환/검증
+            </a>
+            <a href="#" class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition">
+                <i class="ph ph-clock-counter-clockwise mr-3 text-lg"></i> 작업 이력
+            </a>
+            <a href="#" class="flex items-center px-4 py-3 hover:bg-slate-800 rounded-lg transition">
+                <i class="ph ph-gear mr-3 text-lg"></i> 설정
+            </a>
+        </nav>
+    </aside>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden">
+        <!-- 상단 헤더 -->
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+            <h1 class="font-semibold text-lg text-slate-700">판매가 업로드 자동 생성기</h1>
+            <div class="flex space-x-3">
+                <button onclick="processData()" class="flex items-center px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 transition">
+                    <i class="ph ph-play mr-2"></i> 변환 및 검증 실행
+                </button>
+                <button onclick="downloadCSV()" id="downloadBtn" class="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition opacity-50 cursor-not-allowed" disabled>
+                    <i class="ph ph-download-simple mr-2"></i> 결과 다운로드
+                </button>
+            </div>
+        </header>
+
+        <!-- 작업 영역 -->
+        <div class="flex-1 overflow-auto p-8">
+            
+            <!-- 상태 카드 -->
+            <div class="grid grid-cols-3 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500 mb-1">구매현황 데이터</p>
+                        <p class="text-2xl font-bold text-slate-800" id="purchaseCount">대기중</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl">
+                        <i class="ph ph-file-csv"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500 mb-1">판매현황 데이터</p>
+                        <p class="text-2xl font-bold text-slate-800" id="salesCount">대기중</p>
+                    </div>
+                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-2xl">
+                        <i class="ph ph-file-csv"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-slate-500 mb-1">검증 이슈 (단가 불일치 등)</p>
+                        <p class="text-2xl font-bold text-rose-600" id="issueCount">0건</p>
+                    </div>
+                    <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-2xl">
+                        <i class="ph ph-warning-circle"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 파일 업로드 영역 -->
+            <div class="grid grid-cols-2 gap-6 mb-8">
+                <!-- 구매현황 업로드 -->
+                <div id="dropZone1" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-white hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('filePurchase').click()">
+                    <i class="ph ph-upload-simple text-4xl text-slate-400 mb-3"></i>
+                    <p class="font-medium text-slate-700">구매현황.csv 업로드</p>
+                    <p class="text-sm text-slate-500 mt-1" id="purchaseFileName">클릭하거나 파일을 드래그 하세요</p>
+                    <input type="file" id="filePurchase" class="hidden" accept=".csv, .xlsx" onchange="handleFile(event, 'purchase')">
+                </div>
+                <!-- 판매현황 업로드 -->
+                <div id="dropZone2" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-white hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('fileSales').click()">
+                    <i class="ph ph-upload-simple text-4xl text-slate-400 mb-3"></i>
+                    <p class="font-medium text-slate-700">판매현황.csv 업로드 (검증용)</p>
+                    <p class="text-sm text-slate-500 mt-1" id="salesFileName">클릭하거나 파일을 드래그 하세요</p>
+                    <input type="file" id="fileSales" class="hidden" accept=".csv, .xlsx" onchange="handleFile(event, 'sales')">
+                </div>
+            </div>
+
+            <!-- 결과 미리보기 (데이터 그리드) -->
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col" style="min-height: 400px;">
+                <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                    <h2 class="font-semibold text-slate-700">결과 및 검증 미리보기</h2>
+                    <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">오류 항목은 붉은색으로 표시됩니다.</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm whitespace-nowrap">
+                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-200" id="tableHead">
+                            <tr><th class="px-6 py-3 font-medium">데이터를 변환하면 여기에 표시됩니다.</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="tableBody">
+                            <!-- 데이터 행 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // 내부 데이터 저장용 변수
+        let rawPurchaseData = [];
+        let rawSalesData = [];
+        let finalOutputData = [];
+
+        // 출력할 판매가업로드 양식 헤더 (요청된 구조)
+        const outputHeaders = ["", "", "", "3거래", "창고", "", "", "2전달", "코드", "품목명(규격)", "청과", "수량", "출고가 (공지)", "공지a7", "출고(외노)", "적요", "출고지시", "출고가 (공지)", "no", "일자", "단가", "구분", "식자재", "도매A", "상장가"];
+
+        // 파일 처리 함수
+        function handleFile(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (type === 'purchase') {
+                document.getElementById('purchaseFileName').textContent = file.name;
+            } else {
+                document.getElementById('salesFileName').textContent = file.name;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                // CSV/엑셀 데이터를 2차원 배열로 변환
+                const json = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+                
+                if (type === 'purchase') {
+                    rawPurchaseData = json;
+                    document.getElementById('purchaseCount').textContent = `${json.length}행`;
+                } else {
+                    rawSalesData = json;
+                    document.getElementById('salesCount').textContent = `${json.length}행`;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 실제 데이터가 시작되는 헤더 행 찾기 (설명글 제외)
+        function findHeaderRowIndex(data, keyword) {
+            for (let i = 0; i < Math.min(10, data.length); i++) {
+                if (data[i].some(cell => String(cell).includes(keyword))) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        // 데이터 변환 및 검증 실행
+        function processData() {
+            if (rawPurchaseData.length === 0) {
+                alert("구매현황 파일을 업로드해주세요.");
+                return;
+            }
+
+            const purHeaderIdx = findHeaderRowIndex(rawPurchaseData, "3거래");
+            const salHeaderIdx = rawSalesData.length > 0 ? findHeaderRowIndex(rawSalesData, "거래처명") : -1;
+
+            if (purHeaderIdx === -1) {
+                alert("구매현황에서 '3거래' 헤더를 찾을 수 없습니다. 양식을 확인해주세요.");
+                return;
+            }
+
+            const purHeaders = rawPurchaseData[purHeaderIdx];
+            const salHeaders = salHeaderIdx !== -1 ? rawSalesData[salHeaderIdx] : [];
+
+            finalOutputData = [];
+            finalOutputData.push(outputHeaders); // 헤더 삽입
+
+            let issueCount = 0;
+            const tbody = document.getElementById('tableBody');
+            const thead = document.getElementById('tableHead');
+            
+            tbody.innerHTML = "";
+            thead.innerHTML = `<tr>${outputHeaders.map(h => `<th class="px-4 py-3 font-medium bg-slate-100 border-r border-slate-200">${h || '-'}</th>`).join('')}</tr>`;
+
+            // 구매현황 데이터를 루프 돌며 변환
+            for (let i = purHeaderIdx + 1; i < rawPurchaseData.length; i++) {
+                const row = rawPurchaseData[i];
+                if (!row || row.length === 0 || !row[0]) continue; // 빈 줄 무시
+
+                // 구매현황 컬럼 인덱스 매핑
+                const col = (name) => row[purHeaders.indexOf(name)] || "";
+
+                // 새 양식에 맞춰 데이터 조립
+                const newRow = Array(outputHeaders.length).fill("");
+                newRow[3] = col("3거래");
+                newRow[4] = col("창고");
+                newRow[7] = col("2전달");
+                newRow[8] = col("코드");
+                newRow[9] = col("품목명(규격)");
+                newRow[10] = col("청과");
+                newRow[11] = col("수량");
+                // 요청 양식에 맞춰 출고가/단가 등 재배치
+                newRow[12] = col("출고가 (공지)"); 
+                newRow[15] = col("적요");
+                newRow[19] = col("일자");
+                newRow[20] = col("단가");
+
+                let hasError = false;
+
+                // [검증 로직] 판매현황 파일이 존재할 경우 교차 검증
+                if (salHeaderIdx !== -1) {
+                    const matchSale = rawSalesData.find((sRow, sIdx) => {
+                        if (sIdx <= salHeaderIdx) return false;
+                        return sRow[salHeaders.indexOf("거래처명")] === newRow[3] && 
+                               String(sRow[salHeaders.indexOf("품목코드")]) === String(newRow[8]);
+                    });
+
+                    // 예시 검증: 단가가 0원이거나 비정상적인 경우
+                    if (matchSale) {
+                        const salePrice = matchSale[salHeaders.indexOf("단가")];
+                        // 출고가나 단가가 비어있거나 불일치 하는 이슈 체크
+                        if (salePrice == 0 || newRow[12] == "") {
+                            hasError = true;
+                            issueCount++;
+                        }
+                    }
+                }
+
+                // 결과 배열에 추가
+                finalOutputData.push(newRow);
+
+                // UI 테이블에 그리기 (최대 100줄만 미리보기로 렌더링)
+                if (i < purHeaderIdx + 101) {
+                    const tr = document.createElement('tr');
+                    if (hasError) tr.className = "bg-rose-50 text-rose-700 font-medium";
+                    
+                    tr.innerHTML = newRow.map((cell, idx) => 
+                        `<td class="px-4 py-2 border-b border-r border-slate-200 ${hasError && (idx===12 || idx===20) ? 'bg-rose-100' : ''}">${cell}</td>`
+                    ).join('');
+                    tbody.appendChild(tr);
+                }
+            }
+
+            document.getElementById('issueCount').textContent = `${issueCount}건`;
+            
+            // 다운로드 버튼 활성화
+            const btn = document.getElementById('downloadBtn');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        // CSV 다운로드 로직 (BOM을 추가하여 엑셀 한글 깨짐 방지)
+        function downloadCSV() {
+            if (finalOutputData.length === 0) return;
+
+            let csvContent = "\uFEFF"; // 한글 인코딩용 BOM
+            finalOutputData.forEach(row => {
+                let formattedRow = row.map(cell => {
+                    let c = String(cell).replace(/"/g, '""');
+                    if (c.search(/("|,|\n)/g) >= 0) c = `"${c}"`;
+                    return c;
+                }).join(",");
+                csvContent += formattedRow + "\r\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `판매가업로드_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
