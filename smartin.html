@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart X Input - NEXUS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f4f1ea; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-stone-800" x-data="{ leftOpen: true, rightOpen: true }">
+
+    <!-- 1. 앱 헤더 (고정 구조로 좌우 패널 토글 시에도 흔들림 없음) -->
+    <header class="h-14 bg-stone-900 text-stone-100 flex items-center justify-between px-4 shrink-0 z-20 shadow">
+        <div class="flex items-center space-x-4">
+            <span class="text-xs font-semibold tracking-wider text-stone-400">NEXUS</span>
+            <div class="h-4 w-[1px] bg-stone-700"></div>
+            <h1 class="text-base font-bold text-amber-500 tracking-wide">Smart X Input</h1>
+        </div>
+        <div class="flex items-center space-x-3">
+            <!-- 좌측 패널 토글 버튼 -->
+            <button @click="leftOpen = !leftOpen" class="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-xs rounded text-stone-300 flex items-center space-x-1.5 transition">
+                <i class="fa-solid fa-columns"></i>
+                <span x-text="leftOpen ? '좌측 패널 닫기' : '좌측 패널 열기'"></span>
+            </button>
+            <!-- 우측 패널 토글 버튼 -->
+            <button @click="rightOpen = !rightOpen" class="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-xs rounded text-stone-300 flex items-center space-x-1.5 transition">
+                <i class="fa-solid fa-columns"></i>
+                <span x-text="rightOpen ? '우측 패널 닫기' : '우측 패널 열기'"></span>
+            </button>
+            <div class="h-4 w-[1px] bg-stone-700"></div>
+            <div class="flex items-center space-x-2 text-stone-400 text-sm">
+                <i class="fa-solid fa-gear cursor-pointer hover:text-white" title="설정"></i>
+                <i class="fa-solid fa-moon cursor-pointer hover:text-white" title="테마"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 워크스페이스 -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- 2. 좌측 패널: 원본 가져오기 및 텍스트 분석 (접기/펼치기 가능) -->
+        <aside x-show="leftOpen" x-transition:enter="transition ease-out duration-200" x-transition:leave="transition ease-in duration-150" class="w-80 bg-[#f9f6ef] border-r border-stone-300 flex flex-col shrink-0">
+            <div class="p-3 border-b border-stone-300 bg-[#f4f1ea] flex items-center justify-between">
+                <span class="font-bold text-sm text-stone-700"><i class="fa-solid fa-file-import mr-1.5 text-amber-700"></i> 원본 가져오기</span>
+                <button @click="leftOpen = false" class="text-stone-400 hover:text-stone-700"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
+                <div class="border-2 border-dashed border-stone-300 rounded-lg p-4 text-center bg-white hover:border-amber-600 transition cursor-pointer">
+                    <i class="fa-solid fa-file-excel text-2xl text-emerald-600 mb-2"></i>
+                    <p class="text-xs font-medium text-stone-600">Excel 파일 드래그 또는 클릭</p>
+                </div>
+                <div class="flex-1 flex flex-col">
+                    <label class="text-xs font-semibold text-stone-600 mb-1">텍스트/이미지 원본 붙여넣기</label>
+                    <textarea class="w-full flex-1 p-3 border border-stone-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-amber-600 resize-none" placeholder="텍스트나 이미지 파일을 붙여넣으면 자동으로 분석합니다."></textarea>
+                </div>
+                <button class="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow transition flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>분석 및 데이터 매핑 실행</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 3. 중앙 섹션: 데이터 스테이지 및 전표 버튼 배치 -->
+        <main class="flex-1 flex flex-col bg-[#fbf9f4] overflow-hidden">
+            
+            <!-- 중앙 상단: 전표 작업 액션 바 (헤더 대신 중앙 섹션 내부에 고정) -->
+            <div class="bg-white border-b border-stone-300 px-4 py-3 flex items-center justify-between shrink-0 shadow-sm">
+                <div class="flex items-center space-x-2">
+                    <span class="font-extrabold text-stone-800 text-sm">데이터 스테이지</span>
+                    <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">신규 견적서</span>
+                </div>
+                <!-- 전표 관련 버튼 그룹 -->
+                <div class="flex items-center space-x-2">
+                    <button class="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold rounded shadow transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>견적서 저장</span>
+                    </button>
+                    <button class="px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-semibold rounded transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-arrow-down"></i>
+                        <span>이전 견적 불러오기</span>
+                    </button>
+                    <button class="px-3 py-1.5 bg-stone-800 hover:bg-stone-900 text-white text-xs font-semibold rounded shadow transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-link"></i>
+                        <span>거래처 정보 연동</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 데이터 그리드 영역 -->
+            <div class="flex-1 overflow-auto p-4">
+                <div class="bg-white border border-stone-300 rounded-lg shadow-sm overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-[#f4f1ea] text-stone-700 border-b border-stone-300">
+                            <tr>
+                                <th class="p-2.5 font-semibold text-center w-12">No</th>
+                                <th class="p-2.5 font-semibold">품목코드</th>
+                                <th class="p-2.5 font-semibold">품목명</th>
+                                <th class="p-2.5 font-semibold">규격</th>
+                                <th class="p-2.5 font-semibold text-right">수량</th>
+                                <th class="p-2.5 font-semibold text-right">단가</th>
+                                <th class="p-2.5 font-semibold text-right text-stone-400">B단가</th>
+                                <th class="p-2.5 font-semibold text-right text-stone-400">A환산</th>
+                                <th class="p-2.5 font-semibold">적요</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-stone-200">
+                            <tr class="hover:bg-amber-50/50">
+                                <td class="p-2.5 text-center text-stone-500">01</td>
+                                <td class="p-2.5 font-mono">104522120</td>
+                                <td class="p-2.5 font-medium">참기름 (2kg)</td>
+                                <td class="p-2.5">BOX</td>
+                                <td class="p-2.5 text-right font-semibold">10</td>
+                                <td class="p-2.5 text-right font-semibold">26,000</td>
+                                <td class="p-2.5 text-right text-stone-400">0</td>
+                                <td class="p-2.5 text-right text-stone-400">0</td>
+                                <td class="p-2.5 text-stone-500">-</td>
+                            </tr>
+                            <tr class="hover:bg-amber-50/50">
+                                <td class="p-2.5 text-center text-stone-500">02</td>
+                                <td class="p-2.5 font-mono">104524112</td>
+                                <td class="p-2.5 font-medium">진간장 됫병 12개</td>
+                                <td class="p-2.5">BOX</td>
+                                <td class="p-2.5 text-right font-semibold">5</td>
+                                <td class="p-2.5 text-right font-semibold">12,000</td>
+                                <td class="p-2.5 text-right text-stone-400">0</td>
+                                <td class="p-2.5 text-right text-stone-400">0</td>
+                                <td class="p-2.5 text-stone-500">행사</td>
+                            </tr>
+                            <tr class="hover:bg-amber-50/50">
+                                <td class="p-2.5 text-center text-stone-500">03</td>
+                                <td class="p-2.5 font-mono">105088112</td>
+                                <td class="p-2.5 font-medium">설탕 1kg 봉지</td>
+                                <td class="p-2.5">EA</td>
+                                <td class="p-2.5 text-right font-semibold">20</td>
+                                <td class="p-2.5 text-right font-semibold">2,000</td>
+                                <td class="p-2.5 text-right text-stone-400">0</td>
+                                <td class="p-2.5 text-right text-stone-400">0</td>
+                                <td class="p-2.5 text-stone-500">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 중앙 하단: 상태 및 후속 업무 전달 바 -->
+            <div class="bg-[#f4f1ea] border-t border-stone-300 px-4 py-2.5 flex items-center justify-between shrink-0 text-xs text-stone-600">
+                <div class="flex items-center space-x-4">
+                    <span>총 품목수: <strong class="text-stone-900">3개</strong></span>
+                    <span>자동 매핑 완료: <strong class="text-emerald-700">3/3</strong></span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button class="px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-50 rounded text-stone-700 font-semibold shadow-sm flex items-center space-x-1.5">
+                        <i class="fa-solid fa-print"></i>
+                        <span>견적서 인쇄</span>
+                    </button>
+                    <button class="px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-50 rounded text-stone-700 font-semibold shadow-sm flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-lines"></i>
+                        <span>보고서 출력</span>
+                    </button>
+                    <button class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded shadow flex items-center space-x-1.5">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>ORDER Q 전송 준비</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- 4. 우측 패널: 작업 및 히스토리 (접기/펼치기 가능) -->
+        <aside x-show="rightOpen" x-transition:enter="transition ease-out duration-200" x-transition:leave="transition ease-in duration-150" class="w-80 bg-[#f9f6ef] border-l border-stone-300 flex flex-col shrink-0">
+            <div class="p-3 border-b border-stone-300 bg-[#f4f1ea] flex items-center justify-between">
+                <span class="font-bold text-sm text-stone-700"><i class="fa-solid fa-history mr-1.5 text-amber-700"></i> 작업 및 히스토리</span>
+                <button @click="rightOpen = false" class="text-stone-400 hover:text-stone-700"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto text-xs">
+                <div class="bg-white p-3 rounded-lg border border-stone-300 shadow-sm space-y-2">
+                    <span class="font-bold text-stone-800">작업 상태 요약</span>
+                    <div class="flex justify-between text-stone-600">
+                        <span>현재 작업:</span>
+                        <span class="font-semibold text-stone-900">신규 견적서</span>
+                    </div>
+                    <div class="flex justify-between text-stone-600">
+                        <span>검토 필요 항목:</span>
+                        <span class="font-semibold text-amber-700">0건</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2 flex-1 flex flex-col">
+                    <span class="font-bold text-stone-800">최근 히스토리</span>
+                    <div class="space-y-2 overflow-y-auto flex-1">
+                        <div class="bg-white p-2.5 rounded border border-stone-200 flex items-center justify-between hover:border-amber-600 transition">
+                            <div>
+                                <p class="font-semibold text-stone-800">고려농산 견적서 ID</p>
+                                <p class="text-[10px] text-stone-500">2026-07-10 15:39</p>
+                            </div>
+                            <button class="px-2 py-1 bg-stone-100 hover:bg-stone-200 rounded text-[10px] font-semibold text-stone-700">재조회</button>
+                        </div>
+                        <div class="bg-white p-2.5 rounded border border-stone-200 flex items-center justify-between hover:border-amber-600 transition">
+                            <div>
+                                <p class="font-semibold text-stone-800">우리농산 견적서 ID</p>
+                                <p class="text-[10px] text-stone-500">2026-07-10 18:10</p>
+                            </div>
+                            <button class="px-2 py-1 bg-stone-100 hover:bg-stone-200 rounded text-[10px] font-semibold text-stone-700">재조회</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+</body>
+</html>
